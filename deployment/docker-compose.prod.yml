@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # Load Balancer (Nginx)
+  nginx:
+    image: nginx:alpine
+    container_name: erp-sppg-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - backend-1
+      - backend-2
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  # Backend API Server 1
+  backend-1:
+    image: erp-sppg-backend:latest
+    container_name: erp-sppg-backend-1
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_URL=${REDIS_URL}
+      - FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS}
+      - JWT_SECRET=${JWT_SECRET}
+      - CLOUD_STORAGE_BUCKET=${CLOUD_STORAGE_BUCKET}
+      - SERVER_PORT=8080
+    volumes:
+      - ./logs/backend-1:/app/logs
+      - ./uploads:/app/uploads
+    networks:
+      - erp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API Server 2
+  backend-2:
+    image: erp-sppg-backend:latest
+    container_name: erp-sppg-backend-2
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_URL=${REDIS_URL}
+      - FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS}
+      - JWT_SECRET=${JWT_SECRET}
+      - CLOUD_STORAGE_BUCKET=${CLOUD_STORAGE_BUCKET}
+      - SERVER_PORT=8080
+    volumes:
+      - ./logs/backend-2:/app/logs
+      - ./uploads:/app/uploads
+    networks:
+      - erp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: erp-sppg-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - erp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backup Service
+  backup:
+    image: postgres:15-alpine
+    container_name: erp-sppg-backup
+    environment:
+      - PGPASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh
+    command: /bin/sh -c "chmod +x /backup.sh && crond -f"
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: erp-sppg-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: erp-sppg-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  erp-network:
+    driver: bridge
