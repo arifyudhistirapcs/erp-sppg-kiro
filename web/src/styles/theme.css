@@ -1,0 +1,245 @@
+/* Import Montserrat font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+/* CSS Variables for custom theme */
+:root {
+  /* Primary Color: #f82c17 */
+  --primary-color: #f82c17;
+  --primary-color-hover: #e02915;
+  --primary-color-active: #c82411;
+  --primary-color-outline: rgba(248, 44, 23, 0.2);
+  
+  /* Secondary Color: #ffeae8 */
+  --secondary-color: #ffeae8;
+  --secondary-color-hover: #ffdcd8;
+  --secondary-color-active: #ffcdc8;
+  
+  /* Third Color: #ffffff */
+  --background-color: #ffffff;
+  --text-color: #262626;
+  --text-color-secondary: #595959;
+  
+  /* Font */
+  --font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Apply font to entire app */
+body, html {
+  font-family: var(--font-family) !important;
+}
+
+/* Ant Design Vue Theme Overrides */
+.ant-btn-primary {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+}
+
+.ant-btn-primary:hover,
+.ant-btn-primary:focus {
+  background-color: var(--primary-color-hover) !important;
+  border-color: var(--primary-color-hover) !important;
+}
+
+.ant-btn-primary:active {
+  background-color: var(--primary-color-active) !important;
+  border-color: var(--primary-color-active) !important;
+}
+
+/* Menu styling */
+.ant-menu-light .ant-menu-item-selected,
+.ant-menu-light .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: var(--primary-color) !important;
+}
+
+.ant-menu-light .ant-menu-item-selected {
+  background-color: var(--secondary-color) !important;
+}
+
+/* Link and text colors */
+a,
+.ant-typography a,
+.ant-link {
+  color: var(--primary-color);
+}
+
+a:hover,
+.ant-typography a:hover,
+.ant-link:hover {
+  color: var(--primary-color-hover);
+}
+
+/* Checkbox and Radio */
+.ant-checkbox-checked .ant-checkbox-inner,
+.ant-radio-checked .ant-radio-inner {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+}
+
+/* Switch */
+.ant-switch-checked {
+  background-color: var(--primary-color) !important;
+}
+
+/* Pagination */
+.ant-pagination-item-active {
+  border-color: var(--primary-color) !important;
+}
+
+.ant-pagination-item-active a {
+  color: var(--primary-color) !important;
+}
+
+/* Tabs */
+.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--primary-color) !important;
+}
+
+.ant-tabs-ink-bar {
+  background-color: var(--primary-color) !important;
+}
+
+/* Input focus */
+.ant-input:focus,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector,
+.ant-picker-focused {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 2px var(--primary-color-outline) !important;
+}
+
+/* Page Header */
+.ant-page-header {
+  background-color: var(--background-color);
+}
+
+/* Card hover effect with secondary color */
+.ant-card:hover {
+  border-color: var(--secondary-color);
+}
+
+/* Table header */
+.ant-table-thead > tr > th {
+  background-color: var(--secondary-color);
+  font-weight: 600;
+}
+
+/* Tag primary */
+.ant-tag-processing {
+  color: var(--primary-color);
+  background-color: var(--secondary-color);
+  border-color: var(--primary-color);
+}
+
+/* Modal header */
+.ant-modal-header {
+  background-color: var(--secondary-color);
+}
+
+/* Spin */
+.ant-spin-dot-item {
+  background-color: var(--primary-color);
+}
+
+/* Progress bar */
+.ant-progress-bg {
+  background-color: var(--primary-color);
+}
+
+/* Slider */
+.ant-slider-track {
+  background-color: var(--primary-color);
+}
+
+.ant-slider-handle {
+  border-color: var(--primary-color);
+}
+
+/* Steps */
+.ant-steps-item-process .ant-steps-item-icon {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.ant-steps-item-finish .ant-steps-item-icon {
+  background-color: var(--background-color);
+  border-color: var(--primary-color);
+}
+
+.ant-steps-item-finish .ant-steps-item-icon > .ant-steps-icon {
+  color: var(--primary-color);
+}
+
+.ant-steps-item-finish > .ant-steps-item-container > .ant-steps-item-content > .ant-steps-item-title::after {
+  background-color: var(--primary-color);
+}
+
+/* Badge */
+.ant-badge-count {
+  background-color: var(--primary-color);
+}
+
+/* Notification */
+.ant-notification-notice-icon-success {
+  color: var(--primary-color);
+}
+
+/* Layout sidebar */
+.ant-layout-sider {
+  background-color: var(--background-color);
+}
+
+/* Button default hover */
+.ant-btn:hover,
+.ant-btn:focus {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* Breadcrumb */
+.ant-breadcrumb a:hover {
+  color: var(--primary-color);
+}
+
+/* Dropdown menu item hover */
+.ant-dropdown-menu-item:hover,
+.ant-dropdown-menu-submenu-title:hover {
+  background-color: var(--secondary-color);
+}
+
+/* Calendar selected date */
+.ant-picker-cell-selected .ant-picker-cell-inner {
+  background-color: var(--primary-color);
+}
+
+/* Time picker selected */
+.ant-picker-time-panel-cell-selected .ant-picker-time-panel-cell-inner {
+  background-color: var(--primary-color);
+}
+
+/* Apply font to all Ant Design components */
+.ant-btn,
+.ant-input,
+.ant-select,
+.ant-menu,
+.ant-table,
+.ant-form,
+.ant-modal,
+.ant-card,
+.ant-tabs,
+.ant-pagination,
+.ant-breadcrumb,
+.ant-dropdown,
+.ant-picker,
+.ant-notification,
+.ant-message,
+.ant-alert,
+.ant-badge,
+.ant-tag,
+.ant-timeline,
+.ant-statistic,
+.ant-descriptions,
+.ant-list,
+.ant-typography {
+  font-family: var(--font-family) !important;
+}
