@@ -127,19 +127,25 @@ func SessionTimeoutMiddleware(timeoutMinutes int) gin.HandlerFunc {
 
 		userID := userIDInterface.(uint)
 
-		// Check if session is valid
-		if !sessionManager.IsSessionValid(userID) {
-			// Session has expired
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success":    false,
-				"error_code": "SESSION_EXPIRED",
-				"message":    "Sesi Anda telah berakhir. Silakan login kembali.",
-			})
-			c.Abort()
-			return
+		// Check if session exists and is valid
+		// If session doesn't exist (server restart), create new session
+		// If session exists but expired, reject
+		session, sessionExists := sessionManager.GetSessionInfo(userID)
+		if sessionExists {
+			timeout := time.Duration(timeoutMinutes) * time.Minute
+			if time.Since(session.LastActivity) > timeout {
+				// Session has expired
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"success":    false,
+					"error_code": "SESSION_EXPIRED",
+					"message":    "Sesi Anda telah berakhir. Silakan login kembali.",
+				})
+				c.Abort()
+				return
+			}
 		}
 
-		// Update last activity time
+		// Update or create session
 		sessionManager.UpdateActivity(userID)
 
 		c.Next()
