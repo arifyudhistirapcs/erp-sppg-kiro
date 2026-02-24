@@ -245,7 +245,7 @@
           <strong>{{ formatCurrency(selectedPO.total_amount) }}</strong>
         </a-descriptions-item>
         <a-descriptions-item v-if="selectedPO.approved_by" label="Disetujui Oleh" :span="2">
-          {{ selectedPO.approved_by_name }} pada {{ formatDate(selectedPO.approved_at) }}
+          {{ selectedPO.approver?.name }} pada {{ formatDate(selectedPO.approved_at) }}
         </a-descriptions-item>
       </a-descriptions>
 
@@ -503,7 +503,7 @@ const editPO = (po) => {
 const viewPO = async (po) => {
   try {
     const response = await purchaseOrderService.getPurchaseOrder(po.id)
-    selectedPO.value = response.data
+    selectedPO.value = response.data.purchase_order
     detailModalVisible.value = true
   } catch (error) {
     message.error('Gagal memuat detail PO')
