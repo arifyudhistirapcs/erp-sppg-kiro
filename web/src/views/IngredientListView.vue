@@ -38,14 +38,6 @@
           <template v-if="column.key === 'name'">
             <strong>{{ record.name }}</strong>
           </template>
-          <template v-else-if="column.key === 'nutrition'">
-            <div class="nutrition-info">
-              <a-tag color="red">{{ record.calories_per100g }} kkal</a-tag>
-              <a-tag color="blue">P: {{ record.protein_per100g }}g</a-tag>
-              <a-tag color="green">K: {{ record.carbs_per100g }}g</a-tag>
-              <a-tag color="orange">L: {{ record.fat_per100g }}g</a-tag>
-            </div>
-          </template>
           <template v-else-if="column.key === 'unit'">
             <a-tag>{{ record.unit }}</a-tag>
           </template>
@@ -86,31 +78,26 @@ const columns = [
     title: 'ID',
     dataIndex: 'id',
     key: 'id',
-    width: '8%'
+    width: '15%'
   },
   {
     title: 'Nama Bahan',
     dataIndex: 'name',
     key: 'name',
-    width: '25%'
+    width: '45%'
   },
   {
     title: 'Satuan',
     dataIndex: 'unit',
     key: 'unit',
-    width: '12%',
+    width: '20%',
     align: 'center'
-  },
-  {
-    title: 'Informasi Gizi (per 100g)',
-    key: 'nutrition',
-    width: '40%'
   },
   {
     title: 'Dibuat',
     dataIndex: 'created_at',
     key: 'created_at',
-    width: '15%',
+    width: '20%',
     customRender: ({ text }) => {
       return new Date(text).toLocaleDateString('id-ID')
     }

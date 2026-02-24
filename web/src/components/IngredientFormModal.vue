@@ -38,70 +38,6 @@
           </a-form-item>
         </a-col>
       </a-row>
-
-      <a-divider>Informasi Gizi (per 100g)</a-divider>
-
-      <a-row :gutter="16">
-        <a-col :span="12">
-          <a-form-item label="Kalori" name="calories_per_100g">
-            <a-input-number
-              v-model:value="formData.calories_per_100g"
-              :min="0"
-              :precision="1"
-              style="width: 100%"
-              placeholder="kkal"
-              addon-after="kkal"
-            />
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="Protein" name="protein_per_100g">
-            <a-input-number
-              v-model:value="formData.protein_per_100g"
-              :min="0"
-              :precision="1"
-              style="width: 100%"
-              placeholder="gram"
-              addon-after="g"
-            />
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <a-row :gutter="16">
-        <a-col :span="12">
-          <a-form-item label="Karbohidrat" name="carbs_per_100g">
-            <a-input-number
-              v-model:value="formData.carbs_per_100g"
-              :min="0"
-              :precision="1"
-              style="width: 100%"
-              placeholder="gram"
-              addon-after="g"
-            />
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="Lemak" name="fat_per_100g">
-            <a-input-number
-              v-model:value="formData.fat_per_100g"
-              :min="0"
-              :precision="1"
-              style="width: 100%"
-              placeholder="gram"
-              addon-after="g"
-            />
-          </a-form-item>
-        </a-col>
-      </a-row>
-
-      <a-alert
-        message="Informasi"
-        description="Nilai gizi di atas adalah per 100g bahan. Data ini digunakan untuk menghitung total gizi resep."
-        type="info"
-        show-icon
-        style="margin-top: 16px"
-      />
     </a-form>
   </a-modal>
 </template>
@@ -125,11 +61,7 @@ const loading = ref(false)
 
 const formData = reactive({
   name: '',
-  unit: undefined,
-  calories_per_100g: 0,
-  protein_per_100g: 0,
-  carbs_per_100g: 0,
-  fat_per_100g: 0
+  unit: undefined
 })
 
 const rules = {
@@ -139,22 +71,6 @@ const rules = {
   ],
   unit: [
     { required: true, message: 'Satuan harus dipilih', trigger: 'change' }
-  ],
-  calories_per_100g: [
-    { required: true, message: 'Kalori harus diisi', trigger: 'blur' },
-    { type: 'number', min: 0, message: 'Tidak boleh negatif', trigger: 'blur' }
-  ],
-  protein_per_100g: [
-    { required: true, message: 'Protein harus diisi', trigger: 'blur' },
-    { type: 'number', min: 0, message: 'Tidak boleh negatif', trigger: 'blur' }
-  ],
-  carbs_per_100g: [
-    { required: true, message: 'Karbohidrat harus diisi', trigger: 'blur' },
-    { type: 'number', min: 0, message: 'Tidak boleh negatif', trigger: 'blur' }
-  ],
-  fat_per_100g: [
-    { required: true, message: 'Lemak harus diisi', trigger: 'blur' },
-    { type: 'number', min: 0, message: 'Tidak boleh negatif', trigger: 'blur' }
   ]
 }
 
@@ -162,10 +78,6 @@ const rules = {
 const resetForm = () => {
   formData.name = ''
   formData.unit = undefined
-  formData.calories_per_100g = 0
-  formData.protein_per_100g = 0
-  formData.carbs_per_100g = 0
-  formData.fat_per_100g = 0
   formRef.value?.resetFields()
 }
 
@@ -177,11 +89,7 @@ const handleSubmit = async () => {
 
     const payload = {
       name: formData.name,
-      unit: formData.unit,
-      calories_per_100g: formData.calories_per_100g,
-      protein_per_100g: formData.protein_per_100g,
-      carbs_per_100g: formData.carbs_per_100g,
-      fat_per_100g: formData.fat_per_100g
+      unit: formData.unit
     }
 
     const response = await recipeService.createIngredient(payload)
