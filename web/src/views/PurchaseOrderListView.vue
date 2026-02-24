@@ -208,7 +208,7 @@
           <a-col>
             <div style="text-align: right">
               <div style="color: rgba(0,0,0,0.45); font-size: 14px">Total</div>
-              <div style="font-size: 24px; font-weight: 500">{{ formatCurrency(calculateTotal()) }}</div>
+              <div style="font-size: 24px; font-weight: 500">{{ formatCurrency(totalAmount) }}</div>
             </div>
           </a-col>
         </a-row>
@@ -306,6 +306,7 @@ const ingredients = ref([])
 const searchText = ref('')
 const filterStatus = ref(undefined)
 const formRef = ref()
+const totalAmount = ref(0)
 
 const pagination = reactive({
   current: 1,
@@ -424,8 +425,8 @@ const detailItemColumns = [
   }
 ]
 
-const calculateTotal = () => {
-  return formData.value.items.reduce((sum, item) => {
+const updateTotal = () => {
+  totalAmount.value = formData.value.items.reduce((sum, item) => {
     return sum + (parseFloat(item.subtotal) || 0)
   }, 0)
 }
@@ -586,10 +587,12 @@ const addItem = () => {
     unit_price: 0,
     subtotal: 0
   })
+  updateTotal()
 }
 
 const removeItem = (index) => {
   formData.value.items.splice(index, 1)
+  updateTotal()
 }
 
 const calculateSubtotal = (index) => {
@@ -597,6 +600,7 @@ const calculateSubtotal = (index) => {
   const qty = parseFloat(item.quantity) || 0
   const price = parseCurrency(item.unit_price)
   item.subtotal = qty * price
+  updateTotal()
 }
 
 const handleSupplierChange = () => {
