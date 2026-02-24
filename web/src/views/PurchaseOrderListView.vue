@@ -111,7 +111,7 @@
           <a-col :span="12">
             <a-form-item label="Supplier" name="supplier_id">
               <a-select
-                v-model:value="formData.supplier_id"
+                v-model:value="formData.value.supplier_id"
                 placeholder="Pilih supplier"
                 show-search
                 :filter-option="filterSupplier"
@@ -130,7 +130,7 @@
           <a-col :span="12">
             <a-form-item label="Tanggal Pengiriman Diharapkan" name="expected_delivery">
               <a-date-picker
-                v-model:value="formData.expected_delivery"
+                v-model:value="formData.value.expected_delivery"
                 style="width: 100%"
                 format="DD/MM/YYYY"
                 :disabled-date="disabledDate"
@@ -144,14 +144,14 @@
         <a-form-item label="Item" name="items">
           <a-table
             :columns="itemColumns"
-            :data-source="formData.items"
+            :data-source="formData.value.items"
             :pagination="false"
             size="small"
           >
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'ingredient_id'">
                 <a-select
-                  v-model:value="record.ingredient_id"
+                  v-model:value="formData.value.items[index].ingredient_id"
                   placeholder="Pilih bahan"
                   show-search
                   style="width: 100%"
@@ -169,7 +169,7 @@
               </template>
               <template v-else-if="column.key === 'quantity'">
                 <a-input-number
-                  v-model:value="record.quantity"
+                  v-model:value="formData.value.items[index].quantity"
                   :min="0.01"
                   :step="0.1"
                   style="width: 100%"
@@ -178,7 +178,7 @@
               </template>
               <template v-else-if="column.key === 'unit_price'">
                 <a-input-number
-                  v-model:value="record.unit_price"
+                  v-model:value="formData.value.items[index].unit_price"
                   :min="0"
                   :step="1000"
                   style="width: 100%"
@@ -314,7 +314,7 @@ const pagination = reactive({
   total: 0
 })
 
-const formData = reactive({
+const formData = ref({
   supplier_id: undefined,
   expected_delivery: null,
   items: []
@@ -426,7 +426,7 @@ const detailItemColumns = [
 ]
 
 const totalAmount = computed(() => {
-  return formData.items.reduce((sum, item) => {
+  return formData.value.items.reduce((sum, item) => {
     const subtotal = parseCurrency(item.subtotal)
     return sum + subtotal
   }, 0)
@@ -489,14 +489,16 @@ const showCreateModal = () => {
 
 const editPO = (po) => {
   editingPO.value = po
-  formData.supplier_id = po.supplier_id
-  formData.expected_delivery = dayjs(po.expected_delivery)
-  formData.items = po.po_items.map(item => ({
-    ingredient_id: item.ingredient_id,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    subtotal: item.subtotal
-  }))
+  formData.value = {
+    supplier_id: po.supplier_id,
+    expected_delivery: dayjs(po.expected_delivery),
+    items: po.po_items.map(item => ({
+      ingredient_id: item.ingredient_id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      subtotal: item.subtotal
+    }))
+  }
   modalVisible.value = true
 }
 
@@ -527,7 +529,7 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validate()
     
-    if (formData.items.length === 0) {
+    if (formData.value.items.length === 0) {
       message.error('Minimal satu item harus ditambahkan')
       return
     }
@@ -535,9 +537,9 @@ const handleSubmit = async () => {
     submitting.value = true
 
     const payload = {
-      supplier_id: formData.supplier_id,
-      expected_delivery: formData.expected_delivery.format('YYYY-MM-DD'),
-      items: formData.items.map(item => ({
+      supplier_id: formData.value.supplier_id,
+      expected_delivery: formData.value.expected_delivery.format('YYYY-MM-DD'),
+      items: formData.value.items.map(item => ({
         ingredient_id: item.ingredient_id,
         quantity: item.quantity,
         unit_price: item.unit_price
@@ -571,14 +573,16 @@ const handleCancel = () => {
 }
 
 const resetForm = () => {
-  formData.supplier_id = undefined
-  formData.expected_delivery = null
-  formData.items = []
+  formData.value = {
+    supplier_id: undefined,
+    expected_delivery: null,
+    items: []
+  }
   formRef.value?.resetFields()
 }
 
 const addItem = () => {
-  formData.items.push({
+  formData.value.items.push({
     ingredient_id: undefined,
     quantity: 1,
     unit_price: 0,
@@ -587,11 +591,11 @@ const addItem = () => {
 }
 
 const removeItem = (index) => {
-  formData.items.splice(index, 1)
+  formData.value.items.splice(index, 1)
 }
 
 const calculateSubtotal = (index) => {
-  const item = formData.items[index]
+  const item = formData.value.items[index]
   const quantity = parseFloat(item.quantity) || 0
   const unitPrice = parseCurrency(item.unit_price)
   item.subtotal = quantity * unitPrice
