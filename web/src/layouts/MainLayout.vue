@@ -6,7 +6,7 @@
       :trigger="null"
       collapsible
       :width="240"
-      class="sidebar-dark"
+      class="sidebar-red"
     >
       <div class="logo">
         <h2 v-if="!collapsed">ERP SPPG</h2>
@@ -492,9 +492,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   margin: 16px;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .logo h2 {
@@ -504,8 +504,8 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.sidebar-dark {
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%) !important;
+.sidebar-red {
+  background: #f82c17 !important;
 }
 
 .trigger {

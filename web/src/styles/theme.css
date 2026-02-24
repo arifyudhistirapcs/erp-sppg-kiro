@@ -220,40 +220,73 @@ a:hover,
   color: var(--primary-color);
 }
 
-/* Layout sidebar - Gradient dari deep blue-black ke merah */
+/* Layout sidebar - POSe Style Red Theme */
 .ant-layout-sider {
-  background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #2d1a1a 85%, #3d1f1f 100%) !important;
+  background: #f82c17 !important;
 }
 
 /* Override inline style for sidebar */
 .ant-layout-sider[style*="#001529"] {
-  background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #2d1a1a 85%, #3d1f1f 100%) !important;
+  background: #f82c17 !important;
 }
 
-/* Dark menu container */
+/* Dark menu container - transparent on red background */
 .ant-menu-dark,
 .ant-menu-dark .ant-menu-sub {
   background: transparent !important;
 }
 
-/* Submenu dark background */
+/* Submenu background - slightly darker red */
 .ant-menu-dark .ant-menu-sub {
-  background: rgba(0, 0, 0, 0.3) !important;
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Menu group title styling */
+.ant-menu-dark .ant-menu-item-group-title {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.5px !important;
+  padding: 16px 16px 8px !important;
+  text-transform: uppercase !important;
+}
+
+/* Dark menu item */
+.ant-menu-dark .ant-menu-item {
+  color: #ffffff !important;
+  border-radius: 8px !important;
+  margin: 4px 8px !important;
 }
 
 /* Dark menu item hover */
-.ant-menu-dark .ant-menu-item:hover:not(.ant-menu-item-selected):not(.ant-menu-item-active) {
-  color: var(--primary-color) !important;
+.ant-menu-dark .ant-menu-item:hover:not(.ant-menu-item-selected) {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Dark menu item active (submenu open) */
-.ant-menu-dark .ant-menu-submenu-active > .ant-menu-submenu-title {
-  color: var(--primary-color) !important;
+/* Dark menu item selected - lighter red/white transparent */
+.ant-menu-dark .ant-menu-item-selected,
+.ant-menu-dark .ant-menu-item-selected:hover,
+.ant-menu-dark .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 8px !important;
 }
 
-/* Dark menu inline submenu */
+/* Submenu title */
+.ant-menu-dark .ant-menu-submenu-title {
+  color: #ffffff !important;
+  border-radius: 8px !important;
+  margin: 4px 8px !important;
+}
+
+.ant-menu-dark .ant-menu-submenu-title:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Inline submenu items */
 .ant-menu-dark .ant-menu-inline.ant-menu-sub {
-  background: rgba(0, 0, 0, 0.25) !important;
+  background: transparent !important;
 }
 
 /* Button default hover */
