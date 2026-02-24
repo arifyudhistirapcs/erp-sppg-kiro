@@ -6,7 +6,7 @@
       :trigger="null"
       collapsible
       :width="240"
-      style="background: #001529"
+      class="sidebar-dark"
     >
       <div class="logo">
         <h2 v-if="!collapsed">ERP SPPG</h2>
@@ -504,6 +504,10 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.sidebar-dark {
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%) !important;
+}
+
 .trigger {
   font-size: 18px;
   cursor: pointer;
@@ -511,6 +515,6 @@ onMounted(() => {
 }
 
 .trigger:hover {
-  color: #1890ff;
+  color: #f82c17;
 }
 </style>
