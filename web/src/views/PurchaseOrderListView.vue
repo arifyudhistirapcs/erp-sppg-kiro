@@ -321,13 +321,18 @@ const formData = ref({
 })
 
 const updateTotal = () => {
-  totalAmount.value = formData.value.items.reduce((sum, item) => {
+  console.log('updateTotal called, items:', formData.value.items)
+  const total = formData.value.items.reduce((sum, item) => {
+    console.log('  item:', item, 'subtotal:', item.subtotal, 'parsed:', parseFloat(item.subtotal) || 0)
     return sum + (parseFloat(item.subtotal) || 0)
   }, 0)
+  console.log('Total calculated:', total)
+  totalAmount.value = total
 }
 
 // Watch for items changes and update total
-watch(() => formData.value.items, () => {
+watch(() => formData.value.items, (newVal) => {
+  console.log('Items changed:', newVal)
   updateTotal()
 }, { deep: true })
 
@@ -602,9 +607,12 @@ const removeItem = (index) => {
 
 const calculateSubtotal = (index) => {
   const item = formData.value.items[index]
+  console.log('calculateSubtotal called for index', index, 'item:', item)
   const qty = parseFloat(item.quantity) || 0
   const price = parseCurrency(item.unit_price)
+  console.log('  qty:', qty, 'price:', price)
   item.subtotal = qty * price
+  console.log('  new subtotal:', item.subtotal)
   updateTotal()
 }
 
