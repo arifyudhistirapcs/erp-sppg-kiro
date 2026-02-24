@@ -220,14 +220,14 @@ a:hover,
   color: var(--primary-color);
 }
 
-/* Layout sidebar - Dark theme with red accent */
+/* Layout sidebar - Gradient dari deep blue-black ke merah */
 .ant-layout-sider {
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%) !important;
+  background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #2d1a1a 85%, #3d1f1f 100%) !important;
 }
 
 /* Override inline style for sidebar */
 .ant-layout-sider[style*="#001529"] {
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%) !important;
+  background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #2d1a1a 85%, #3d1f1f 100%) !important;
 }
 
 /* Dark menu container */
