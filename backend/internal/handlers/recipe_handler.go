@@ -469,3 +469,21 @@ func (h *RecipeHandler) CreateIngredient(c *gin.Context) {
 		"data":    ingredient,
 	})
 }
+
+// GenerateIngredientCode generates a unique code for new ingredient
+func (h *RecipeHandler) GenerateIngredientCode(c *gin.Context) {
+	code, err := h.recipeService.GenerateIngredientCode()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Gagal generate kode bahan",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"code":    code,
+	})
+}

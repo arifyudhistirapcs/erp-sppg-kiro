@@ -362,7 +362,27 @@ func (s *RecipeService) GetAllIngredients(search string) ([]models.Ingredient, e
 	return ingredients, err
 }
 
-// CreateIngredient creates a new ingredient
+// CreateIngredient creates a new ingredient with auto-generated code
 func (s *RecipeService) CreateIngredient(ingredient *models.Ingredient) error {
+	// Generate unique code if not provided
+	if ingredient.Code == "" {
+		code, err := s.GenerateIngredientCode()
+		if err != nil {
+			return err
+		}
+		ingredient.Code = code
+	}
 	return s.db.Create(ingredient).Error
+}
+
+// GenerateIngredientCode generates a unique code for ingredient (B-XXXX format)
+func (s *RecipeService) GenerateIngredientCode() (string, error) {
+	var count int64
+	if err := s.db.Model(&models.Ingredient{}).Count(&count).Error; err != nil {
+		return "", err
+	}
+	
+	// Generate code B-0001, B-0002, etc.
+	nextNumber := count + 1
+	return fmt.Sprintf("B-%04d", nextNumber), nil
 }

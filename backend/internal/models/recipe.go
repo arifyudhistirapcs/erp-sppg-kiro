@@ -7,12 +7,13 @@ import (
 // Ingredient represents a raw material used in recipes
 type Ingredient struct {
 	ID              uint      `gorm:"primaryKey" json:"id"`
+	Code            string    `gorm:"size:20;uniqueIndex;not null" json:"code"` // Auto-generated: B-XXXX
 	Name            string    `gorm:"size:100;not null;index" json:"name" validate:"required"`
 	Unit            string    `gorm:"size:20;not null" json:"unit" validate:"required"` // kg, liter, pcs, etc.
-	CaloriesPer100g float64   `gorm:"not null" json:"calories_per_100g"`
-	ProteinPer100g  float64   `gorm:"not null" json:"protein_per_100g"`
-	CarbsPer100g    float64   `gorm:"not null" json:"carbs_per_100g"`
-	FatPer100g      float64   `gorm:"not null" json:"fat_per_100g"`
+	CaloriesPer100g float64   `gorm:"default:0" json:"calories_per_100g"`
+	ProteinPer100g  float64   `gorm:"default:0" json:"protein_per_100g"`
+	CarbsPer100g    float64   `gorm:"default:0" json:"carbs_per_100g"`
+	FatPer100g      float64   `gorm:"default:0" json:"fat_per_100g"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }

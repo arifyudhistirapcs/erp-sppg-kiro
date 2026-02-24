@@ -44,6 +44,11 @@ const recipeService = {
   // Create new ingredient
   createIngredient(data) {
     return api.post('/ingredients', data)
+  },
+
+  // Generate ingredient code
+  generateIngredientCode() {
+    return api.get('/ingredients/generate-code')
   }
 }
 

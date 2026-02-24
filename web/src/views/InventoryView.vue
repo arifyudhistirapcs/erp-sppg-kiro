@@ -292,41 +292,62 @@
       </a-table>
     </a-modal>
 
-    <!-- Initialize Ingredient Modal -->
+    <!-- Initialize Ingredient Modal (Create New Ingredient) -->
     <a-modal
       v-model:open="initModalVisible"
       title="Inisialisasi Bahan Baru"
       width="600px"
       @ok="handleInitialize"
       :confirm-loading="initLoading"
-      ok-text="Inisialisasi"
+      ok-text="Simpan"
       cancel-text="Batal"
     >
       <a-spin :spinning="initLoading">
-        <p class="mb-4">Pilih bahan yang ingin ditambahkan ke inventory:</p>
-        <a-table
-          :columns="initColumns"
-          :data-source="availableIngredients"
-          :loading="loadingAvailable"
-          :pagination="{ pageSize: 5 }"
-          size="small"
-          row-key="id"
-          :row-selection="{ selectedRowKeys: selectedIngredientKeys, onChange: onSelectChange }"
+        <a-form
+          ref="initFormRef"
+          :model="initFormData"
+          :rules="initFormRules"
+          layout="vertical"
         >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'unit'">
-              <a-tag>{{ record.unit }}</a-tag>
-            </template>
-          </template>
-        </a-table>
-        <a-empty v-if="!loadingAvailable && availableIngredients.length === 0" description="Semua bahan sudah ada di inventory" />
+          <a-row :gutter="16">
+            <a-col :span="12">
+              <a-form-item label="Kode Bahan Baku" name="code">
+                <a-input
+                  v-model:value="initFormData.code"
+                  placeholder="Auto-generate"
+                  disabled
+                />
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="Satuan" name="unit">
+                <a-select v-model:value="initFormData.unit" placeholder="Pilih satuan">
+                  <a-select-option value="kg">kg (Kilogram)</a-select-option>
+                  <a-select-option value="gram">gram</a-select-option>
+                  <a-select-option value="liter">liter</a-select-option>
+                  <a-select-option value="ml">ml (Mililiter)</a-select-option>
+                  <a-select-option value="pcs">pcs (Pieces)</a-select-option>
+                  <a-select-option value="bungkus">bungkus</a-select-option>
+                  <a-select-option value="kaleng">kaleng</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+          </a-row>
+          
+          <a-form-item label="Nama Bahan" name="name">
+            <a-input 
+              v-model:value="initFormData.name" 
+              placeholder="Masukkan nama bahan"
+            />
+          </a-form-item>
+        </a-form>
       </a-spin>
     </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
 import {
@@ -376,24 +397,22 @@ const movementFilters = reactive({
 // Initialize modal state
 const initModalVisible = ref(false)
 const initLoading = ref(false)
-const loadingAvailable = ref(false)
-const availableIngredients = ref([])
-const selectedIngredientKeys = ref([])
-const selectedIngredients = ref([])
+const initFormRef = ref()
+const initFormData = reactive({
+  code: '',
+  name: '',
+  unit: undefined
+})
 
-const initColumns = [
-  {
-    title: 'Nama Bahan',
-    dataIndex: 'name',
-    key: 'name'
-  },
-  {
-    title: 'Satuan',
-    key: 'unit',
-    width: 120,
-    align: 'center'
-  }
-]
+const initFormRules = {
+  name: [
+    { required: true, message: 'Nama bahan harus diisi', trigger: 'blur' },
+    { min: 2, message: 'Minimal 2 karakter', trigger: 'blur' }
+  ],
+  unit: [
+    { required: true, message: 'Satuan harus dipilih', trigger: 'change' }
+  ]
+}
 
 const lowStockCount = computed(() => {
   return inventory.value.filter(item => item.quantity < item.min_threshold).length
@@ -578,60 +597,59 @@ const handleSearch = () => {
   fetchInventory()
 }
 
-const initializeInventory = () => {
-  // Open modal instead of directly calling API
+const initializeInventory = async () => {
+  // Open modal and generate code
   initModalVisible.value = true
-  fetchAvailableIngredients()
+  await generateIngredientCode()
 }
 
-const fetchAvailableIngredients = async () => {
-  loadingAvailable.value = true
+const generateIngredientCode = async () => {
   try {
-    // Get all ingredients
-    const ingredientsResponse = await recipeService.getIngredients()
-    const allIngredients = ingredientsResponse.data.data || []
-    
-    // Get current inventory
-    const inventoryResponse = await inventoryService.getInventory()
-    const currentInventory = inventoryResponse.data.inventory || []
-    
-    // Filter out ingredients that already exist in inventory
-    const inventoryIngredientIds = new Set(currentInventory.map(item => item.ingredient_id))
-    availableIngredients.value = allIngredients.filter(ing => !inventoryIngredientIds.has(ing.id))
-    
-    // Reset selection
-    selectedIngredientKeys.value = []
-    selectedIngredients.value = []
+    const response = await recipeService.generateIngredientCode()
+    initFormData.code = response.data.code || ''
   } catch (error) {
-    message.error('Gagal memuat data bahan')
-    console.error(error)
-  } finally {
-    loadingAvailable.value = false
+    console.error('Failed to generate code:', error)
+    initFormData.code = ''
   }
 }
 
-const onSelectChange = (selectedKeys, selectedRows) => {
-  selectedIngredientKeys.value = selectedKeys
-  selectedIngredients.value = selectedRows
+const resetInitForm = () => {
+  initFormData.code = ''
+  initFormData.name = ''
+  initFormData.unit = undefined
+  initFormRef.value?.resetFields()
 }
 
 const handleInitialize = async () => {
-  if (selectedIngredients.value.length === 0) {
-    message.warning('Pilih minimal satu bahan')
+  try {
+    await initFormRef.value.validate()
+  } catch (error) {
     return
   }
   
   initLoading.value = true
   try {
-    // Initialize all selected ingredients one by one
-    for (const ingredient of selectedIngredients.value) {
-      await inventoryService.initializeInventoryItem(ingredient.id)
+    // Create new ingredient
+    const ingredientData = {
+      name: initFormData.name,
+      unit: initFormData.unit,
+      code: initFormData.code
     }
-    message.success(`${selectedIngredients.value.length} bahan berhasil ditambahkan ke inventory`)
+    
+    const response = await recipeService.createIngredient(ingredientData)
+    const newIngredient = response.data.data || response.data.ingredient
+    
+    // Initialize inventory for the new ingredient
+    if (newIngredient && newIngredient.id) {
+      await inventoryService.initializeInventoryItem(newIngredient.id)
+    }
+    
+    message.success('Bahan baru berhasil ditambahkan ke inventory')
     initModalVisible.value = false
+    resetInitForm()
     fetchInventory()
   } catch (error) {
-    message.error('Gagal menambahkan bahan ke inventory')
+    message.error('Gagal menambahkan bahan')
     console.error(error)
   } finally {
     initLoading.value = false
@@ -715,6 +733,13 @@ onMounted(() => {
   fetchInventory()
   fetchLowStockAlerts()
   fetchMovements()
+})
+
+// Watch for modal close to reset form
+watch(() => initModalVisible.value, (newVal) => {
+  if (!newVal) {
+    resetInitForm()
+  }
 })
 </script>
 

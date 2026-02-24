@@ -102,6 +102,7 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 			{
 				ingredients.GET("", recipeHandler.GetAllIngredients)
 				ingredients.POST("", recipeHandler.CreateIngredient)
+			ingredients.GET("/generate-code", recipeHandler.GenerateIngredientCode)
 			}
 
 			// Semi-Finished Goods routes
