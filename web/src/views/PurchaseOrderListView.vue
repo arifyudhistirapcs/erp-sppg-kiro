@@ -208,10 +208,10 @@
           <a-col>
             <a-statistic
               title="Total"
-              :value="totalAmount"
+              :value="calculateTotal()"
             >
               <template #formatter>
-                {{ formatCurrency(totalAmount) }}
+                {{ formatCurrency(calculateTotal()) }}
               </template>
             </a-statistic>
           </a-col>
@@ -428,11 +428,11 @@ const detailItemColumns = [
   }
 ]
 
-const totalAmount = computed(() => {
+const calculateTotal = () => {
   return formData.value.items.reduce((sum, item) => {
     return sum + (parseFloat(item.subtotal) || 0)
   }, 0)
-})
+}
 
 const fetchPurchaseOrders = async () => {
   loading.value = true
