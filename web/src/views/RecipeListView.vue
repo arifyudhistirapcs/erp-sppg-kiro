@@ -108,6 +108,13 @@
       v-model:visible="historyModalVisible"
       :recipe-id="selectedRecipeId"
     />
+
+    <!-- Recipe View Modal (View Only) -->
+    <RecipeViewModal
+      v-model:visible="viewModalVisible"
+      :recipe="selectedRecipe"
+      @edit="editRecipe"
+    />
   </div>
 </template>
 
@@ -118,6 +125,7 @@ import { PlusOutlined } from '@ant-design/icons-vue'
 import recipeService from '@/services/recipeService'
 import RecipeFormModal from '@/components/RecipeFormModal.vue'
 import RecipeHistoryModal from '@/components/RecipeHistoryModal.vue'
+import RecipeViewModal from '@/components/RecipeViewModal.vue'
 
 const loading = ref(false)
 const recipes = ref([])
@@ -127,6 +135,7 @@ const selectedRecipe = ref(null)
 const selectedRecipeId = ref(null)
 const formModalVisible = ref(false)
 const historyModalVisible = ref(false)
+const viewModalVisible = ref(false)
 
 const pagination = reactive({
   current: 1,
@@ -235,7 +244,7 @@ const showCreateModal = () => {
 
 const viewRecipe = (recipe) => {
   selectedRecipe.value = { ...recipe }
-  formModalVisible.value = true
+  viewModalVisible.value = true
 }
 
 const editRecipe = (recipe) => {
