@@ -111,7 +111,7 @@
           <a-col :span="12">
             <a-form-item label="Supplier" name="supplier_id">
               <a-select
-                v-model:value="formData.value.supplier_id"
+                v-model:value="formData.supplier_id"
                 placeholder="Pilih supplier"
                 show-search
                 :filter-option="filterSupplier"
@@ -130,7 +130,7 @@
           <a-col :span="12">
             <a-form-item label="Tanggal Pengiriman Diharapkan" name="expected_delivery">
               <a-date-picker
-                v-model:value="formData.value.expected_delivery"
+                v-model:value="formData.expected_delivery"
                 style="width: 100%"
                 format="DD/MM/YYYY"
                 :disabled-date="disabledDate"
@@ -144,7 +144,7 @@
         <a-form-item label="Item" name="items">
           <a-table
             :columns="itemColumns"
-            :data-source="formData.value.items"
+            :data-source="formData.items"
             :pagination="false"
             size="small"
           >
