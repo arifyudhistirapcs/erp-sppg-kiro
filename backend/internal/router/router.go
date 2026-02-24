@@ -33,6 +33,9 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 	// CORS middleware
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
 
+	// Static file serving for uploads
+	r.Static("/uploads", "./uploads")
+
 	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{

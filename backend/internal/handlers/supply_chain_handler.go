@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -642,11 +645,6 @@ func (h *SupplyChainHandler) GetGoodsReceipt(c *gin.Context) {
 	})
 }
 
-// UploadInvoicePhotoRequest represents upload invoice photo request
-type UploadInvoicePhotoRequest struct {
-	PhotoURL string `json:"photo_url" binding:"required"`
-}
-
 // UploadInvoicePhoto uploads invoice photo for a goods receipt
 func (h *SupplyChainHandler) UploadInvoicePhoto(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -659,18 +657,44 @@ func (h *SupplyChainHandler) UploadInvoicePhoto(c *gin.Context) {
 		return
 	}
 
-	var req UploadInvoicePhotoRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// Get file from form
+	file, err := c.FormFile("invoice_photo")
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success":    false,
-			"error_code": "VALIDATION_ERROR",
-			"message":    "Data tidak valid",
-			"details":    err.Error(),
+			"error_code": "NO_FILE",
+			"message":    "File foto invoice tidak ditemukan",
 		})
 		return
 	}
 
-	if err := h.goodsReceiptService.UpdateInvoicePhoto(uint(id), req.PhotoURL); err != nil {
+	// Save file
+	filename := fmt.Sprintf("invoice_%d_%d%s", id, time.Now().Unix(), filepath.Ext(file.Filename))
+	savePath := filepath.Join("uploads", "invoices", filename)
+	
+	// Create directory if not exists
+	if err := os.MkdirAll(filepath.Join("uploads", "invoices"), 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "UPLOAD_ERROR",
+			"message":    "Gagal membuat direktori upload",
+		})
+		return
+	}
+
+	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "UPLOAD_ERROR",
+			"message":    "Gagal menyimpan file",
+		})
+		return
+	}
+
+	// Generate URL
+	photoURL := fmt.Sprintf("/uploads/invoices/%s", filename)
+
+	if err := h.goodsReceiptService.UpdateInvoicePhoto(uint(id), photoURL); err != nil {
 		if err == services.ErrGRNNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"success":    false,
@@ -689,8 +713,9 @@ func (h *SupplyChainHandler) UploadInvoicePhoto(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Foto invoice berhasil diunggah",
+		"success":   true,
+		"message":   "Foto invoice berhasil diunggah",
+		"photo_url": photoURL,
 	})
 }
 
