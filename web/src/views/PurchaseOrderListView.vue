@@ -206,14 +206,10 @@
 
         <a-row justify="end">
           <a-col>
-            <a-statistic
-              title="Total"
-              :value="calculateTotal()"
-            >
-              <template #formatter>
-                {{ formatCurrency(calculateTotal()) }}
-              </template>
-            </a-statistic>
+            <div style="text-align: right">
+              <div style="color: rgba(0,0,0,0.45); font-size: 14px">Total</div>
+              <div style="font-size: 24px; font-weight: 500">{{ formatCurrency(calculateTotal()) }}</div>
+            </div>
           </a-col>
         </a-row>
       </a-form>
@@ -597,15 +593,10 @@ const removeItem = (index) => {
 }
 
 const calculateSubtotal = (index) => {
-  const items = [...formData.value.items]
-  const item = items[index]
-  const quantity = parseFloat(item.quantity) || 0
-  const unitPrice = parseCurrency(item.unit_price)
-  items[index] = {
-    ...item,
-    subtotal: quantity * unitPrice
-  }
-  formData.value.items = items
+  const item = formData.value.items[index]
+  const qty = parseFloat(item.quantity) || 0
+  const price = parseCurrency(item.unit_price)
+  item.subtotal = qty * price
 }
 
 const handleSupplierChange = () => {
