@@ -443,7 +443,7 @@ const showCreateModal = () => {
 const handlePOChange = async (poId) => {
   try {
     const response = await purchaseOrderService.getPurchaseOrder(poId)
-    const po = response.data
+    const po = response.data.purchase_order
     
     formData.items = po.po_items.map(item => ({
       ingredient_id: item.ingredient_id,
