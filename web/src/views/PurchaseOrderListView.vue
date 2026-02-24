@@ -209,8 +209,11 @@
             <a-statistic
               title="Total"
               :value="totalAmount"
-              :formatter="formatCurrency"
-            />
+            >
+              <template #formatter>
+                {{ formatCurrency(totalAmount) }}
+              </template>
+            </a-statistic>
           </a-col>
         </a-row>
       </a-form>
