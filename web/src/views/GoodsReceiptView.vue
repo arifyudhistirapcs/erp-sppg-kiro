@@ -540,7 +540,8 @@ const handleSubmit = async () => {
 
     console.log('Sending payload:', JSON.stringify(payload, null, 2))
     const response = await goodsReceiptService.createGoodsReceipt(payload)
-    const grnId = response.data.id
+    console.log('Create GRN response:', response.data)
+    const grnId = response.data.goods_receipt?.id || response.data.id
 
     // Upload invoice photo
     const formDataUpload = new FormData()
