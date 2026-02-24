@@ -427,7 +427,7 @@ const detailItemColumns = [
 
 const totalAmount = computed(() => {
   return formData.items.reduce((sum, item) => {
-    const subtotal = parseFloat(item.subtotal) || 0
+    const subtotal = parseCurrency(item.subtotal)
     return sum + subtotal
   }, 0)
 })
@@ -593,7 +593,7 @@ const removeItem = (index) => {
 const calculateSubtotal = (index) => {
   const item = formData.items[index]
   const quantity = parseFloat(item.quantity) || 0
-  const unitPrice = parseFloat(item.unit_price) || 0
+  const unitPrice = parseCurrency(item.unit_price)
   item.subtotal = quantity * unitPrice
 }
 
@@ -634,11 +634,19 @@ const getStatusText = (status) => {
 }
 
 const formatCurrency = (value) => {
+  if (value === undefined || value === null || isNaN(value)) return 'Rp 0'
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0
   }).format(value)
+}
+
+const parseCurrency = (value) => {
+  if (!value) return 0
+  // Remove Rp, spaces, and dots (thousand separators), replace comma with dot
+  const cleaned = value.toString().replace(/Rp\s?|[.]/g, '').replace(',', '.')
+  return parseFloat(cleaned) || 0
 }
 
 const formatDate = (date) => {
