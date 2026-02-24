@@ -156,19 +156,19 @@
                   <template #title>
                     <a-space>
                       <WarningOutlined style="color: #cf1322" />
-                      <strong>{{ item.ingredient?.name }}</strong>
+                      <strong>{{ item.ingredient_name }}</strong>
                     </a-space>
                   </template>
                   <template #description>
                     <a-space direction="vertical" size="small">
                       <span>
-                        Stok saat ini: <strong>{{ item.quantity }} {{ item.ingredient?.unit }}</strong>
+                        Stok saat ini: <strong>{{ item.current_stock }} {{ item.unit }}</strong>
                       </span>
                       <span>
-                        Batas minimum: <strong>{{ item.min_threshold }} {{ item.ingredient?.unit }}</strong>
+                        Batas minimum: <strong>{{ item.min_threshold }} {{ item.unit }}</strong>
                       </span>
                       <span>
-                        Perkiraan habis dalam: <strong class="text-danger">{{ getDaysOfSupply(item) }} hari</strong>
+                        Perkiraan habis dalam: <strong class="text-danger">{{ item.days_remaining }} hari</strong>
                       </span>
                     </a-space>
                   </template>
