@@ -151,7 +151,7 @@
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'ingredient_id'">
                 <a-select
-                  v-model:value="formData.value.items[index].ingredient_id"
+                  v-model:value="record.ingredient_id"
                   placeholder="Pilih bahan"
                   show-search
                   style="width: 100%"
@@ -169,7 +169,7 @@
               </template>
               <template v-else-if="column.key === 'quantity'">
                 <a-input-number
-                  v-model:value="formData.value.items[index].quantity"
+                  v-model:value="record.quantity"
                   :min="0.01"
                   :step="0.1"
                   style="width: 100%"
@@ -178,7 +178,7 @@
               </template>
               <template v-else-if="column.key === 'unit_price'">
                 <a-input-number
-                  v-model:value="formData.value.items[index].unit_price"
+                  v-model:value="record.unit_price"
                   :min="0"
                   :step="1000"
                   style="width: 100%"
@@ -598,7 +598,11 @@ const calculateSubtotal = (index) => {
   const item = formData.value.items[index]
   const quantity = parseFloat(item.quantity) || 0
   const unitPrice = parseCurrency(item.unit_price)
-  item.subtotal = quantity * unitPrice
+  // Force reactivity by creating new item object
+  formData.value.items[index] = {
+    ...item,
+    subtotal: quantity * unitPrice
+  }
 }
 
 const handleSupplierChange = () => {
