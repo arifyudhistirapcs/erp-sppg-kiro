@@ -55,6 +55,23 @@ body, html {
   background-color: var(--secondary-color) !important;
 }
 
+/* Dark menu (sidebar) styling */
+.ant-menu-dark .ant-menu-item-selected,
+.ant-menu-dark .ant-menu-item-selected:hover,
+.ant-menu-dark .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: #ffffff !important;
+  background-color: var(--primary-color) !important;
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  color: var(--primary-color) !important;
+}
+
+/* Submenu item in dark theme */
+.ant-menu-dark .ant-menu-submenu .ant-menu-item-selected {
+  background-color: var(--primary-color) !important;
+}
+
 /* Link and text colors */
 a,
 .ant-typography a,
