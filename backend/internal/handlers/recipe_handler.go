@@ -414,10 +414,11 @@ func (h *RecipeHandler) GetAllIngredients(c *gin.Context) {
 type CreateIngredientRequest struct {
 	Name            string  `json:"name" binding:"required"`
 	Unit            string  `json:"unit" binding:"required"`
-	CaloriesPer100g float64 `json:"calories_per_100g" binding:"required,gte=0"`
-	ProteinPer100g  float64 `json:"protein_per_100g" binding:"required,gte=0"`
-	CarbsPer100g    float64 `json:"carbs_per_100g" binding:"required,gte=0"`
-	FatPer100g      float64 `json:"fat_per_100g" binding:"required,gte=0"`
+	Code            string  `json:"code"`
+	CaloriesPer100g float64 `json:"calories_per_100g" binding:"gte=0"`
+	ProteinPer100g  float64 `json:"protein_per_100g" binding:"gte=0"`
+	CarbsPer100g    float64 `json:"carbs_per_100g" binding:"gte=0"`
+	FatPer100g      float64 `json:"fat_per_100g" binding:"gte=0"`
 }
 
 // CreateIngredient creates a new ingredient
@@ -435,6 +436,7 @@ func (h *RecipeHandler) CreateIngredient(c *gin.Context) {
 
 	ingredient := &models.Ingredient{
 		Name:            req.Name,
+		Code:            req.Code,
 		Unit:            req.Unit,
 		CaloriesPer100g: req.CaloriesPer100g,
 		ProteinPer100g:  req.ProteinPer100g,

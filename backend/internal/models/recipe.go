@@ -7,7 +7,7 @@ import (
 // Ingredient represents a raw material used in recipes
 type Ingredient struct {
 	ID              uint      `gorm:"primaryKey" json:"id"`
-	Code            string    `gorm:"size:20;uniqueIndex;not null" json:"code"` // Auto-generated: B-XXXX
+	Code            string    `gorm:"size:20;index;default:''" json:"code"` // Auto-generated: B-XXXX
 	Name            string    `gorm:"size:100;not null;index" json:"name" validate:"required"`
 	Unit            string    `gorm:"size:20;not null" json:"unit" validate:"required"` // kg, liter, pcs, etc.
 	CaloriesPer100g float64   `gorm:"default:0" json:"calories_per_100g"`
