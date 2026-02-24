@@ -9,8 +9,8 @@
       class="sidebar-red"
     >
       <div class="logo">
-        <h2 v-if="!collapsed">ERP SPPG</h2>
-        <h2 v-else>ERP</h2>
+        <img v-if="!collapsed" src="/logo-pose.svg" alt="POSe" class="logo-img">
+        <span v-else class="logo-short">P</span>
       </div>
       
       <a-menu
@@ -497,11 +497,16 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-.logo h2 {
+.logo-img {
+  height: 36px;
+  width: auto;
+}
+
+.logo-short {
   color: white;
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
 }
 
 .sidebar-red {
