@@ -426,7 +426,10 @@ const detailItemColumns = [
 ]
 
 const totalAmount = computed(() => {
-  return formData.items.reduce((sum, item) => sum + (item.subtotal || 0), 0)
+  return formData.items.reduce((sum, item) => {
+    const subtotal = parseFloat(item.subtotal) || 0
+    return sum + subtotal
+  }, 0)
 })
 
 const fetchPurchaseOrders = async () => {
@@ -589,7 +592,9 @@ const removeItem = (index) => {
 
 const calculateSubtotal = (index) => {
   const item = formData.items[index]
-  item.subtotal = (item.quantity || 0) * (item.unit_price || 0)
+  const quantity = parseFloat(item.quantity) || 0
+  const unitPrice = parseFloat(item.unit_price) || 0
+  item.subtotal = quantity * unitPrice
 }
 
 const handleSupplierChange = () => {
