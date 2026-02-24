@@ -30,6 +30,7 @@ type CreateRecipeRequest struct {
 	Category          string                    `json:"category"`
 	ServingSize       int                       `json:"serving_size" binding:"required,gt=0"`
 	Instructions      string                    `json:"instructions"`
+	IsActive          bool                      `json:"is_active"`
 	Items             []RecipeItemRequest       `json:"items" binding:"required,min=1"`
 }
 
@@ -67,6 +68,7 @@ func (h *RecipeHandler) CreateRecipe(c *gin.Context) {
 		Category:     req.Category,
 		ServingSize:  req.ServingSize,
 		Instructions: req.Instructions,
+		IsActive:     req.IsActive,
 	}
 
 	// Create recipe items (semi-finished goods)
@@ -212,6 +214,7 @@ func (h *RecipeHandler) UpdateRecipe(c *gin.Context) {
 		Category:     req.Category,
 		ServingSize:  req.ServingSize,
 		Instructions: req.Instructions,
+		IsActive:     req.IsActive,
 	}
 
 	// Create recipe items (semi-finished goods)
