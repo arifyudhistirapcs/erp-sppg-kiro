@@ -427,8 +427,7 @@ const detailItemColumns = [
 
 const totalAmount = computed(() => {
   return formData.value.items.reduce((sum, item) => {
-    const subtotal = parseCurrency(item.subtotal)
-    return sum + subtotal
+    return sum + (parseFloat(item.subtotal) || 0)
   }, 0)
 })
 
@@ -595,14 +594,15 @@ const removeItem = (index) => {
 }
 
 const calculateSubtotal = (index) => {
-  const item = formData.value.items[index]
+  const items = [...formData.value.items]
+  const item = items[index]
   const quantity = parseFloat(item.quantity) || 0
   const unitPrice = parseCurrency(item.unit_price)
-  // Force reactivity by creating new item object
-  formData.value.items[index] = {
+  items[index] = {
     ...item,
     subtotal: quantity * unitPrice
   }
+  formData.value.items = items
 }
 
 const handleSupplierChange = () => {
