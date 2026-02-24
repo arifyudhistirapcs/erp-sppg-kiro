@@ -282,7 +282,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import purchaseOrderService from '@/services/purchaseOrderService'
@@ -307,6 +307,17 @@ const searchText = ref('')
 const filterStatus = ref(undefined)
 const formRef = ref()
 const totalAmount = ref(0)
+
+const updateTotal = () => {
+  totalAmount.value = formData.value.items.reduce((sum, item) => {
+    return sum + (parseFloat(item.subtotal) || 0)
+  }, 0)
+}
+
+// Watch for items changes and update total
+watch(() => formData.value.items, () => {
+  updateTotal()
+}, { deep: true })
 
 const pagination = reactive({
   current: 1,
@@ -424,12 +435,6 @@ const detailItemColumns = [
     key: 'subtotal'
   }
 ]
-
-const updateTotal = () => {
-  totalAmount.value = formData.value.items.reduce((sum, item) => {
-    return sum + (parseFloat(item.subtotal) || 0)
-  }, 0)
-}
 
 const fetchPurchaseOrders = async () => {
   loading.value = true
