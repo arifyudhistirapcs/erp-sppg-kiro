@@ -91,17 +91,17 @@ body, html {
   border-right: 3px solid var(--primary-color) !important;
 }
 
-/* Link and text colors */
+/* Link and text colors - Black for regular links */
 a,
 .ant-typography a,
 .ant-link {
-  color: var(--primary-color);
+  color: #000000;
 }
 
 a:hover,
 .ant-typography a:hover,
 .ant-link:hover {
-  color: var(--primary-color-hover);
+  color: var(--primary-color);
 }
 
 /* Checkbox and Radio */
