@@ -308,17 +308,6 @@ const filterStatus = ref(undefined)
 const formRef = ref()
 const totalAmount = ref(0)
 
-const updateTotal = () => {
-  totalAmount.value = formData.value.items.reduce((sum, item) => {
-    return sum + (parseFloat(item.subtotal) || 0)
-  }, 0)
-}
-
-// Watch for items changes and update total
-watch(() => formData.value.items, () => {
-  updateTotal()
-}, { deep: true })
-
 const pagination = reactive({
   current: 1,
   pageSize: 10,
@@ -330,6 +319,17 @@ const formData = ref({
   expected_delivery: null,
   items: []
 })
+
+const updateTotal = () => {
+  totalAmount.value = formData.value.items.reduce((sum, item) => {
+    return sum + (parseFloat(item.subtotal) || 0)
+  }, 0)
+}
+
+// Watch for items changes and update total
+watch(() => formData.value.items, () => {
+  updateTotal()
+}, { deep: true })
 
 const rules = {
   supplier_id: [{ required: true, message: 'Supplier wajib dipilih' }],
