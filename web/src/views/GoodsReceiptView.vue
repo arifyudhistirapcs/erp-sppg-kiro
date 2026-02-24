@@ -500,7 +500,9 @@ const getBase64 = (file) => {
 }
 
 const viewInvoice = (url) => {
-  previewImage.value = url
+  // Prepend backend base URL if URL is relative
+  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+  previewImage.value = url.startsWith('http') ? url : `${baseURL.replace('/api/v1', '')}${url}`
   previewVisible.value = true
 }
 
