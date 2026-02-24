@@ -9,7 +9,7 @@
       class="sidebar-red"
     >
       <div class="logo">
-        <img v-if="!collapsed" src="/logo-pose.svg" alt="POSe" class="logo-img">
+        <img v-if="!collapsed" src="/logo-pose.png" alt="POSe" class="logo-img">
         <span v-else class="logo-short">P</span>
       </div>
       
@@ -498,8 +498,9 @@ onMounted(() => {
 }
 
 .logo-img {
-  height: 36px;
+  height: 40px;
   width: auto;
+  object-fit: contain;
 }
 
 .logo-short {
