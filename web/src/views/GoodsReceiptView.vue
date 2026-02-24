@@ -532,13 +532,13 @@ const handleSubmit = async () => {
       receipt_date: formData.receipt_date.format('YYYY-MM-DD'),
       items: formData.items.map(item => ({
         ingredient_id: item.ingredient_id,
-        ordered_quantity: item.ordered_quantity,
         received_quantity: item.received_quantity,
         expiry_date: item.expiry_date ? item.expiry_date.format('YYYY-MM-DD') : null
       })),
       notes: formData.notes
     }
 
+    console.log('Sending payload:', JSON.stringify(payload, null, 2))
     const response = await goodsReceiptService.createGoodsReceipt(payload)
     const grnId = response.data.id
 
@@ -554,8 +554,13 @@ const handleSubmit = async () => {
     if (error.errorFields) {
       return
     }
-    message.error('Gagal menyimpan penerimaan barang')
-    console.error(error)
+    console.error('Full error:', error)
+    if (error.response?.data) {
+      console.error('Error response:', error.response.data)
+      message.error(error.response.data.message || 'Gagal menyimpan penerimaan barang')
+    } else {
+      message.error('Gagal menyimpan penerimaan barang')
+    }
   } finally {
     submitting.value = false
   }
