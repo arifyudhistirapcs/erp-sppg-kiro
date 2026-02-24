@@ -1,7 +1,9 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/erp-sppg/backend/internal/models"
@@ -142,6 +144,26 @@ func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, items []mo
 
 	// Update recipe in transaction
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Save current version to history before updating
+		recipeVersion := &models.RecipeVersion{
+			RecipeID:      existingRecipe.ID,
+			Version:       existingRecipe.Version,
+			Name:          existingRecipe.Name,
+			Category:      existingRecipe.Category,
+			ServingSize:   existingRecipe.ServingSize,
+			Instructions:  existingRecipe.Instructions,
+			TotalCalories: existingRecipe.TotalCalories,
+			TotalProtein:  existingRecipe.TotalProtein,
+			TotalCarbs:    existingRecipe.TotalCarbs,
+			TotalFat:      existingRecipe.TotalFat,
+			Changes:       s.generateChanges(existingRecipe, updates),
+			CreatedBy:     userID,
+			CreatedAt:     time.Now(),
+		}
+		if err := tx.Create(recipeVersion).Error; err != nil {
+			return err
+		}
+
 		// Delete old recipe items
 		if err := tx.Where("recipe_id = ?", id).Delete(&models.RecipeItem{}).Error; err != nil {
 			return err
@@ -188,16 +210,53 @@ func (s *RecipeService) DeleteRecipe(id uint) error {
 }
 
 // GetRecipeHistory retrieves version history for a recipe
-func (s *RecipeService) GetRecipeHistory(id uint) ([]models.Recipe, error) {
-	var recipes []models.Recipe
-	// Note: In a full implementation, we would store historical versions in a separate table
-	// For now, we just return the current version
-	recipe, err := s.GetRecipeByID(id)
+func (s *RecipeService) GetRecipeHistory(id uint) ([]models.RecipeVersion, error) {
+	var versions []models.RecipeVersion
+	
+	// Get historical versions from recipe_versions table
+	err := s.db.Where("recipe_id = ?", id).
+		Preload("Creator").
+		Order("version DESC").
+		Find(&versions).Error
 	if err != nil {
 		return nil, err
 	}
-	recipes = append(recipes, *recipe)
-	return recipes, nil
+	
+	return versions, nil
+}
+
+// generateChanges generates a description of changes between two recipe versions
+func (s *RecipeService) generateChanges(oldRecipe, newRecipe *models.Recipe) string {
+	var changes []string
+	
+	if oldRecipe.Name != newRecipe.Name {
+		changes = append(changes, fmt.Sprintf("Nama diubah dari '%s' menjadi '%s'", oldRecipe.Name, newRecipe.Name))
+	}
+	if oldRecipe.Category != newRecipe.Category {
+		changes = append(changes, fmt.Sprintf("Kategori diubah dari '%s' menjadi '%s'", oldRecipe.Category, newRecipe.Category))
+	}
+	if oldRecipe.ServingSize != newRecipe.ServingSize {
+		changes = append(changes, fmt.Sprintf("Ukuran porsi diubah dari %d menjadi %d", oldRecipe.ServingSize, newRecipe.ServingSize))
+	}
+	if oldRecipe.Instructions != newRecipe.Instructions {
+		changes = append(changes, "Instruksi diperbarui")
+	}
+	
+	// Nutrition changes
+	if oldRecipe.TotalCalories != newRecipe.TotalCalories {
+		changes = append(changes, fmt.Sprintf("Kalori diubah dari %.0f menjadi %.0f", oldRecipe.TotalCalories, newRecipe.TotalCalories))
+	}
+	if oldRecipe.TotalProtein != newRecipe.TotalProtein {
+		changes = append(changes, fmt.Sprintf("Protein diubah dari %.1f menjadi %.1f", oldRecipe.TotalProtein, newRecipe.TotalProtein))
+	}
+	
+	if len(changes) == 0 {
+		changes = append(changes, "Resep diperbarui")
+	}
+	
+	// Convert to JSON array
+	changesJSON, _ := json.Marshal(changes)
+	return string(changesJSON)
 }
 
 // NutritionValues represents calculated nutrition for a recipe

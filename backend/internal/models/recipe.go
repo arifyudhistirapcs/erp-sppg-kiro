@@ -79,3 +79,26 @@ type MenuItem struct {
 	MenuPlan   MenuPlan  `gorm:"foreignKey:MenuPlanID" json:"menu_plan,omitempty"`
 	Recipe     Recipe    `gorm:"foreignKey:RecipeID" json:"recipe,omitempty"`
 }
+
+// RecipeVersion stores historical versions of recipes
+// This is a snapshot of the recipe at a specific version
+// Used for audit trail and version history tracking
+type RecipeVersion struct {
+	ID                   uint      `gorm:"primaryKey" json:"id"`
+	RecipeID             uint      `gorm:"index;not null" json:"recipe_id"`
+	Version              int       `gorm:"not null;index" json:"version"`
+	Name                 string    `gorm:"size:200;not null" json:"name"`
+	Category             string    `gorm:"size:50" json:"category"`
+	ServingSize          int       `gorm:"not null" json:"serving_size"`
+	Instructions         string    `gorm:"type:text" json:"instructions"`
+	TotalCalories        float64   `gorm:"not null" json:"total_calories"`
+	TotalProtein         float64   `gorm:"not null" json:"total_protein"`
+	TotalCarbs           float64   `gorm:"not null" json:"total_carbs"`
+	TotalFat             float64   `gorm:"not null" json:"total_fat"`
+	Changes              string    `gorm:"type:text" json:"changes"` // JSON array of changes
+	CreatedBy            uint      `gorm:"not null" json:"created_by"`
+	CreatedAt            time.Time `json:"created_at"`
+	
+	// Relationships
+	Creator              User      `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+}

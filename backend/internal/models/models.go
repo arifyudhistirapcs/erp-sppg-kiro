@@ -16,6 +16,7 @@ func AllModels() []interface{} {
 		&SemiFinishedProductionLog{},
 		&Recipe{},
 		&RecipeItem{},
+		&RecipeVersion{},
 		&MenuPlan{},
 		&MenuItem{},
 		

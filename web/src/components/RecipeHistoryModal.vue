@@ -29,10 +29,10 @@
             
             <a-descriptions :column="2" size="small">
               <a-descriptions-item label="Tanggal">
-                {{ formatDate(item.updated_at) }}
+                {{ formatDate(item.created_at) }}
               </a-descriptions-item>
               <a-descriptions-item label="Diubah Oleh">
-                {{ item.updated_by_name || '-' }}
+                {{ item.creator?.full_name || '-' }}
               </a-descriptions-item>
               <a-descriptions-item label="Nama Resep" :span="2">
                 {{ item.name }}
@@ -114,11 +114,26 @@ const loadHistory = async () => {
   loading.value = true
   try {
     const response = await recipeService.getRecipeHistory(props.recipeId)
-    history.value = response.data.data || []
+    // Backend returns history in 'history' key
+    let historyData = response.data.history || []
+    
+    // Parse changes JSON string to array for each item
+    historyData = historyData.map(item => {
+      if (item.changes && typeof item.changes === 'string') {
+        try {
+          item.changes = JSON.parse(item.changes)
+        } catch (e) {
+          item.changes = [item.changes]
+        }
+      }
+      return item
+    })
+    
+    history.value = historyData
     
     // Get current version
     const recipeResponse = await recipeService.getRecipe(props.recipeId)
-    currentVersion.value = recipeResponse.data.data?.version
+    currentVersion.value = recipeResponse.data.recipe?.version || recipeResponse.data.data?.version
   } catch (error) {
     message.error('Gagal memuat riwayat resep')
     console.error('Error loading recipe history:', error)
