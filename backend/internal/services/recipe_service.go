@@ -179,6 +179,7 @@ func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, items []mo
 			"total_protein":  updates.TotalProtein,
 			"total_carbs":    updates.TotalCarbs,
 			"total_fat":      updates.TotalFat,
+			"is_active":      updates.IsActive,
 			"version":        updates.Version,
 			"updated_at":     time.Now(),
 		}).Error; err != nil {
@@ -240,6 +241,13 @@ func (s *RecipeService) generateChanges(oldRecipe, newRecipe *models.Recipe) str
 	}
 	if oldRecipe.Instructions != newRecipe.Instructions {
 		changes = append(changes, "Instruksi diperbarui")
+	}
+	if oldRecipe.IsActive != newRecipe.IsActive {
+		if newRecipe.IsActive {
+			changes = append(changes, "Status diubah menjadi Aktif")
+		} else {
+			changes = append(changes, "Status diubah menjadi Nonaktif")
+		}
 	}
 	
 	// Nutrition changes
