@@ -14,6 +14,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// uploadBaseDir is the base directory for file uploads
+var uploadBaseDir = filepath.Join("uploads")
+
 // SupplyChainHandler handles supply chain endpoints
 type SupplyChainHandler struct {
 	supplierService       *services.SupplierService
@@ -670,10 +673,11 @@ func (h *SupplyChainHandler) UploadInvoicePhoto(c *gin.Context) {
 
 	// Save file
 	filename := fmt.Sprintf("invoice_%d_%d%s", id, time.Now().Unix(), filepath.Ext(file.Filename))
-	savePath := filepath.Join("uploads", "invoices", filename)
+	invoiceDir := filepath.Join(uploadBaseDir, "invoices")
+	savePath := filepath.Join(invoiceDir, filename)
 	
 	// Create directory if not exists
-	if err := os.MkdirAll(filepath.Join("uploads", "invoices"), 0755); err != nil {
+	if err := os.MkdirAll(invoiceDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success":    false,
 			"error_code": "UPLOAD_ERROR",
