@@ -507,7 +507,7 @@ const viewInvoice = (url) => {
 const viewGRN = async (grn) => {
   try {
     const response = await goodsReceiptService.getGoodsReceipt(grn.id)
-    selectedGRN.value = response.data
+    selectedGRN.value = response.data.goods_receipt
     detailModalVisible.value = true
   } catch (error) {
     message.error('Gagal memuat detail GRN')
