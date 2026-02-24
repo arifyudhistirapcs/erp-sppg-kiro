@@ -587,6 +587,24 @@ func (h *SupplyChainHandler) CreateGoodsReceipt(c *gin.Context) {
 	})
 }
 
+// GetAllGoodsReceipts retrieves all goods receipts
+func (h *SupplyChainHandler) GetAllGoodsReceipts(c *gin.Context) {
+	grns, err := h.goodsReceiptService.GetAllGoodsReceipts()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan pada server",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":        true,
+		"goods_receipts": grns,
+	})
+}
+
 // GetGoodsReceipt retrieves a goods receipt by ID
 func (h *SupplyChainHandler) GetGoodsReceipt(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -752,5 +770,22 @@ func (h *SupplyChainHandler) GetInventoryMovements(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success":   true,
 		"movements": movements,
+	})
+}
+
+// InitializeInventory initializes inventory records for all ingredients that don't have one
+func (h *SupplyChainHandler) InitializeInventory(c *gin.Context) {
+	if err := h.inventoryService.InitializeInventoryForAllIngredients(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INITIALIZE_ERROR",
+			"message":    "Gagal menginisialisasi inventory: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Inventory berhasil diinisialisasi untuk semua bahan",
 	})
 }

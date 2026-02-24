@@ -327,32 +327,32 @@ func (s *MenuPlanningService) CalculateIngredientRequirements(menuPlanID uint) (
 		return nil, err
 	}
 
-	// Aggregate ingredient requirements
-	ingredientMap := make(map[uint]*IngredientRequirement)
+	// Aggregate semi-finished goods requirements
+	sfGoodsMap := make(map[uint]*IngredientRequirement)
 
 	for _, item := range menuPlan.MenuItems {
 		// Calculate scaling factor based on portions
 		scaleFactor := float64(item.Portions) / float64(item.Recipe.ServingSize)
 
-		for _, recipeIngredient := range item.Recipe.RecipeIngredients {
-			ingredientID := recipeIngredient.IngredientID
+		for _, recipeItem := range item.Recipe.RecipeItems {
+			sfGoodsID := recipeItem.SemiFinishedGoodsID
 
-			if _, exists := ingredientMap[ingredientID]; !exists {
-				ingredientMap[ingredientID] = &IngredientRequirement{
-					IngredientID:   ingredientID,
-					IngredientName: recipeIngredient.Ingredient.Name,
-					Unit:           recipeIngredient.Ingredient.Unit,
+			if _, exists := sfGoodsMap[sfGoodsID]; !exists {
+				sfGoodsMap[sfGoodsID] = &IngredientRequirement{
+					IngredientID:   sfGoodsID,
+					IngredientName: recipeItem.SemiFinishedGoods.Name,
+					Unit:           recipeItem.SemiFinishedGoods.Unit,
 					TotalQuantity:  0,
 				}
 			}
 
-			ingredientMap[ingredientID].TotalQuantity += recipeIngredient.Quantity * scaleFactor
+			sfGoodsMap[sfGoodsID].TotalQuantity += recipeItem.Quantity * scaleFactor
 		}
 	}
 
 	// Convert map to slice
 	var requirements []IngredientRequirement
-	for _, req := range ingredientMap {
+	for _, req := range sfGoodsMap {
 		requirements = append(requirements, *req)
 	}
 

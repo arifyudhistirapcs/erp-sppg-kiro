@@ -39,6 +39,11 @@ const recipeService = {
   // Get all ingredients for recipe form
   getIngredients(params = {}) {
     return api.get('/ingredients', { params })
+  },
+
+  // Create new ingredient
+  createIngredient(data) {
+    return api.post('/ingredients', data)
   }
 }
 

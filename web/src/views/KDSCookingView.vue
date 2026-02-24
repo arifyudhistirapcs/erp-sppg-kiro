@@ -58,7 +58,7 @@
                 <a-divider>Bahan-Bahan</a-divider>
                 <a-list
                   size="small"
-                  :data-source="recipe.ingredients"
+                  :data-source="recipe.items"
                   :split="false"
                 >
                   <template #renderItem="{ item }">

@@ -439,7 +439,7 @@ const fetchPurchaseOrders = async () => {
       status: filterStatus.value
     }
     const response = await purchaseOrderService.getPurchaseOrders(params)
-    purchaseOrders.value = response.data.data || []
+    purchaseOrders.value = response.data.purchase_orders || []
     pagination.total = response.data.total || 0
   } catch (error) {
     message.error('Gagal memuat data purchase order')
@@ -452,7 +452,7 @@ const fetchPurchaseOrders = async () => {
 const fetchSuppliers = async () => {
   try {
     const response = await supplierService.getSuppliers({ is_active: 'active' })
-    activeSuppliers.value = response.data.data || []
+    activeSuppliers.value = response.data.suppliers || []
   } catch (error) {
     console.error('Gagal memuat data supplier:', error)
   }

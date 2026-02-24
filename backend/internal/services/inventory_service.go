@@ -111,11 +111,69 @@ func (s *InventoryService) GetInventoryItem(ingredientID uint) (*models.Inventor
 	return &item, nil
 }
 
-// GetAllInventory retrieves all inventory items
+// GetAllInventory retrieves all inventory items, including ingredients with zero stock
 func (s *InventoryService) GetAllInventory() ([]models.InventoryItem, error) {
+	// First, ensure all ingredients have inventory records
+	if err := s.InitializeInventoryForAllIngredients(); err != nil {
+		return nil, err
+	}
+
 	var items []models.InventoryItem
 	err := s.db.Preload("Ingredient").Order("ingredient_id ASC").Find(&items).Error
 	return items, err
+}
+
+// InitializeInventoryForAllIngredients creates inventory records for ingredients that don't have one
+func (s *InventoryService) InitializeInventoryForAllIngredients() error {
+	// Find all ingredients that don't have inventory records
+	var ingredientsWithoutInventory []models.Ingredient
+	err := s.db.Raw(`
+		SELECT i.* FROM ingredients i
+		LEFT JOIN inventory_items inv ON i.id = inv.ingredient_id
+		WHERE inv.id IS NULL
+	`).Scan(&ingredientsWithoutInventory).Error
+	
+	if err != nil {
+		return err
+	}
+
+	// Create inventory records for these ingredients
+	for _, ingredient := range ingredientsWithoutInventory {
+		inventoryItem := models.InventoryItem{
+			IngredientID: ingredient.ID,
+			Quantity:     0,
+			MinThreshold: 10, // default threshold
+			LastUpdated:  time.Now(),
+		}
+		if err := s.db.Create(&inventoryItem).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// InitializeInventoryForIngredient creates inventory record for a specific ingredient
+func (s *InventoryService) InitializeInventoryForIngredient(ingredientID uint) error {
+	var existingItem models.InventoryItem
+	err := s.db.Where("ingredient_id = ?", ingredientID).First(&existingItem).Error
+	
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Create new inventory item
+			inventoryItem := models.InventoryItem{
+				IngredientID: ingredientID,
+				Quantity:     0,
+				MinThreshold: 10, // default threshold
+				LastUpdated:  time.Now(),
+			}
+			return s.db.Create(&inventoryItem).Error
+		}
+		return err
+	}
+	
+	// Inventory already exists
+	return nil
 }
 
 // LowStockAlert represents a low stock alert

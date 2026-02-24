@@ -7,15 +7,21 @@
       <template #extra>
         <a-space>
           <a-button @click="exportPDF" :loading="exportingPDF">
-            <template #icon><FilePdfOutlined /></template>
+            <template #icon>
+              <FilePdfOutlined />
+            </template>
             Export PDF
           </a-button>
           <a-button @click="exportExcel" :loading="exportingExcel">
-            <template #icon><FileExcelOutlined /></template>
+            <template #icon>
+              <FileExcelOutlined />
+            </template>
             Export Excel
           </a-button>
           <a-button type="primary" @click="generateReport" :loading="loading">
-            <template #icon><BarChartOutlined /></template>
+            <template #icon>
+              <BarChartOutlined />
+            </template>
             Generate Laporan
           </a-button>
         </a-space>

@@ -173,6 +173,21 @@ const rules = {
   depreciation_rate: [{ required: true, message: 'Tingkat depresiasi wajib diisi' }]
 }
 
+// Define resetForm before it's used in watch
+const resetForm = () => {
+  Object.assign(formData, {
+    asset_code: '',
+    name: '',
+    category: '',
+    condition: 'good',
+    purchase_date: null,
+    purchase_price: 0,
+    depreciation_rate: 0,
+    location: ''
+  })
+  formRef.value?.resetFields()
+}
+
 // Watch for asset prop changes to populate form
 watch(() => props.asset, (newAsset) => {
   if (newAsset) {
@@ -226,20 +241,6 @@ const handleSubmit = async () => {
 const handleCancel = () => {
   emit('update:visible', false)
   resetForm()
-}
-
-const resetForm = () => {
-  Object.assign(formData, {
-    asset_code: '',
-    name: '',
-    category: '',
-    condition: 'good',
-    purchase_date: null,
-    purchase_price: 0,
-    depreciation_rate: 0,
-    location: ''
-  })
-  formRef.value?.resetFields()
 }
 
 const calculateAnnualDepreciation = () => {

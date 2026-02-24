@@ -405,7 +405,7 @@ const fetchGoodsReceipts = async () => {
       search: searchText.value || undefined
     }
     const response = await goodsReceiptService.getGoodsReceipts(params)
-    goodsReceipts.value = response.data.data || []
+    goodsReceipts.value = response.data.goods_receipts || []
     pagination.total = response.data.total || 0
   } catch (error) {
     message.error('Gagal memuat data penerimaan barang')
@@ -418,7 +418,7 @@ const fetchGoodsReceipts = async () => {
 const fetchApprovedPOs = async () => {
   try {
     const response = await purchaseOrderService.getPurchaseOrders({ status: 'approved' })
-    approvedPOs.value = response.data.data || []
+    approvedPOs.value = response.data.purchase_orders || []
   } catch (error) {
     console.error('Gagal memuat data PO:', error)
   }

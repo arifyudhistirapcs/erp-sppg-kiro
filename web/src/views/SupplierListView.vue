@@ -329,7 +329,7 @@ const fetchSuppliers = async () => {
       is_active: filterStatus.value
     }
     const response = await supplierService.getSuppliers(params)
-    suppliers.value = response.data.data || []
+    suppliers.value = response.data.suppliers || []
     pagination.total = response.data.total || 0
   } catch (error) {
     message.error('Gagal memuat data supplier')

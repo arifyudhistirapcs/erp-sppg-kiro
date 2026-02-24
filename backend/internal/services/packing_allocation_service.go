@@ -51,7 +51,9 @@ type MenuItemSummary struct {
 
 // CalculatePackingAllocations calculates portion distribution per school for today
 func (s *PackingAllocationService) CalculatePackingAllocations(ctx context.Context) ([]SchoolAllocation, error) {
-	today := time.Now().Truncate(24 * time.Hour)
+	today := time.Now()
+	startOfDay := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	// Get today's delivery tasks
 	var deliveryTasks []models.DeliveryTask
@@ -59,7 +61,7 @@ func (s *PackingAllocationService) CalculatePackingAllocations(ctx context.Conte
 		Preload("School").
 		Preload("MenuItems").
 		Preload("MenuItems.Recipe").
-		Where("DATE(task_date) = DATE(?)", today).
+		Where("task_date >= ? AND task_date < ?", startOfDay, endOfDay).
 		Where("status != ?", "cancelled").
 		Find(&deliveryTasks).Error
 	

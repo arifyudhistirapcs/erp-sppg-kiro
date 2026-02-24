@@ -18,12 +18,13 @@
       <a-row :gutter="16">
         <a-col :span="16">
           <a-form-item label="Nama Resep" name="name">
-            <a-input v-model:value="formData.name" placeholder="Masukkan nama resep" />
+            <a-input v-model:value="formData.name" placeholder="Masukkan nama resep (contoh: Paket Ayam Goreng)" />
           </a-form-item>
         </a-col>
         <a-col :span="8">
           <a-form-item label="Kategori" name="category">
             <a-select v-model:value="formData.category" placeholder="Pilih kategori">
+              <a-select-option value="paket_lengkap">Paket Lengkap</a-select-option>
               <a-select-option value="makanan_pokok">Makanan Pokok</a-select-option>
               <a-select-option value="lauk_pauk">Lauk Pauk</a-select-option>
               <a-select-option value="sayuran">Sayuran</a-select-option>
@@ -41,7 +42,7 @@
               v-model:value="formData.serving_size"
               :min="1"
               style="width: 100%"
-              placeholder="Jumlah porsi"
+              placeholder="Jumlah porsi yang dihasilkan"
             />
           </a-form-item>
         </a-col>
@@ -52,56 +53,71 @@
         </a-col>
       </a-row>
 
-      <a-form-item label="Instruksi Memasak" name="instructions">
+      <a-form-item label="Instruksi Penyajian" name="instructions">
         <a-textarea
           v-model:value="formData.instructions"
           :rows="4"
-          placeholder="Masukkan langkah-langkah memasak"
+          placeholder="Masukkan cara penyajian menu"
         />
       </a-form-item>
 
-      <a-divider>Bahan-Bahan</a-divider>
+      <a-divider>Komposisi Menu (Barang Setengah Jadi)</a-divider>
 
-      <!-- Ingredient Selection -->
-      <a-form-item>
-        <a-button type="dashed" block @click="showIngredientSelector">
-          <template #icon><PlusOutlined /></template>
-          Tambah Bahan
-        </a-button>
-      </a-form-item>
+      <a-alert
+        message="Panduan"
+        description="Menu terdiri dari barang setengah jadi seperti Nasi, Ayam Goreng, Sambal, dll. Pilih dari daftar yang sudah tersedia."
+        type="info"
+        show-icon
+        style="margin-bottom: 16px"
+      />
 
-      <!-- Ingredients Table -->
+      <!-- Item Selection -->
+      <a-button type="dashed" block @click="showItemSelector" style="margin-bottom: 16px">
+        <template #icon><PlusOutlined /></template>
+        Tambah Komponen Menu
+      </a-button>
+
+      <!-- Items Table -->
       <a-table
-        v-if="formData.ingredients.length > 0"
-        :columns="ingredientColumns"
-        :data-source="formData.ingredients"
+        v-if="formData.items.length > 0"
+        :columns="itemColumns"
+        :data-source="formData.items"
         :pagination="false"
         size="small"
-        row-key="ingredient_id"
+        row-key="semi_finished_goods_id"
       >
         <template #bodyCell="{ column, record, index }">
           <template v-if="column.key === 'name'">
-            {{ record.name }}
+            <div>
+              <strong>{{ record.name }}</strong>
+              <br />
+              <span class="text-muted">{{ record.category }}</span>
+            </div>
           </template>
           <template v-else-if="column.key === 'quantity'">
             <a-input-number
               v-model:value="record.quantity"
               :min="0.01"
-              :step="0.1"
+              :step="10"
               style="width: 100%"
+              addon-after="gram"
               @change="calculateNutrition"
             />
           </template>
-          <template v-else-if="column.key === 'unit'">
-            {{ record.unit }}
+          <template v-else-if="column.key === 'nutrition'">
+            <div style="font-size: 11px">
+              {{ ((record.calories_per_100g || 0) * record.quantity / 100).toFixed(0) }} kkal
+            </div>
           </template>
           <template v-else-if="column.key === 'actions'">
-            <a-button type="link" danger size="small" @click="removeIngredient(index)">
+            <a-button type="link" danger size="small" @click="removeItem(index)">
               Hapus
             </a-button>
           </template>
         </template>
       </a-table>
+
+      <a-empty v-else description="Belum ada komponen menu" style="margin: 24px 0" />
 
       <a-divider>Informasi Gizi (Total)</a-divider>
 
@@ -141,6 +157,19 @@
         </a-col>
       </a-row>
 
+      <!-- Per Portion Nutrition -->
+      <a-row :gutter="16" style="margin-top: 16px">
+        <a-col :span="24">
+          <div class="per-portion-summary">
+            <strong>Gizi per Porsi:</strong>
+            <a-tag color="red">{{ (nutritionSummary.calories / formData.serving_size).toFixed(0) }} kkal</a-tag>
+            <a-tag color="blue">P: {{ (nutritionSummary.protein / formData.serving_size).toFixed(1) }}g</a-tag>
+            <a-tag color="green">K: {{ (nutritionSummary.carbs / formData.serving_size).toFixed(1) }}g</a-tag>
+            <a-tag color="orange">L: {{ (nutritionSummary.fat / formData.serving_size).toFixed(1) }}g</a-tag>
+          </div>
+        </a-col>
+      </a-row>
+
       <!-- Validation Alert -->
       <a-alert
         v-if="validationMessage"
@@ -151,26 +180,44 @@
       />
     </a-form>
 
-    <!-- Ingredient Selector Modal -->
+    <!-- Item Selector Modal -->
     <a-modal
-      v-model:visible="ingredientSelectorVisible"
-      title="Pilih Bahan"
-      width="600px"
-      @ok="addSelectedIngredients"
+      v-model:visible="itemSelectorVisible"
+      title="Pilih Barang Setengah Jadi"
+      width="700px"
+      @ok="addSelectedItems"
       ok-text="Tambah"
       cancel-text="Batal"
     >
-      <a-input-search
-        v-model:value="ingredientSearch"
-        placeholder="Cari bahan..."
-        style="margin-bottom: 16px"
-        @search="searchIngredients"
-      />
+      <a-row :gutter="16" style="margin-bottom: 16px">
+        <a-col :span="12">
+          <a-input-search
+            v-model:value="itemSearch"
+            placeholder="Cari barang setengah jadi..."
+            @search="searchItems"
+          />
+        </a-col>
+        <a-col :span="12">
+          <a-select
+            v-model:value="categoryFilter"
+            placeholder="Filter kategori"
+            allow-clear
+            style="width: 100%"
+            @change="loadItems"
+          >
+            <a-select-option value="nasi">Nasi</a-select-option>
+            <a-select-option value="lauk">Lauk</a-select-option>
+            <a-select-option value="sambal">Sambal</a-select-option>
+            <a-select-option value="sayur">Sayur</a-select-option>
+            <a-select-option value="lauk_berkuah">Lauk Berkuah</a-select-option>
+          </a-select>
+        </a-col>
+      </a-row>
       <a-table
-        :columns="ingredientSelectorColumns"
-        :data-source="availableIngredients"
-        :loading="ingredientsLoading"
-        :row-selection="{ selectedRowKeys: selectedIngredientIds, onChange: onIngredientSelectionChange }"
+        :columns="itemSelectorColumns"
+        :data-source="availableItems"
+        :loading="itemsLoading"
+        :row-selection="{ selectedRowKeys: selectedItemIds, onChange: onItemSelectionChange }"
         :pagination="false"
         size="small"
         row-key="id"
@@ -179,8 +226,13 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'nutrition'">
             <div style="font-size: 11px">
-              {{ record.calories_per_100g }}kkal | P:{{ record.protein_per_100g }}g | K:{{ record.carbs_per_100g }}g | L:{{ record.fat_per_100g }}g
+              {{ record.calories_per_100g }}kkal | P:{{ record.protein_per_100g }}g
             </div>
+          </template>
+          <template v-else-if="column.key === 'stock'">
+            <a-tag :color="record.stock_quantity > 0 ? 'green' : 'red'">
+              {{ record.stock_quantity?.toFixed(2) }} {{ record.unit }}
+            </a-tag>
           </template>
         </template>
       </a-table>
@@ -193,6 +245,7 @@ import { ref, reactive, computed, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import recipeService from '@/services/recipeService'
+import semiFinishedService from '@/services/semiFinishedService'
 
 const props = defineProps({
   visible: {
@@ -209,11 +262,12 @@ const emit = defineEmits(['update:visible', 'success'])
 
 const formRef = ref()
 const loading = ref(false)
-const ingredientsLoading = ref(false)
-const ingredientSelectorVisible = ref(false)
-const ingredientSearch = ref('')
-const availableIngredients = ref([])
-const selectedIngredientIds = ref([])
+const itemsLoading = ref(false)
+const itemSelectorVisible = ref(false)
+const itemSearch = ref('')
+const categoryFilter = ref(undefined)
+const availableItems = ref([])
+const selectedItemIds = ref([])
 
 const isEdit = computed(() => !!props.recipe?.id)
 
@@ -223,7 +277,7 @@ const formData = reactive({
   serving_size: 1,
   instructions: '',
   is_active: true,
-  ingredients: []
+  items: []
 })
 
 const nutritionSummary = reactive({
@@ -239,20 +293,21 @@ const rules = {
   name: [{ required: true, message: 'Nama resep harus diisi', trigger: 'blur' }],
   category: [{ required: true, message: 'Kategori harus dipilih', trigger: 'change' }],
   serving_size: [{ required: true, message: 'Jumlah porsi harus diisi', trigger: 'blur' }],
-  instructions: [{ required: true, message: 'Instruksi memasak harus diisi', trigger: 'blur' }]
+  instructions: [{ required: true, message: 'Instruksi penyajian harus diisi', trigger: 'blur' }]
 }
 
-const ingredientColumns = [
-  { title: 'Bahan', key: 'name', dataIndex: 'name', width: '40%' },
+const itemColumns = [
+  { title: 'Komponen', key: 'name', width: '35%' },
   { title: 'Jumlah', key: 'quantity', width: '25%' },
-  { title: 'Satuan', key: 'unit', dataIndex: 'unit', width: '20%' },
+  { title: 'Kontribusi Gizi', key: 'nutrition', width: '25%' },
   { title: 'Aksi', key: 'actions', width: '15%', align: 'center' }
 ]
 
-const ingredientSelectorColumns = [
-  { title: 'Nama Bahan', dataIndex: 'name', key: 'name', width: '40%' },
-  { title: 'Satuan', dataIndex: 'unit', key: 'unit', width: '20%' },
-  { title: 'Gizi per 100g', key: 'nutrition', width: '40%' }
+const itemSelectorColumns = [
+  { title: 'Nama', dataIndex: 'name', key: 'name', width: '30%' },
+  { title: 'Kategori', dataIndex: 'category', key: 'category', width: '15%' },
+  { title: 'Gizi per 100g', key: 'nutrition', width: '25%' },
+  { title: 'Stok', key: 'stock', width: '20%' }
 ]
 
 const calculateNutrition = () => {
@@ -261,12 +316,12 @@ const calculateNutrition = () => {
   let totalCarbs = 0
   let totalFat = 0
 
-  formData.ingredients.forEach(ing => {
-    const factor = ing.quantity / 100
-    totalCalories += (ing.calories_per_100g || 0) * factor
-    totalProtein += (ing.protein_per_100g || 0) * factor
-    totalCarbs += (ing.carbs_per_100g || 0) * factor
-    totalFat += (ing.fat_per_100g || 0) * factor
+  formData.items.forEach(item => {
+    const factor = item.quantity / 100
+    totalCalories += (item.calories_per_100g || 0) * factor
+    totalProtein += (item.protein_per_100g || 0) * factor
+    totalCarbs += (item.carbs_per_100g || 0) * factor
+    totalFat += (item.fat_per_100g || 0) * factor
   })
 
   nutritionSummary.calories = totalCalories
@@ -278,7 +333,7 @@ const calculateNutrition = () => {
 }
 
 const validateNutrition = () => {
-  // Minimum standards per portion (example values)
+  // Minimum standards per portion
   const minCaloriesPerPortion = 600
   const minProteinPerPortion = 15
 
@@ -298,56 +353,61 @@ const validateNutrition = () => {
   }
 }
 
-const showIngredientSelector = async () => {
-  ingredientSelectorVisible.value = true
-  await loadIngredients()
+const showItemSelector = async () => {
+  itemSelectorVisible.value = true
+  await loadItems()
 }
 
-const loadIngredients = async () => {
-  ingredientsLoading.value = true
+const loadItems = async () => {
+  itemsLoading.value = true
   try {
-    const response = await recipeService.getIngredients({ search: ingredientSearch.value })
-    availableIngredients.value = response.data.data || []
+    const params = {
+      search: itemSearch.value || undefined,
+      category: categoryFilter.value || undefined
+    }
+    const response = await semiFinishedService.getAllSemiFinishedGoods(params)
+    availableItems.value = response.data.data || []
   } catch (error) {
-    message.error('Gagal memuat data bahan')
-    console.error('Error loading ingredients:', error)
+    message.error('Gagal memuat data barang setengah jadi')
+    console.error('Error loading items:', error)
   } finally {
-    ingredientsLoading.value = false
+    itemsLoading.value = false
   }
 }
 
-const searchIngredients = () => {
-  loadIngredients()
+const searchItems = () => {
+  loadItems()
 }
 
-const onIngredientSelectionChange = (selectedKeys) => {
-  selectedIngredientIds.value = selectedKeys
+const onItemSelectionChange = (selectedKeys) => {
+  selectedItemIds.value = selectedKeys
 }
 
-const addSelectedIngredients = () => {
-  const newIngredients = availableIngredients.value
-    .filter(ing => selectedIngredientIds.value.includes(ing.id))
-    .filter(ing => !formData.ingredients.some(existing => existing.ingredient_id === ing.id))
-    .map(ing => ({
-      ingredient_id: ing.id,
-      name: ing.name,
-      unit: ing.unit,
-      quantity: 100,
-      calories_per_100g: ing.calories_per_100g,
-      protein_per_100g: ing.protein_per_100g,
-      carbs_per_100g: ing.carbs_per_100g,
-      fat_per_100g: ing.fat_per_100g
+const addSelectedItems = () => {
+  const newItems = availableItems.value
+    .filter(item => selectedItemIds.value.includes(item.id))
+    .filter(item => !formData.items.some(existing => existing.semi_finished_goods_id === item.id))
+    .map(item => ({
+      semi_finished_goods_id: item.id,
+      name: item.name,
+      category: item.category,
+      quantity: 100, // default 100g
+      unit: item.unit,
+      calories_per_100g: item.calories_per_100g,
+      protein_per_100g: item.protein_per_100g,
+      carbs_per_100g: item.carbs_per_100g,
+      fat_per_100g: item.fat_per_100g
     }))
 
-  formData.ingredients.push(...newIngredients)
+  formData.items.push(...newItems)
   calculateNutrition()
   
-  ingredientSelectorVisible.value = false
-  selectedIngredientIds.value = []
+  itemSelectorVisible.value = false
+  selectedItemIds.value = []
 }
 
-const removeIngredient = (index) => {
-  formData.ingredients.splice(index, 1)
+const removeItem = (index) => {
+  formData.items.splice(index, 1)
   calculateNutrition()
 }
 
@@ -355,8 +415,8 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validate()
     
-    if (formData.ingredients.length === 0) {
-      message.warning('Minimal harus ada 1 bahan')
+    if (formData.items.length === 0) {
+      message.warning('Minimal harus ada 1 komponen menu')
       return
     }
 
@@ -372,9 +432,9 @@ const handleSubmit = async () => {
       total_protein: nutritionSummary.protein,
       total_carbs: nutritionSummary.carbs,
       total_fat: nutritionSummary.fat,
-      recipe_ingredients: formData.ingredients.map(ing => ({
-        ingredient_id: ing.ingredient_id,
-        quantity: ing.quantity
+      items: formData.items.map(item => ({
+        semi_finished_goods_id: item.semi_finished_goods_id,
+        quantity: item.quantity
       }))
     }
 
@@ -390,6 +450,8 @@ const handleSubmit = async () => {
   } catch (error) {
     if (error.errorFields) {
       message.error('Mohon lengkapi semua field yang wajib diisi')
+    } else if (error.response?.data?.error_code === 'INSUFFICIENT_NUTRITION') {
+      message.error('Nilai gizi tidak memenuhi standar minimum (600 kkal, 15g protein per porsi)')
     } else {
       message.error('Gagal menyimpan resep')
       console.error('Error saving recipe:', error)
@@ -409,7 +471,7 @@ const resetForm = () => {
   formData.serving_size = 1
   formData.instructions = ''
   formData.is_active = true
-  formData.ingredients = []
+  formData.items = []
   nutritionSummary.calories = 0
   nutritionSummary.protein = 0
   nutritionSummary.carbs = 0
@@ -428,15 +490,16 @@ watch(() => props.visible, (newVal) => {
         serving_size: props.recipe.serving_size,
         instructions: props.recipe.instructions,
         is_active: props.recipe.is_active,
-        ingredients: props.recipe.recipe_ingredients?.map(ri => ({
-          ingredient_id: ri.ingredient_id,
-          name: ri.ingredient?.name,
-          unit: ri.ingredient?.unit,
+        items: props.recipe.recipe_items?.map(ri => ({
+          semi_finished_goods_id: ri.semi_finished_goods_id,
+          name: ri.semi_finished_goods?.name,
+          category: ri.semi_finished_goods?.category,
+          unit: ri.semi_finished_goods?.unit,
           quantity: ri.quantity,
-          calories_per_100g: ri.ingredient?.calories_per_100g,
-          protein_per_100g: ri.ingredient?.protein_per_100g,
-          carbs_per_100g: ri.ingredient?.carbs_per_100g,
-          fat_per_100g: ri.ingredient?.fat_per_100g
+          calories_per_100g: ri.semi_finished_goods?.calories_per_100g,
+          protein_per_100g: ri.semi_finished_goods?.protein_per_100g,
+          carbs_per_100g: ri.semi_finished_goods?.carbs_per_100g,
+          fat_per_100g: ri.semi_finished_goods?.fat_per_100g
         })) || []
       })
       calculateNutrition()
@@ -446,3 +509,25 @@ watch(() => props.visible, (newVal) => {
   }
 })
 </script>
+
+<style scoped>
+.text-muted {
+  color: #8c8c8c;
+  font-size: 11px;
+}
+
+.per-portion-summary {
+  padding: 12px;
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: 4px;
+}
+
+.per-portion-summary strong {
+  margin-right: 8px;
+}
+
+.per-portion-summary .ant-tag {
+  margin: 0 4px;
+}
+</style>

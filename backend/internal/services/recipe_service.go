@@ -43,10 +43,10 @@ func NewRecipeService(db *gorm.DB) *RecipeService {
 	}
 }
 
-// CreateRecipe creates a new recipe with nutrition calculation
-func (s *RecipeService) CreateRecipe(recipe *models.Recipe, ingredients []models.RecipeIngredient, userID uint) error {
-	// Calculate nutrition values
-	nutrition, err := s.CalculateNutrition(ingredients)
+// CreateRecipe creates a new recipe (menu) with semi-finished goods
+func (s *RecipeService) CreateRecipe(recipe *models.Recipe, items []models.RecipeItem, userID uint) error {
+	// Calculate nutrition values from semi-finished goods
+	nutrition, err := s.CalculateNutritionFromItems(items)
 	if err != nil {
 		return err
 	}
@@ -72,11 +72,11 @@ func (s *RecipeService) CreateRecipe(recipe *models.Recipe, ingredients []models
 			return err
 		}
 
-		// Create recipe ingredients
-		for i := range ingredients {
-			ingredients[i].RecipeID = recipe.ID
+		// Create recipe items (semi-finished goods)
+		for i := range items {
+			items[i].RecipeID = recipe.ID
 		}
-		if err := tx.Create(&ingredients).Error; err != nil {
+		if err := tx.Create(&items).Error; err != nil {
 			return err
 		}
 
@@ -84,10 +84,10 @@ func (s *RecipeService) CreateRecipe(recipe *models.Recipe, ingredients []models
 	})
 }
 
-// GetRecipeByID retrieves a recipe by ID with ingredients
+// GetRecipeByID retrieves a recipe by ID with semi-finished goods items
 func (s *RecipeService) GetRecipeByID(id uint) (*models.Recipe, error) {
 	var recipe models.Recipe
-	err := s.db.Preload("RecipeIngredients.Ingredient").
+	err := s.db.Preload("RecipeItems.SemiFinishedGoods").
 		Preload("Creator").
 		First(&recipe, id).Error
 	
@@ -104,7 +104,7 @@ func (s *RecipeService) GetRecipeByID(id uint) (*models.Recipe, error) {
 // GetAllRecipes retrieves all active recipes
 func (s *RecipeService) GetAllRecipes(activeOnly bool) ([]models.Recipe, error) {
 	var recipes []models.Recipe
-	query := s.db.Preload("RecipeIngredients.Ingredient").Preload("Creator")
+	query := s.db.Preload("RecipeItems.SemiFinishedGoods").Preload("Creator")
 	
 	if activeOnly {
 		query = query.Where("is_active = ?", true)
@@ -114,8 +114,8 @@ func (s *RecipeService) GetAllRecipes(activeOnly bool) ([]models.Recipe, error) 
 	return recipes, err
 }
 
-// UpdateRecipe updates an existing recipe and creates a new version
-func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, ingredients []models.RecipeIngredient, userID uint) error {
+// UpdateRecipe updates an existing recipe (menu) with semi-finished goods
+func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, items []models.RecipeItem, userID uint) error {
 	// Get existing recipe
 	existingRecipe, err := s.GetRecipeByID(id)
 	if err != nil {
@@ -123,7 +123,7 @@ func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, ingredient
 	}
 
 	// Calculate new nutrition values
-	nutrition, err := s.CalculateNutrition(ingredients)
+	nutrition, err := s.CalculateNutritionFromItems(items)
 	if err != nil {
 		return err
 	}
@@ -142,8 +142,8 @@ func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, ingredient
 
 	// Update recipe in transaction
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Delete old recipe ingredients
-		if err := tx.Where("recipe_id = ?", id).Delete(&models.RecipeIngredient{}).Error; err != nil {
+		// Delete old recipe items
+		if err := tx.Where("recipe_id = ?", id).Delete(&models.RecipeItem{}).Error; err != nil {
 			return err
 		}
 
@@ -163,11 +163,11 @@ func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, ingredient
 			return err
 		}
 
-		// Create new recipe ingredients
-		for i := range ingredients {
-			ingredients[i].RecipeID = id
+		// Create new recipe items (semi-finished goods)
+		for i := range items {
+			items[i].RecipeID = id
 		}
-		if err := tx.Create(&ingredients).Error; err != nil {
+		if err := tx.Create(&items).Error; err != nil {
 			return err
 		}
 
@@ -208,33 +208,32 @@ type NutritionValues struct {
 	TotalFat      float64
 }
 
-// CalculateNutrition calculates total nutritional values from ingredients
-func (s *RecipeService) CalculateNutrition(recipeIngredients []models.RecipeIngredient) (*NutritionValues, error) {
+// CalculateNutritionFromItems calculates total nutritional values from recipe items (semi-finished goods)
+func (s *RecipeService) CalculateNutritionFromItems(recipeItems []models.RecipeItem) (*NutritionValues, error) {
 	nutrition := &NutritionValues{}
 
-	for _, ri := range recipeIngredients {
-		// Get ingredient details if not preloaded
-		var ingredient models.Ingredient
-		if ri.Ingredient.ID == 0 {
-			if err := s.db.First(&ingredient, ri.IngredientID).Error; err != nil {
+	for _, item := range recipeItems {
+		// Get semi-finished goods details if not preloaded
+		var sfGoods models.SemiFinishedGoods
+		if item.SemiFinishedGoods.ID == 0 {
+			if err := s.db.First(&sfGoods, item.SemiFinishedGoodsID).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return nil, ErrIngredientNotFound
+					return nil, errors.New("barang setengah jadi tidak ditemukan")
 				}
 				return nil, err
 			}
 		} else {
-			ingredient = ri.Ingredient
+			sfGoods = item.SemiFinishedGoods
 		}
 
 		// Calculate nutrition based on quantity
-		// Assuming quantity is in grams for calculation purposes
 		// Nutrition values are per 100g, so we scale by (quantity / 100)
-		scaleFactor := ri.Quantity / 100.0
+		scaleFactor := item.Quantity / 100.0
 
-		nutrition.TotalCalories += ingredient.CaloriesPer100g * scaleFactor
-		nutrition.TotalProtein += ingredient.ProteinPer100g * scaleFactor
-		nutrition.TotalCarbs += ingredient.CarbsPer100g * scaleFactor
-		nutrition.TotalFat += ingredient.FatPer100g * scaleFactor
+		nutrition.TotalCalories += sfGoods.CaloriesPer100g * scaleFactor
+		nutrition.TotalProtein += sfGoods.ProteinPer100g * scaleFactor
+		nutrition.TotalCarbs += sfGoods.CarbsPer100g * scaleFactor
+		nutrition.TotalFat += sfGoods.FatPer100g * scaleFactor
 	}
 
 	return nutrition, nil
@@ -265,7 +264,7 @@ func (s *RecipeService) ValidateNutrition(recipe *models.Recipe) error {
 // SearchRecipes searches recipes by name or category
 func (s *RecipeService) SearchRecipes(query string, category string, activeOnly bool) ([]models.Recipe, error) {
 	var recipes []models.Recipe
-	db := s.db.Preload("RecipeIngredients.Ingredient").Preload("Creator")
+	db := s.db.Preload("RecipeItems.SemiFinishedGoods").Preload("Creator")
 
 	if activeOnly {
 		db = db.Where("is_active = ?", true)
@@ -281,4 +280,22 @@ func (s *RecipeService) SearchRecipes(query string, category string, activeOnly 
 
 	err := db.Order("created_at DESC").Find(&recipes).Error
 	return recipes, err
+}
+
+// GetAllIngredients retrieves all ingredients with optional search
+func (s *RecipeService) GetAllIngredients(search string) ([]models.Ingredient, error) {
+	var ingredients []models.Ingredient
+	db := s.db.Model(&models.Ingredient{})
+
+	if search != "" {
+		db = db.Where("LOWER(name) LIKE LOWER(?)", "%"+search+"%")
+	}
+
+	err := db.Order("name ASC").Find(&ingredients).Error
+	return ingredients, err
+}
+
+// CreateIngredient creates a new ingredient
+func (s *RecipeService) CreateIngredient(ingredient *models.Ingredient) error {
+	return s.db.Create(ingredient).Error
 }

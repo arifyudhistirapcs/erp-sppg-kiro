@@ -17,34 +17,40 @@ type Ingredient struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
-// Recipe represents a food recipe with nutritional information
+// Recipe represents a food menu/recipe that consists of semi-finished goods
+// Example: "Paket Ayam Goreng" consists of Nasi, Ayam Goreng, and Sambal
 type Recipe struct {
-	ID                uint               `gorm:"primaryKey" json:"id"`
-	Name              string             `gorm:"size:200;not null;index" json:"name" validate:"required"`
-	Category          string             `gorm:"size:50;index" json:"category"`
-	ServingSize       int                `gorm:"not null" json:"serving_size" validate:"required,gt=0"` // number of portions
-	Instructions      string             `gorm:"type:text" json:"instructions"`
-	TotalCalories     float64            `gorm:"not null" json:"total_calories"`
-	TotalProtein      float64            `gorm:"not null" json:"total_protein"`
-	TotalCarbs        float64            `gorm:"not null" json:"total_carbs"`
-	TotalFat          float64            `gorm:"not null" json:"total_fat"`
-	Version           int                `gorm:"default:1;not null" json:"version"`
-	IsActive          bool               `gorm:"default:true;index" json:"is_active"`
-	CreatedBy         uint               `gorm:"not null;index" json:"created_by"`
-	CreatedAt         time.Time          `json:"created_at"`
-	UpdatedAt         time.Time          `json:"updated_at"`
-	Creator           User               `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
-	RecipeIngredients []RecipeIngredient `gorm:"foreignKey:RecipeID" json:"recipe_ingredients,omitempty"`
+	ID                   uint                    `gorm:"primaryKey" json:"id"`
+	Name                 string                  `gorm:"size:200;not null;index" json:"name" validate:"required"`
+	Category             string                  `gorm:"size:50;index" json:"category"`
+	ServingSize          int                     `gorm:"not null" json:"serving_size" validate:"required,gt=0"` // number of portions
+	Instructions         string                  `gorm:"type:text" json:"instructions"`
+	TotalCalories        float64                 `gorm:"not null" json:"total_calories"`
+	TotalProtein         float64                 `gorm:"not null" json:"total_protein"`
+	TotalCarbs           float64                 `gorm:"not null" json:"total_carbs"`
+	TotalFat             float64                 `gorm:"not null" json:"total_fat"`
+	Version              int                     `gorm:"default:1;not null" json:"version"`
+	IsActive             bool                    `gorm:"default:true;index" json:"is_active"`
+	CreatedBy            uint                    `gorm:"not null;index" json:"created_by"`
+	CreatedAt            time.Time               `json:"created_at"`
+	UpdatedAt            time.Time               `json:"updated_at"`
+	Creator              User                    `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+	
+	// Relationships - Menu consists of SemiFinishedGoods
+	RecipeItems []RecipeItem `gorm:"foreignKey:RecipeID" json:"recipe_items,omitempty"`
 }
 
-// RecipeIngredient represents the many-to-many relationship between recipes and ingredients
-type RecipeIngredient struct {
-	ID           uint       `gorm:"primaryKey" json:"id"`
-	RecipeID     uint       `gorm:"index;not null" json:"recipe_id"`
-	IngredientID uint       `gorm:"index;not null" json:"ingredient_id"`
-	Quantity     float64    `gorm:"not null" json:"quantity" validate:"required,gt=0"` // in ingredient's unit
-	Recipe       Recipe     `gorm:"foreignKey:RecipeID" json:"recipe,omitempty"`
-	Ingredient   Ingredient `gorm:"foreignKey:IngredientID" json:"ingredient,omitempty"`
+// RecipeItem represents semi-finished goods used in a menu/recipe
+// Example: "Paket Ayam Goreng" uses 1 portion of Nasi, 1 portion of Ayam Goreng
+type RecipeItem struct {
+	ID                  uint              `gorm:"primaryKey" json:"id"`
+	RecipeID            uint              `gorm:"index;not null" json:"recipe_id"`
+	SemiFinishedGoodsID uint              `gorm:"index;not null" json:"semi_finished_goods_id"`
+	Quantity            float64           `gorm:"not null" json:"quantity" validate:"required,gt=0"` // quantity of semi-finished goods
+	
+	// Relationships
+	Recipe              Recipe            `gorm:"foreignKey:RecipeID" json:"recipe,omitempty"`
+	SemiFinishedGoods   SemiFinishedGoods `gorm:"foreignKey:SemiFinishedGoodsID" json:"semi_finished_goods,omitempty"`
 }
 
 // MenuPlan represents a weekly menu plan

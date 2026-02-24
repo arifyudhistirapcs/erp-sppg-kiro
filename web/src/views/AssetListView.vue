@@ -7,11 +7,15 @@
       <template #extra>
         <a-space>
           <a-button @click="exportReport" :loading="exporting">
-            <template #icon><ExportOutlined /></template>
+            <template #icon>
+              <ExportOutlined />
+            </template>
             Export Laporan
           </a-button>
           <a-button type="primary" @click="showCreateModal">
-            <template #icon><PlusOutlined /></template>
+            <template #icon>
+              <PlusOutlined />
+            </template>
             Tambah Aset
           </a-button>
         </a-space>

@@ -1,6 +1,8 @@
 package router
 
 import (
+	"log"
+
 	firebase "firebase.google.com/go/v4"
 	"github.com/erp-sppg/backend/internal/cache"
 	"github.com/erp-sppg/backend/internal/config"
@@ -92,6 +94,29 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				recipes.GET("/:id/history", recipeHandler.GetRecipeHistory)
 			}
 
+			// Ingredient routes
+			ingredients := protected.Group("/ingredients")
+			if cacheService != nil {
+				ingredients.Use(middleware.ConditionalCacheMiddleware(cacheService, middleware.CacheForReadOnlyOperations, cache.LongCacheDuration))
+			}
+			{
+				ingredients.GET("", recipeHandler.GetAllIngredients)
+				ingredients.POST("", recipeHandler.CreateIngredient)
+			}
+
+			// Semi-Finished Goods routes
+			semiFinishedHandler := handlers.NewSemiFinishedHandler(db)
+			semiFinished := protected.Group("/semi-finished")
+			{
+				semiFinished.GET("", semiFinishedHandler.GetAllSemiFinishedGoods)
+				semiFinished.POST("", semiFinishedHandler.CreateSemiFinishedGoods)
+				semiFinished.GET("/:id", semiFinishedHandler.GetSemiFinishedGoods)
+				semiFinished.PUT("/:id", semiFinishedHandler.UpdateSemiFinishedGoods)
+				semiFinished.DELETE("/:id", semiFinishedHandler.DeleteSemiFinishedGoods)
+				semiFinished.POST("/:id/produce", semiFinishedHandler.ProduceSemiFinishedGoods)
+				semiFinished.GET("/inventory", semiFinishedHandler.GetSemiFinishedInventory)
+			}
+
 			// Menu Planning routes
 			menuPlanningHandler := handlers.NewMenuPlanningHandler(db)
 			menuPlans := protected.Group("/menu-plans")
@@ -160,6 +185,7 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 			// Goods Receipt routes
 			goodsReceipts := protected.Group("/goods-receipts")
 			{
+				goodsReceipts.GET("", supplyChainHandler.GetAllGoodsReceipts)
 				goodsReceipts.POST("", supplyChainHandler.CreateGoodsReceipt)
 				goodsReceipts.GET("/:id", supplyChainHandler.GetGoodsReceipt)
 				goodsReceipts.POST("/:id/upload-invoice", supplyChainHandler.UploadInvoicePhoto)
@@ -175,6 +201,7 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				inventory.GET("", supplyChainHandler.GetInventory)
 				inventory.GET("/alerts", supplyChainHandler.GetInventoryAlerts)
 				inventory.GET("/movements", supplyChainHandler.GetInventoryMovements)
+				inventory.POST("/initialize", supplyChainHandler.InitializeInventory)
 			}
 
 			// Logistics routes
@@ -303,10 +330,10 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				financialReports.POST("/export", financialHandler.ExportFinancialReport)
 			}
 
-			// Dashboard routes
+			// Dashboard routes (works with or without Firebase)
 			dashboardHandler, err := handlers.NewDashboardHandler(db, firebaseApp)
 			if err != nil {
-				panic("Failed to initialize Dashboard handler: " + err.Error())
+				log.Printf("Warning: Dashboard handler initialization failed: %v. Using dummy data mode.", err)
 			}
 			dashboard := protected.Group("/dashboard")
 			// Apply dashboard caching middleware

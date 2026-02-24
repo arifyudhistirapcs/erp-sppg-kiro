@@ -254,7 +254,11 @@ const formatDate = (date) => {
 }
 
 const getMenuItemsForDay = (date) => {
-  return menuItems.value.filter(item => item.date === date)
+  return menuItems.value.filter(item => {
+    // Handle both ISO format and YYYY-MM-DD format
+    const itemDate = dayjs(item.date).format('YYYY-MM-DD')
+    return itemDate === date
+  })
 }
 
 const getDailyNutrition = (date, type) => {
@@ -308,17 +312,23 @@ const isDailyNutritionValid = (date) => {
 const loadMenuPlan = async () => {
   loading.value = true
   try {
-    const weekStart = selectedWeekStart.value.format('YYYY-MM-DD')
-    const weekEnd = selectedWeekStart.value.add(6, 'day').format('YYYY-MM-DD')
+    const response = await menuPlanningService.getMenuPlans()
     
-    const response = await menuPlanningService.getMenuPlans({
-      week_start: weekStart,
-      week_end: weekEnd
-    })
-    
-    if (response.data.data && response.data.data.length > 0) {
-      currentMenuPlan.value = response.data.data[0]
-      menuItems.value = currentMenuPlan.value.menu_items || []
+    if (response.data.menu_plans && response.data.menu_plans.length > 0) {
+      // Find menu plan for current week
+      const weekStart = selectedWeekStart.value.format('YYYY-MM-DD')
+      const plan = response.data.menu_plans.find(p => {
+        const planStart = dayjs(p.week_start).format('YYYY-MM-DD')
+        return planStart === weekStart
+      })
+      
+      if (plan) {
+        currentMenuPlan.value = plan
+        menuItems.value = plan.menu_items || []
+      } else {
+        currentMenuPlan.value = null
+        menuItems.value = []
+      }
     } else {
       currentMenuPlan.value = null
       menuItems.value = []
@@ -335,7 +345,7 @@ const loadMenuPlan = async () => {
 const loadRecipes = async () => {
   try {
     const response = await recipeService.getRecipes({ is_active: true })
-    availableRecipes.value = response.data.data || []
+    availableRecipes.value = response.data.recipes || []
   } catch (error) {
     message.error('Gagal memuat data resep')
     console.error('Error loading recipes:', error)
@@ -350,17 +360,26 @@ const showCreateModal = async () => {
   
   try {
     const weekStart = selectedWeekStart.value.format('YYYY-MM-DD')
-    const weekEnd = selectedWeekStart.value.add(6, 'day').format('YYYY-MM-DD')
+    
+    // Create initial menu items for each day (Mon-Fri)
+    const menuItems = []
+    for (let i = 0; i < 5; i++) {
+      const dayDate = selectedWeekStart.value.add(i, 'day')
+      menuItems.push({
+        date: dayDate.format('YYYY-MM-DD'),
+        recipe_id: recipes.value[0]?.id || 1,
+        portions: 100
+      })
+    }
     
     const response = await menuPlanningService.createMenuPlan({
       week_start: weekStart,
-      week_end: weekEnd,
-      status: 'draft'
+      menu_items: menuItems
     })
     
-    currentMenuPlan.value = response.data.data
-    menuItems.value = []
+    currentMenuPlan.value = response.data.menu_plan
     message.success('Menu mingguan baru berhasil dibuat')
+    loadMenuPlan()
   } catch (error) {
     message.error('Gagal membuat menu mingguan')
     console.error('Error creating menu plan:', error)
@@ -446,9 +465,9 @@ const saveMenuPlan = async (items) => {
       }))
     }
     
-    const response = await menuPlanningService.updateMenuPlan(currentMenuPlan.value.id, payload)
-    currentMenuPlan.value = response.data.data
-    menuItems.value = response.data.data.menu_items || []
+    await menuPlanningService.updateMenuPlan(currentMenuPlan.value.id, payload)
+    // Reload menu plan to get updated data
+    await loadMenuPlan()
   } catch (error) {
     throw error
   }
@@ -488,28 +507,30 @@ const duplicatePreviousWeek = async () => {
   }
   
   try {
-    const previousWeekStart = selectedWeekStart.value.subtract(7, 'day').format('YYYY-MM-DD')
-    const previousWeekEnd = selectedWeekStart.value.subtract(1, 'day').format('YYYY-MM-DD')
+    const response = await menuPlanningService.getMenuPlans()
     
-    const response = await menuPlanningService.getMenuPlans({
-      week_start: previousWeekStart,
-      week_end: previousWeekEnd
-    })
-    
-    if (!response.data.data || response.data.data.length === 0) {
+    if (!response.data.menu_plans || response.data.menu_plans.length === 0) {
       message.warning('Tidak ada menu minggu lalu untuk diduplikat')
       return
     }
     
-    const previousMenu = response.data.data[0]
+    // Find menu from previous week
+    const previousWeekStart = selectedWeekStart.value.subtract(7, 'day').format('YYYY-MM-DD')
+    const previousMenu = response.data.menu_plans.find(p => {
+      const planStart = dayjs(p.week_start).format('YYYY-MM-DD')
+      return planStart === previousWeekStart
+    })
+    
+    if (!previousMenu) {
+      message.warning('Tidak ada menu minggu lalu untuk diduplikat')
+      return
+    }
+    
     const weekStart = selectedWeekStart.value.format('YYYY-MM-DD')
-    const weekEnd = selectedWeekStart.value.add(6, 'day').format('YYYY-MM-DD')
     
     // Create new menu with items from previous week
     const newMenuResponse = await menuPlanningService.createMenuPlan({
       week_start: weekStart,
-      week_end: weekEnd,
-      status: 'draft',
       menu_items: previousMenu.menu_items?.map(item => {
         // Calculate date offset
         const oldDate = dayjs(item.date)
@@ -523,8 +544,8 @@ const duplicatePreviousWeek = async () => {
       }) || []
     })
     
-    currentMenuPlan.value = newMenuResponse.data.data
-    menuItems.value = newMenuResponse.data.data.menu_items || []
+    currentMenuPlan.value = newMenuResponse.data.menu_plan
+    menuItems.value = newMenuResponse.data.menu_plan.menu_items || []
     message.success('Menu minggu lalu berhasil diduplikat')
   } catch (error) {
     message.error('Gagal menduplikat menu minggu lalu')

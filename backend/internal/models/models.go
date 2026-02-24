@@ -7,10 +7,15 @@ func AllModels() []interface{} {
 		&User{},
 		&AuditTrail{},
 		
-		// Recipe & Menu Planning
+		// Recipe & Menu Planning - Ingredients & Semi-Finished Goods
 		&Ingredient{},
+		&SemiFinishedGoods{},
+		&SemiFinishedRecipe{},
+		&SemiFinishedRecipeIngredient{},
+		&SemiFinishedInventory{},
+		&SemiFinishedProductionLog{},
 		&Recipe{},
-		&RecipeIngredient{},
+		&RecipeItem{},
 		&MenuPlan{},
 		&MenuItem{},
 		

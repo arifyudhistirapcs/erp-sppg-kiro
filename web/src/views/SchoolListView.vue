@@ -398,7 +398,7 @@ const fetchSchools = async () => {
       is_active: filterStatus.value
     }
     const response = await schoolService.getSchools(params)
-    schools.value = response.data.data || []
+    schools.value = response.data.schools || []
     pagination.total = response.data.total || 0
   } catch (error) {
     message.error('Gagal memuat data sekolah')

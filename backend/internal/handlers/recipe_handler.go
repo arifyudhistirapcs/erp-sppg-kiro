@@ -12,32 +12,40 @@ import (
 
 // RecipeHandler handles recipe endpoints
 type RecipeHandler struct {
-	recipeService *services.RecipeService
+	recipeService    *services.RecipeService
+	inventoryService *services.InventoryService
 }
 
 // NewRecipeHandler creates a new recipe handler
 func NewRecipeHandler(db *gorm.DB) *RecipeHandler {
 	return &RecipeHandler{
-		recipeService: services.NewRecipeService(db),
+		recipeService:    services.NewRecipeService(db),
+		inventoryService: services.NewInventoryService(db),
 	}
 }
 
-// CreateRecipeRequest represents create recipe request
+// CreateRecipeRequest represents create recipe (menu) request
 type CreateRecipeRequest struct {
-	Name         string                       `json:"name" binding:"required"`
-	Category     string                       `json:"category"`
-	ServingSize  int                          `json:"serving_size" binding:"required,gt=0"`
-	Instructions string                       `json:"instructions"`
-	Ingredients  []RecipeIngredientRequest    `json:"ingredients" binding:"required,min=1"`
+	Name              string                    `json:"name" binding:"required"`
+	Category          string                    `json:"category"`
+	ServingSize       int                       `json:"serving_size" binding:"required,gt=0"`
+	Instructions      string                    `json:"instructions"`
+	Items             []RecipeItemRequest       `json:"items" binding:"required,min=1"`
 }
 
-// RecipeIngredientRequest represents ingredient in recipe request
+// RecipeItemRequest represents semi-finished goods item in recipe request
+type RecipeItemRequest struct {
+	SemiFinishedGoodsID uint    `json:"semi_finished_goods_id" binding:"required"`
+	Quantity            float64 `json:"quantity" binding:"required,gt=0"`
+}
+
+// RecipeIngredientRequest represents ingredient in recipe request (legacy)
 type RecipeIngredientRequest struct {
 	IngredientID uint    `json:"ingredient_id" binding:"required"`
 	Quantity     float64 `json:"quantity" binding:"required,gt=0"`
 }
 
-// CreateRecipe creates a new recipe
+// CreateRecipe creates a new recipe (menu)
 func (h *RecipeHandler) CreateRecipe(c *gin.Context) {
 	var req CreateRecipeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -61,17 +69,17 @@ func (h *RecipeHandler) CreateRecipe(c *gin.Context) {
 		Instructions: req.Instructions,
 	}
 
-	// Create recipe ingredients
-	var ingredients []models.RecipeIngredient
-	for _, ing := range req.Ingredients {
-		ingredients = append(ingredients, models.RecipeIngredient{
-			IngredientID: ing.IngredientID,
-			Quantity:     ing.Quantity,
+	// Create recipe items (semi-finished goods)
+	var items []models.RecipeItem
+	for _, item := range req.Items {
+		items = append(items, models.RecipeItem{
+			SemiFinishedGoodsID: item.SemiFinishedGoodsID,
+			Quantity:            item.Quantity,
 		})
 	}
 
 	// Create recipe
-	if err := h.recipeService.CreateRecipe(recipe, ingredients, userID.(uint)); err != nil {
+	if err := h.recipeService.CreateRecipe(recipe, items, userID.(uint)); err != nil {
 		if err == services.ErrInsufficientNutrition {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"success":    false,
@@ -206,17 +214,17 @@ func (h *RecipeHandler) UpdateRecipe(c *gin.Context) {
 		Instructions: req.Instructions,
 	}
 
-	// Create recipe ingredients
-	var ingredients []models.RecipeIngredient
-	for _, ing := range req.Ingredients {
-		ingredients = append(ingredients, models.RecipeIngredient{
-			IngredientID: ing.IngredientID,
-			Quantity:     ing.Quantity,
+	// Create recipe items (semi-finished goods)
+	var items []models.RecipeItem
+	for _, item := range req.Items {
+		items = append(items, models.RecipeItem{
+			SemiFinishedGoodsID: item.SemiFinishedGoodsID,
+			Quantity:            item.Quantity,
 		})
 	}
 
 	// Update recipe
-	if err := h.recipeService.UpdateRecipe(uint(id), recipe, ingredients, userID.(uint)); err != nil {
+	if err := h.recipeService.UpdateRecipe(uint(id), recipe, items, userID.(uint)); err != nil {
 		if err == services.ErrRecipeNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"success":    false,
@@ -376,5 +384,85 @@ func (h *RecipeHandler) GetRecipeHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"history": history,
+	})
+}
+
+// GetAllIngredients retrieves all ingredients
+func (h *RecipeHandler) GetAllIngredients(c *gin.Context) {
+	search := c.Query("search")
+	
+	ingredients, err := h.recipeService.GetAllIngredients(search)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan pada server",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    ingredients,
+	})
+}
+
+// CreateIngredientRequest represents create ingredient request
+type CreateIngredientRequest struct {
+	Name            string  `json:"name" binding:"required"`
+	Unit            string  `json:"unit" binding:"required"`
+	CaloriesPer100g float64 `json:"calories_per_100g" binding:"required,gte=0"`
+	ProteinPer100g  float64 `json:"protein_per_100g" binding:"required,gte=0"`
+	CarbsPer100g    float64 `json:"carbs_per_100g" binding:"required,gte=0"`
+	FatPer100g      float64 `json:"fat_per_100g" binding:"required,gte=0"`
+}
+
+// CreateIngredient creates a new ingredient
+func (h *RecipeHandler) CreateIngredient(c *gin.Context) {
+	var req CreateIngredientRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "VALIDATION_ERROR",
+			"message":    "Data tidak valid",
+			"details":    err.Error(),
+		})
+		return
+	}
+
+	ingredient := &models.Ingredient{
+		Name:            req.Name,
+		Unit:            req.Unit,
+		CaloriesPer100g: req.CaloriesPer100g,
+		ProteinPer100g:  req.ProteinPer100g,
+		CarbsPer100g:    req.CarbsPer100g,
+		FatPer100g:      req.FatPer100g,
+	}
+
+	if err := h.recipeService.CreateIngredient(ingredient); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan pada server",
+		})
+		return
+	}
+
+	// Initialize inventory for the new ingredient
+	if err := h.inventoryService.InitializeInventoryForIngredient(ingredient.ID); err != nil {
+		// Log error but don't fail the request
+		// The inventory can be initialized later
+		c.JSON(http.StatusCreated, gin.H{
+			"success": true,
+			"message": "Bahan berhasil ditambahkan (inventory belum diinisialisasi)",
+			"data":    ingredient,
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Bahan berhasil ditambahkan",
+		"data":    ingredient,
 	})
 }

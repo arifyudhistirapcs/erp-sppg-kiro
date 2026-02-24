@@ -19,6 +19,11 @@ const inventoryService = {
   // Get inventory movements with filters
   getInventoryMovements(params = {}) {
     return api.get('/inventory/movements', { params })
+  },
+
+  // Initialize inventory for all ingredients
+  initializeInventory() {
+    return api.post('/inventory/initialize')
   }
 }
 

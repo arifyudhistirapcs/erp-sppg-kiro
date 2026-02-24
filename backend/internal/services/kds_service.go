@@ -33,19 +33,19 @@ func NewKDSService(database *gorm.DB, firebaseApp *firebase.App) (*KDSService, e
 	}, nil
 }
 
-// RecipeStatus represents the cooking status of a recipe
+// RecipeStatus represents the cooking status of a recipe (menu)
 type RecipeStatus struct {
-	RecipeID        uint      `json:"recipe_id"`
-	Name            string    `json:"name"`
-	Status          string    `json:"status"` // pending, cooking, ready
-	StartTime       *int64    `json:"start_time,omitempty"`
-	PortionsRequired int      `json:"portions_required"`
-	Instructions    string    `json:"instructions"`
-	Ingredients     []IngredientQuantity `json:"ingredients"`
+	RecipeID         uint                    `json:"recipe_id"`
+	Name             string                  `json:"name"`
+	Status           string                  `json:"status"` // pending, cooking, ready
+	StartTime        *int64                  `json:"start_time,omitempty"`
+	PortionsRequired int                     `json:"portions_required"`
+	Instructions     string                  `json:"instructions"`
+	Items            []SemiFinishedQuantity  `json:"items"` // Semi-finished goods needed
 }
 
-// IngredientQuantity represents ingredient with quantity for display
-type IngredientQuantity struct {
+// SemiFinishedQuantity represents semi-finished goods with quantity for display
+type SemiFinishedQuantity struct {
 	Name     string  `json:"name"`
 	Quantity float64 `json:"quantity"`
 	Unit     string  `json:"unit"`
@@ -67,8 +67,8 @@ func (s *KDSService) GetTodayMenu(ctx context.Context) ([]RecipeStatus, error) {
 	var menuItems []models.MenuItem
 	err := s.db.WithContext(ctx).
 		Preload("Recipe").
-		Preload("Recipe.RecipeIngredients").
-		Preload("Recipe.RecipeIngredients.Ingredient").
+		Preload("Recipe.RecipeItems").
+		Preload("Recipe.RecipeItems.SemiFinishedGoods").
 		Preload("MenuPlan").
 		Joins("JOIN menu_plans ON menu_items.menu_plan_id = menu_plans.id").
 		Where("menu_plans.status = ?", "approved").
@@ -82,12 +82,12 @@ func (s *KDSService) GetTodayMenu(ctx context.Context) ([]RecipeStatus, error) {
 	// Convert to RecipeStatus format
 	recipeStatuses := make([]RecipeStatus, 0, len(menuItems))
 	for _, item := range menuItems {
-		ingredients := make([]IngredientQuantity, 0, len(item.Recipe.RecipeIngredients))
-		for _, ri := range item.Recipe.RecipeIngredients {
-			ingredients = append(ingredients, IngredientQuantity{
-				Name:     ri.Ingredient.Name,
+		items := make([]SemiFinishedQuantity, 0, len(item.Recipe.RecipeItems))
+		for _, ri := range item.Recipe.RecipeItems {
+			items = append(items, SemiFinishedQuantity{
+				Name:     ri.SemiFinishedGoods.Name,
 				Quantity: ri.Quantity,
-				Unit:     ri.Ingredient.Unit,
+				Unit:     ri.SemiFinishedGoods.Unit,
 			})
 		}
 
@@ -97,7 +97,7 @@ func (s *KDSService) GetTodayMenu(ctx context.Context) ([]RecipeStatus, error) {
 			Status:          "pending",
 			PortionsRequired: item.Portions,
 			Instructions:    item.Recipe.Instructions,
-			Ingredients:     ingredients,
+			Items:           items,
 		})
 	}
 
@@ -158,7 +158,7 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 	return nil
 }
 
-// deductInventory deducts ingredients from inventory when cooking starts
+// deductInventory deducts semi-finished goods from inventory when cooking starts
 func (s *KDSService) deductInventory(ctx context.Context, recipe *models.Recipe, userID uint) error {
 	// Start transaction
 	tx := s.db.WithContext(ctx).Begin()
@@ -168,34 +168,35 @@ func (s *KDSService) deductInventory(ctx context.Context, recipe *models.Recipe,
 		}
 	}()
 
-	for _, ri := range recipe.RecipeIngredients {
-		// Get current inventory
-		var inventoryItem models.InventoryItem
-		err := tx.Where("ingredient_id = ?", ri.IngredientID).First(&inventoryItem).Error
+	for _, ri := range recipe.RecipeItems {
+		// Get current semi-finished inventory
+		var sfInventory models.SemiFinishedInventory
+		err := tx.Where("semi_finished_goods_id = ?", ri.SemiFinishedGoodsID).First(&sfInventory).Error
 		if err != nil {
 			tx.Rollback()
-			return fmt.Errorf("failed to get inventory for ingredient %d: %w", ri.IngredientID, err)
+			return fmt.Errorf("failed to get inventory for semi-finished goods %d: %w", ri.SemiFinishedGoodsID, err)
 		}
 
 		// Check if sufficient quantity
-		if inventoryItem.Quantity < ri.Quantity {
+		if sfInventory.Quantity < ri.Quantity {
 			tx.Rollback()
-			return fmt.Errorf("insufficient inventory for ingredient %s: have %.2f, need %.2f",
-				ri.Ingredient.Name, inventoryItem.Quantity, ri.Quantity)
+			return fmt.Errorf("insufficient inventory for %s: have %.2f, need %.2f",
+				ri.SemiFinishedGoods.Name, sfInventory.Quantity, ri.Quantity)
 		}
 
 		// Deduct quantity
-		inventoryItem.Quantity -= ri.Quantity
-		inventoryItem.LastUpdated = time.Now()
-		err = tx.Save(&inventoryItem).Error
+		sfInventory.Quantity -= ri.Quantity
+		sfInventory.LastUpdated = time.Now()
+		err = tx.Save(&sfInventory).Error
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to update inventory: %w", err)
 		}
 
-		// Record inventory movement
+		// Record semi-finished inventory movement (we'll reuse InventoryMovement for now with negative reference)
+		// In a real implementation, you might want a separate movement table for semi-finished goods
 		movement := models.InventoryMovement{
-			IngredientID: ri.IngredientID,
+			IngredientID: ri.SemiFinishedGoodsID, // Using semi_finished_goods_id in ingredient_id field temporarily
 			MovementType: "out",
 			Quantity:     ri.Quantity,
 			Reference:    fmt.Sprintf("recipe_%d", recipe.ID),
@@ -232,7 +233,7 @@ func (s *KDSService) SyncTodayMenuToFirebase(ctx context.Context) error {
 			"status":            rs.Status,
 			"portions_required": rs.PortionsRequired,
 			"instructions":      rs.Instructions,
-			"ingredients":       rs.Ingredients,
+			"items":             rs.Items,
 		}
 	}
 

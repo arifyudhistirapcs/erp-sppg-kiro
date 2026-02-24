@@ -201,15 +201,14 @@ const fetchRecipes = async () => {
   loading.value = true
   try {
     const params = {
-      page: pagination.current,
-      page_size: pagination.pageSize,
-      search: searchText.value || undefined,
-      category: filterCategory.value || undefined
+      q: searchText.value || undefined,
+      category: filterCategory.value || undefined,
+      active_only: false
     }
     
     const response = await recipeService.getRecipes(params)
-    recipes.value = response.data.data || []
-    pagination.total = response.data.total || 0
+    recipes.value = response.data.recipes || []
+    pagination.total = recipes.value.length
   } catch (error) {
     message.error('Gagal memuat data resep')
     console.error('Error fetching recipes:', error)

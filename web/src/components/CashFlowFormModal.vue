@@ -150,6 +150,19 @@ const rules = {
   ]
 }
 
+// Define resetForm before it's used in watch
+const resetForm = () => {
+  Object.assign(formData, {
+    date: dayjs(),
+    category: '',
+    type: '',
+    amount: 0,
+    description: '',
+    reference: ''
+  })
+  formRef.value?.resetFields()
+}
+
 // Watch for cashFlow prop changes to populate form
 watch(() => props.cashFlow, (newCashFlow) => {
   if (newCashFlow) {
@@ -202,18 +215,6 @@ const handleSubmit = async () => {
 const handleCancel = () => {
   emit('update:visible', false)
   resetForm()
-}
-
-const resetForm = () => {
-  Object.assign(formData, {
-    date: dayjs(),
-    category: '',
-    type: '',
-    amount: 0,
-    description: '',
-    reference: ''
-  })
-  formRef.value?.resetFields()
 }
 
 const getCategoryColor = (category) => {

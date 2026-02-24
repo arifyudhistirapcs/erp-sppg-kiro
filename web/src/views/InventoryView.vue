@@ -80,10 +80,16 @@
                 </a-select>
               </a-col>
               <a-col :span="6">
-                <a-button type="default" @click="fetchInventory" block>
-                  <template #icon><ReloadOutlined /></template>
-                  Refresh
-                </a-button>
+                <a-space style="width: 100%">
+                  <a-button type="default" @click="fetchInventory">
+                    <template #icon><ReloadOutlined /></template>
+                    Refresh
+                  </a-button>
+                  <a-button type="primary" @click="initializeInventory">
+                    <template #icon><PlusOutlined /></template>
+                    Inisialisasi Bahan Baru
+                  </a-button>
+                </a-space>
               </a-col>
             </a-row>
 
@@ -297,7 +303,8 @@ import {
   CheckCircleOutlined,
   InboxOutlined,
   ClockCircleOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  PlusOutlined
 } from '@ant-design/icons-vue'
 import inventoryService from '@/services/inventoryService'
 
@@ -432,8 +439,9 @@ const fetchInventory = async () => {
       stock_level: filterStockLevel.value
     }
     const response = await inventoryService.getInventory(params)
-    inventory.value = response.data.data || []
-    pagination.total = response.data.total || 0
+    // Backend sends inventory_items, not data
+    inventory.value = response.data.inventory_items || []
+    pagination.total = inventory.value.length
   } catch (error) {
     message.error('Gagal memuat data inventory')
     console.error(error)
@@ -446,7 +454,7 @@ const fetchLowStockAlerts = async () => {
   loadingAlerts.value = true
   try {
     const response = await inventoryService.getLowStockAlerts()
-    lowStockAlerts.value = response.data.data || []
+    lowStockAlerts.value = response.data.alerts || []
   } catch (error) {
     message.error('Gagal memuat alert stok menipis')
     console.error(error)
@@ -471,7 +479,7 @@ const fetchMovements = async () => {
     }
     
     const response = await inventoryService.getInventoryMovements(params)
-    movements.value = response.data.data || []
+    movements.value = response.data.movements || []
     movementPagination.total = response.data.total || 0
   } catch (error) {
     message.error('Gagal memuat riwayat pergerakan')
@@ -490,7 +498,7 @@ const viewMovements = async (item) => {
     const response = await inventoryService.getInventoryMovements({
       ingredient_id: item.ingredient_id
     })
-    itemMovements.value = response.data.data || []
+    itemMovements.value = response.data.movements || []
   } catch (error) {
     message.error('Gagal memuat riwayat pergerakan')
     console.error(error)
@@ -514,6 +522,17 @@ const handleMovementTableChange = (pag, filters, sorter) => {
 const handleSearch = () => {
   pagination.current = 1
   fetchInventory()
+}
+
+const initializeInventory = async () => {
+  try {
+    await inventoryService.initializeInventory()
+    message.success('Inventory berhasil diinisialisasi')
+    fetchInventory()
+  } catch (error) {
+    message.error('Gagal menginisialisasi inventory')
+    console.error(error)
+  }
 }
 
 const createPOForItem = (item) => {

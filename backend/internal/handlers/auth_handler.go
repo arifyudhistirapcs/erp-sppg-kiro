@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"net/http"
+	"os"
+	"strconv"
 
+	"github.com/erp-sppg/backend/internal/middleware"
 	"github.com/erp-sppg/backend/internal/services"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -20,6 +23,19 @@ func NewAuthHandler(db *gorm.DB, jwtSecret string) *AuthHandler {
 		authService:  services.NewAuthService(db, jwtSecret),
 		auditService: services.NewAuditTrailService(db),
 	}
+}
+
+// getSessionTimeoutMinutes returns the session timeout from env or default
+func getSessionTimeoutMinutes() int {
+	timeoutStr := os.Getenv("SESSION_TIMEOUT_MINUTES")
+	if timeoutStr == "" {
+		return 30
+	}
+	timeout, err := strconv.Atoi(timeoutStr)
+	if err != nil {
+		return 30
+	}
+	return timeout
 }
 
 // LoginRequest represents login request body
@@ -92,6 +108,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Record login in audit trail
 	ipAddress := c.ClientIP()
 	h.auditService.RecordLogin(user.ID, ipAddress)
+
+	// Create session for the user
+	sessionManager := middleware.GetSessionManager(getSessionTimeoutMinutes())
+	sessionManager.UpdateActivity(user.ID)
 
 	// Return success response
 	c.JSON(http.StatusOK, LoginResponse{

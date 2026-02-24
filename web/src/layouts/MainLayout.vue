@@ -125,6 +125,7 @@ import { ref, computed, onMounted, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { message } from 'ant-design-vue'
+import api from '@/services/api'
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -168,10 +169,11 @@ const userRole = computed(() => {
 
 const pageTitle = computed(() => {
   const titles = {
-    '/dashboard': 'Dashboard',
     '/dashboard/kepala-sppg': 'Dashboard Kepala SPPG',
     '/dashboard/kepala-yayasan': 'Dashboard Kepala Yayasan',
     '/recipes': 'Manajemen Resep',
+    '/ingredients': 'Manajemen Bahan',
+    '/semi-finished': 'Barang Setengah Jadi',
     '/menu-planning': 'Perencanaan Menu',
     '/kds': 'Kitchen Display System',
     '/suppliers': 'Manajemen Supplier',
@@ -206,11 +208,6 @@ const getMenuItems = () => {
       roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan'],
       children: [
         {
-          key: '/dashboard',
-          label: 'Dashboard Umum',
-          roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan']
-        },
-        {
           key: '/dashboard/kepala-sppg',
           label: 'Dashboard Kepala SPPG',
           roles: ['kepala_sppg']
@@ -232,6 +229,16 @@ const getMenuItems = () => {
           key: '/recipes',
           label: 'Manajemen Resep',
           roles: ['kepala_sppg', 'ahli_gizi']
+        },
+        {
+          key: '/ingredients',
+          label: 'Manajemen Bahan',
+          roles: ['kepala_sppg', 'ahli_gizi']
+        },
+        {
+          key: '/semi-finished',
+          label: 'Barang Setengah Jadi',
+          roles: ['kepala_sppg', 'ahli_gizi', 'chef']
         },
         {
           key: '/menu-planning',
@@ -425,14 +432,9 @@ const showNotifications = () => {
 const loadNotifications = async () => {
   loadingNotifications.value = true
   try {
-    // TODO: Implement API call to fetch notifications
-    // const response = await api.get('/notifications')
-    // notifications.value = response.data.notifications
-    // unreadCount.value = response.data.unreadCount
-    
-    // Mock data for now
-    notifications.value = []
-    unreadCount.value = 0
+    const response = await api.get('/notifications')
+    notifications.value = response.data.data || []
+    unreadCount.value = notifications.value.filter(n => !n.is_read).length
   } catch (error) {
     console.error('Failed to load notifications:', error)
   } finally {
@@ -441,9 +443,20 @@ const loadNotifications = async () => {
 }
 
 const handleNotificationClick = async (notification) => {
-  // TODO: Mark notification as read and navigate to link
-  if (notification.link) {
-    router.push(notification.link)
+  try {
+    // Mark notification as read
+    if (!notification.is_read) {
+      await api.put(`/notifications/${notification.id}/read`)
+      notification.is_read = true
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
+    
+    // Navigate to link if provided
+    if (notification.link) {
+      router.push(notification.link)
+    }
+  } catch (error) {
+    console.error('Failed to mark notification as read:', error)
   }
   notificationsVisible.value = false
 }

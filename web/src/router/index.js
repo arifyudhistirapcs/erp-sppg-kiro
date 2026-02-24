@@ -61,6 +61,26 @@ const router = createRouter({
           }
         },
         {
+          path: 'ingredients',
+          name: 'ingredients',
+          component: () => import('@/views/IngredientListView.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'ahli_gizi'],
+            title: 'Manajemen Bahan'
+          }
+        },
+        {
+          path: 'semi-finished',
+          name: 'semi-finished',
+          component: () => import('@/views/SemiFinishedGoodsView.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'ahli_gizi', 'chef'],
+            title: 'Barang Setengah Jadi'
+          }
+        },
+        {
           path: 'menu-planning',
           name: 'menu-planning',
           component: () => import('@/views/MenuPlanningView.vue'),
