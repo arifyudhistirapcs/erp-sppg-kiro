@@ -202,6 +202,7 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				inventory.GET("/alerts", supplyChainHandler.GetInventoryAlerts)
 				inventory.GET("/movements", supplyChainHandler.GetInventoryMovements)
 				inventory.POST("/initialize", supplyChainHandler.InitializeInventory)
+			inventory.POST("/initialize/:ingredient_id", supplyChainHandler.InitializeInventoryItem)
 			}
 
 			// Logistics routes

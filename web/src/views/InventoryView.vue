@@ -291,6 +291,37 @@
         </template>
       </a-table>
     </a-modal>
+
+    <!-- Initialize Ingredient Modal -->
+    <a-modal
+      v-model:open="initModalVisible"
+      title="Inisialisasi Bahan Baru"
+      width="600px"
+      @ok="handleInitialize"
+      :confirm-loading="initLoading"
+      ok-text="Inisialisasi"
+      cancel-text="Batal"
+    >
+      <a-spin :spinning="initLoading">
+        <p class="mb-4">Pilih bahan yang ingin ditambahkan ke inventory:</p>
+        <a-table
+          :columns="initColumns"
+          :data-source="availableIngredients"
+          :loading="loadingAvailable"
+          :pagination="{ pageSize: 5 }"
+          size="small"
+          row-key="id"
+          :row-selection="{ selectedRowKeys: selectedIngredientKeys, onChange: onSelectChange }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'unit'">
+              <a-tag>{{ record.unit }}</a-tag>
+            </template>
+          </template>
+        </a-table>
+        <a-empty v-if="!loadingAvailable && availableIngredients.length === 0" description="Semua bahan sudah ada di inventory" />
+      </a-spin>
+    </a-modal>
   </div>
 </template>
 
@@ -307,6 +338,7 @@ import {
   PlusOutlined
 } from '@ant-design/icons-vue'
 import inventoryService from '@/services/inventoryService'
+import recipeService from '@/services/recipeService'
 
 const router = useRouter()
 const activeTab = ref('inventory')
@@ -340,6 +372,28 @@ const movementFilters = reactive({
   dateRange: null,
   movement_type: undefined
 })
+
+// Initialize modal state
+const initModalVisible = ref(false)
+const initLoading = ref(false)
+const loadingAvailable = ref(false)
+const availableIngredients = ref([])
+const selectedIngredientKeys = ref([])
+const selectedIngredients = ref([])
+
+const initColumns = [
+  {
+    title: 'Nama Bahan',
+    dataIndex: 'name',
+    key: 'name'
+  },
+  {
+    title: 'Satuan',
+    key: 'unit',
+    width: 120,
+    align: 'center'
+  }
+]
 
 const lowStockCount = computed(() => {
   return inventory.value.filter(item => item.quantity < item.min_threshold).length
@@ -524,14 +578,63 @@ const handleSearch = () => {
   fetchInventory()
 }
 
-const initializeInventory = async () => {
+const initializeInventory = () => {
+  // Open modal instead of directly calling API
+  initModalVisible.value = true
+  fetchAvailableIngredients()
+}
+
+const fetchAvailableIngredients = async () => {
+  loadingAvailable.value = true
   try {
-    await inventoryService.initializeInventory()
-    message.success('Inventory berhasil diinisialisasi')
+    // Get all ingredients
+    const ingredientsResponse = await recipeService.getIngredients()
+    const allIngredients = ingredientsResponse.data.data || []
+    
+    // Get current inventory
+    const inventoryResponse = await inventoryService.getInventory()
+    const currentInventory = inventoryResponse.data.inventory || []
+    
+    // Filter out ingredients that already exist in inventory
+    const inventoryIngredientIds = new Set(currentInventory.map(item => item.ingredient_id))
+    availableIngredients.value = allIngredients.filter(ing => !inventoryIngredientIds.has(ing.id))
+    
+    // Reset selection
+    selectedIngredientKeys.value = []
+    selectedIngredients.value = []
+  } catch (error) {
+    message.error('Gagal memuat data bahan')
+    console.error(error)
+  } finally {
+    loadingAvailable.value = false
+  }
+}
+
+const onSelectChange = (selectedKeys, selectedRows) => {
+  selectedIngredientKeys.value = selectedKeys
+  selectedIngredients.value = selectedRows
+}
+
+const handleInitialize = async () => {
+  if (selectedIngredients.value.length === 0) {
+    message.warning('Pilih minimal satu bahan')
+    return
+  }
+  
+  initLoading.value = true
+  try {
+    // Initialize all selected ingredients one by one
+    for (const ingredient of selectedIngredients.value) {
+      await inventoryService.initializeInventoryItem(ingredient.id)
+    }
+    message.success(`${selectedIngredients.value.length} bahan berhasil ditambahkan ke inventory`)
+    initModalVisible.value = false
     fetchInventory()
   } catch (error) {
-    message.error('Gagal menginisialisasi inventory')
+    message.error('Gagal menambahkan bahan ke inventory')
     console.error(error)
+  } finally {
+    initLoading.value = false
   }
 }
 

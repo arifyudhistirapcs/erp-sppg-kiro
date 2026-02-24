@@ -789,3 +789,30 @@ func (h *SupplyChainHandler) InitializeInventory(c *gin.Context) {
 		"message": "Inventory berhasil diinisialisasi untuk semua bahan",
 	})
 }
+
+// InitializeInventoryItem initializes inventory record for a specific ingredient
+func (h *SupplyChainHandler) InitializeInventoryItem(c *gin.Context) {
+	ingredientID, err := strconv.ParseUint(c.Param("ingredient_id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_ID",
+			"message":    "ID bahan tidak valid",
+		})
+		return
+	}
+
+	if err := h.inventoryService.InitializeInventoryForIngredient(uint(ingredientID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INITIALIZE_ERROR",
+			"message":    "Gagal menginisialisasi inventory: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Bahan berhasil ditambahkan ke inventory",
+	})
+}

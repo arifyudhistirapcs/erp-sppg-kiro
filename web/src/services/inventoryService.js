@@ -24,6 +24,11 @@ const inventoryService = {
   // Initialize inventory for all ingredients
   initializeInventory() {
     return api.post('/inventory/initialize')
+  },
+
+  // Initialize inventory for a specific ingredient
+  initializeInventoryItem(ingredientId) {
+    return api.post(`/inventory/initialize/${ingredientId}`)
   }
 }
 

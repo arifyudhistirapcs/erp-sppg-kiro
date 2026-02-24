@@ -60,16 +60,17 @@ const router = createRouter({
             title: 'Manajemen Resep'
           }
         },
-        {
-          path: 'ingredients',
-          name: 'ingredients',
-          component: () => import('@/views/IngredientListView.vue'),
-          meta: { 
-            requiresAuth: true,
-            roles: ['kepala_sppg', 'ahli_gizi'],
-            title: 'Manajemen Bahan'
-          }
-        },
+        // Manajemen Bahan hidden - data sama dengan Inventory
+        // {
+        //   path: 'ingredients',
+        //   name: 'ingredients',
+        //   component: () => import('@/views/IngredientListView.vue'),
+        //   meta: { 
+        //     requiresAuth: true,
+        //     roles: ['kepala_sppg', 'ahli_gizi'],
+        //     title: 'Manajemen Bahan'
+        //   }
+        // },
         {
           path: 'semi-finished',
           name: 'semi-finished',
@@ -147,7 +148,7 @@ const router = createRouter({
           meta: { 
             requiresAuth: true,
             roles: ['kepala_sppg', 'pengadaan', 'akuntan'],
-            title: 'Manajemen Inventory'
+            title: 'Inventory Bahan Baku'
           }
         },
         {
