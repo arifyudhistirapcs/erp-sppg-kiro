@@ -72,13 +72,29 @@ type MenuPlan struct {
 
 // MenuItem represents a recipe assigned to a specific day in a menu plan
 type MenuItem struct {
+	ID                uint                        `gorm:"primaryKey" json:"id"`
+	MenuPlanID        uint                        `gorm:"index;not null" json:"menu_plan_id"`
+	Date              time.Time                   `gorm:"index;not null" json:"date"`
+	RecipeID          uint                        `gorm:"index;not null" json:"recipe_id"`
+	Portions          int                         `gorm:"not null" json:"portions" validate:"required,gt=0"`
+	MenuPlan          MenuPlan                    `gorm:"foreignKey:MenuPlanID" json:"menu_plan,omitempty"`
+	Recipe            Recipe                      `gorm:"foreignKey:RecipeID" json:"recipe,omitempty"`
+	SchoolAllocations []MenuItemSchoolAllocation  `gorm:"foreignKey:MenuItemID" json:"school_allocations,omitempty"`
+}
+
+// MenuItemSchoolAllocation represents portions of a menu item allocated to a specific school
+type MenuItemSchoolAllocation struct {
 	ID         uint      `gorm:"primaryKey" json:"id"`
-	MenuPlanID uint      `gorm:"index;not null" json:"menu_plan_id"`
+	MenuItemID uint      `gorm:"index;not null" json:"menu_item_id"`
+	SchoolID   uint      `gorm:"index;not null" json:"school_id"`
+	Portions   int       `gorm:"not null;check:portions > 0" json:"portions" validate:"required,gt=0"`
 	Date       time.Time `gorm:"index;not null" json:"date"`
-	RecipeID   uint      `gorm:"index;not null" json:"recipe_id"`
-	Portions   int       `gorm:"not null" json:"portions" validate:"required,gt=0"`
-	MenuPlan   MenuPlan  `gorm:"foreignKey:MenuPlanID" json:"menu_plan,omitempty"`
-	Recipe     Recipe    `gorm:"foreignKey:RecipeID" json:"recipe,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	
+	// Relationships
+	MenuItem   MenuItem  `gorm:"foreignKey:MenuItemID;constraint:OnDelete:CASCADE" json:"menu_item,omitempty"`
+	School     School    `gorm:"foreignKey:SchoolID;constraint:OnDelete:RESTRICT" json:"school,omitempty"`
 }
 
 // RecipeVersion stores historical versions of recipes

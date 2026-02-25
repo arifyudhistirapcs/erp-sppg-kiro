@@ -134,6 +134,10 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				menuPlans.POST("/:id/duplicate", menuPlanningHandler.DuplicateMenuPlan)
 				menuPlans.GET("/:id/daily-nutrition", menuPlanningHandler.GetDailyNutrition)
 				menuPlans.GET("/:id/ingredient-requirements", menuPlanningHandler.GetIngredientRequirements)
+				menuPlans.POST("/:id/items", menuPlanningHandler.CreateMenuItem)
+				menuPlans.GET("/:id/items/:item_id", menuPlanningHandler.GetMenuItem)
+				menuPlans.PUT("/:id/items/:item_id", menuPlanningHandler.UpdateMenuItem)
+				menuPlans.DELETE("/:id/items/:item_id", menuPlanningHandler.DeleteMenuItem)
 			}
 
 			// KDS routes

@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/erp-sppg/backend/internal/services"
 	"github.com/gin-gonic/gin"
@@ -22,12 +23,57 @@ func NewKDSHandler(kdsService *services.KDSService, packingAllocationService *se
 	}
 }
 
+// parseDateParameter extracts and validates date from query parameter
+// Returns the parsed date or current date if parameter is missing
+// Returns error if date format is invalid
+func parseDateParameter(c *gin.Context) (time.Time, error) {
+	dateStr := c.Query("date")
+	
+	// Default to current date if parameter is missing
+	if dateStr == "" {
+		loc, err := time.LoadLocation("Asia/Jakarta")
+		if err != nil {
+			// Fallback to UTC if timezone loading fails
+			return time.Now().Truncate(24 * time.Hour), nil
+		}
+		now := time.Now().In(loc)
+		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc), nil
+	}
+	
+	// Parse date in YYYY-MM-DD format
+	parsedDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+	
+	// Normalize to start of day in Asia/Jakarta timezone
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		// Fallback to UTC if timezone loading fails
+		return time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, time.UTC), nil
+	}
+	
+	return time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, loc), nil
+}
+
 // GetCookingToday retrieves today's cooking menu
 // GET /api/v1/kds/cooking/today
 func (h *KDSHandler) GetCookingToday(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	recipeStatuses, err := h.kdsService.GetTodayMenu(ctx)
+	// Parse and validate date parameter
+	date, err := parseDateParameter(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_DATE_FORMAT",
+			"message":    "Invalid date format. Expected YYYY-MM-DD",
+			"details":    err.Error(),
+		})
+		return
+	}
+
+	recipeStatuses, err := h.kdsService.GetTodayMenu(ctx, date)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success":    false,
@@ -109,7 +155,19 @@ func (h *KDSHandler) UpdateCookingStatus(c *gin.Context) {
 func (h *KDSHandler) GetPackingToday(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	allocations, err := h.packingAllocationService.GetPackingAllocations(ctx)
+	// Parse and validate date parameter
+	date, err := parseDateParameter(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_DATE_FORMAT",
+			"message":    "Invalid date format. Expected YYYY-MM-DD",
+			"details":    err.Error(),
+		})
+		return
+	}
+
+	allocations, err := h.packingAllocationService.GetPackingAllocations(ctx, date)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success":    false,
@@ -180,7 +238,19 @@ func (h *KDSHandler) UpdatePackingStatus(c *gin.Context) {
 func (h *KDSHandler) SyncCookingToFirebase(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	err := h.kdsService.SyncTodayMenuToFirebase(ctx)
+	// Get current date for sync operation
+	date, err := parseDateParameter(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_DATE_FORMAT",
+			"message":    "Invalid date format. Expected YYYY-MM-DD",
+			"details":    err.Error(),
+		})
+		return
+	}
+
+	err = h.kdsService.SyncTodayMenuToFirebase(ctx, date)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success":    false,
@@ -202,7 +272,19 @@ func (h *KDSHandler) SyncCookingToFirebase(c *gin.Context) {
 func (h *KDSHandler) SyncPackingToFirebase(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	err := h.packingAllocationService.SyncPackingAllocationsToFirebase(ctx)
+	// Get current date for sync operation
+	date, err := parseDateParameter(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_DATE_FORMAT",
+			"message":    "Invalid date format. Expected YYYY-MM-DD",
+			"details":    err.Error(),
+		})
+		return
+	}
+
+	err = h.packingAllocationService.SyncPackingAllocationsToFirebase(ctx, date)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success":    false,

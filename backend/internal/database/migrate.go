@@ -54,6 +54,41 @@ func createIndexes(db *gorm.DB) error {
 		log.Printf("Warning: Failed to create index idx_menu_item_date_plan: %v", err)
 	}
 
+	// MenuItemSchoolAllocation: unique constraint to prevent duplicate allocations
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_item_school_allocation_unique ON menu_item_school_allocations(menu_item_id, school_id)").Error; err != nil {
+		log.Printf("Warning: Failed to create unique index idx_menu_item_school_allocation_unique: %v", err)
+	}
+
+	// MenuItemSchoolAllocation: frequently queried by menu item
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_menu_item_school_allocation_menu_item ON menu_item_school_allocations(menu_item_id)").Error; err != nil {
+		log.Printf("Warning: Failed to create index idx_menu_item_school_allocation_menu_item: %v", err)
+	}
+
+	// MenuItemSchoolAllocation: frequently queried by school
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_menu_item_school_allocation_school ON menu_item_school_allocations(school_id)").Error; err != nil {
+		log.Printf("Warning: Failed to create index idx_menu_item_school_allocation_school: %v", err)
+	}
+
+	// MenuItemSchoolAllocation: frequently queried by date
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_menu_item_school_allocation_date ON menu_item_school_allocations(date)").Error; err != nil {
+		log.Printf("Warning: Failed to create index idx_menu_item_school_allocation_date: %v", err)
+	}
+
+	// MenuItemSchoolAllocation: foreign key constraints
+	if err := db.Exec("ALTER TABLE menu_item_school_allocations DROP CONSTRAINT IF EXISTS fk_menu_item_school_allocations_menu_item").Error; err != nil {
+		log.Printf("Warning: Failed to drop existing foreign key constraint fk_menu_item_school_allocations_menu_item: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE menu_item_school_allocations ADD CONSTRAINT fk_menu_item_school_allocations_menu_item FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE").Error; err != nil {
+		log.Printf("Warning: Failed to create foreign key constraint fk_menu_item_school_allocations_menu_item: %v", err)
+	}
+
+	if err := db.Exec("ALTER TABLE menu_item_school_allocations DROP CONSTRAINT IF EXISTS fk_menu_item_school_allocations_school").Error; err != nil {
+		log.Printf("Warning: Failed to drop existing foreign key constraint fk_menu_item_school_allocations_school: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE menu_item_school_allocations ADD CONSTRAINT fk_menu_item_school_allocations_school FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE RESTRICT").Error; err != nil {
+		log.Printf("Warning: Failed to create foreign key constraint fk_menu_item_school_allocations_school: %v", err)
+	}
+
 	// DeliveryTask: frequently queried by date and driver
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_delivery_task_date_driver ON delivery_tasks(task_date, driver_id)").Error; err != nil {
 		log.Printf("Warning: Failed to create index idx_delivery_task_date_driver: %v", err)

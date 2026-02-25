@@ -19,6 +19,7 @@ func AllModels() []interface{} {
 		&RecipeVersion{},
 		&MenuPlan{},
 		&MenuItem{},
+		&MenuItemSchoolAllocation{},
 		
 		// Supply Chain & Inventory
 		&Supplier{},

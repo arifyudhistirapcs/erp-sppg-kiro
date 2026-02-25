@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	firebase "firebase.google.com/go/v4"
@@ -32,16 +33,29 @@ func NewKDSService(database *gorm.DB, firebaseApp *firebase.App) (*KDSService, e
 		dbClient:    dbClient,
 	}, nil
 }
+// normalizeDate normalizes a date to the start of day in Asia/Jakarta timezone
+func normalizeDate(date time.Time) time.Time {
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
+}
 
 // RecipeStatus represents the cooking status of a recipe (menu)
 type RecipeStatus struct {
-	RecipeID         uint                    `json:"recipe_id"`
-	Name             string                  `json:"name"`
-	Status           string                  `json:"status"` // pending, cooking, ready
-	StartTime        *int64                  `json:"start_time,omitempty"`
-	PortionsRequired int                     `json:"portions_required"`
-	Instructions     string                  `json:"instructions"`
-	Items            []SemiFinishedQuantity  `json:"items"` // Semi-finished goods needed
+	RecipeID          uint                       `json:"recipe_id"`
+	Name              string                     `json:"name"`
+	Status            string                     `json:"status"` // pending, cooking, ready
+	StartTime         *int64                     `json:"start_time,omitempty"`
+	PortionsRequired  int                        `json:"portions_required"`
+	Instructions      string                     `json:"instructions"`
+	Items             []SemiFinishedQuantity     `json:"items"` // Semi-finished goods needed
+	SchoolAllocations []SchoolAllocationResponse `json:"school_allocations"`
+}
+
+// SchoolAllocationResponse represents school allocation data in API responses
+type SchoolAllocationResponse struct {
+	SchoolID   uint   `json:"school_id"`
+	SchoolName string `json:"school_name"`
+	Portions   int    `json:"portions"`
 }
 
 // SemiFinishedQuantity represents semi-finished goods with quantity for display
@@ -61,22 +75,25 @@ type PackingAllocation struct {
 }
 
 // GetTodayMenu retrieves the menu for today from approved weekly plan
-func (s *KDSService) GetTodayMenu(ctx context.Context) ([]RecipeStatus, error) {
-	today := time.Now().Truncate(24 * time.Hour)
-	
+// GetTodayMenu retrieves the menu for the specified date from approved weekly plan
+func (s *KDSService) GetTodayMenu(ctx context.Context, date time.Time) ([]RecipeStatus, error) {
+	normalizedDate := normalizeDate(date)
+
 	var menuItems []models.MenuItem
 	err := s.db.WithContext(ctx).
 		Preload("Recipe").
 		Preload("Recipe.RecipeItems").
 		Preload("Recipe.RecipeItems.SemiFinishedGoods").
+		Preload("SchoolAllocations").
+		Preload("SchoolAllocations.School").
 		Preload("MenuPlan").
 		Joins("JOIN menu_plans ON menu_items.menu_plan_id = menu_plans.id").
 		Where("menu_plans.status = ?", "approved").
-		Where("DATE(menu_items.date) = DATE(?)", today).
+		Where("DATE(menu_items.date) = DATE(?)", normalizedDate).
 		Find(&menuItems).Error
-	
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to get today's menu: %w", err)
+		return nil, fmt.Errorf("failed to get menu for date: %w", err)
 	}
 
 	// Convert to RecipeStatus format
@@ -91,13 +108,29 @@ func (s *KDSService) GetTodayMenu(ctx context.Context) ([]RecipeStatus, error) {
 			})
 		}
 
+		// Transform school allocations to response format
+		schoolAllocations := make([]SchoolAllocationResponse, 0, len(item.SchoolAllocations))
+		for _, alloc := range item.SchoolAllocations {
+			schoolAllocations = append(schoolAllocations, SchoolAllocationResponse{
+				SchoolID:   alloc.SchoolID,
+				SchoolName: alloc.School.Name,
+				Portions:   alloc.Portions,
+			})
+		}
+
+		// Sort allocations by school name alphabetically
+		sort.Slice(schoolAllocations, func(i, j int) bool {
+			return schoolAllocations[i].SchoolName < schoolAllocations[j].SchoolName
+		})
+
 		recipeStatuses = append(recipeStatuses, RecipeStatus{
-			RecipeID:        item.Recipe.ID,
-			Name:            item.Recipe.Name,
-			Status:          "pending",
-			PortionsRequired: item.Portions,
-			Instructions:    item.Recipe.Instructions,
-			Items:           items,
+			RecipeID:          item.Recipe.ID,
+			Name:              item.Recipe.Name,
+			Status:            "pending",
+			PortionsRequired:  item.Portions,
+			Instructions:      item.Recipe.Instructions,
+			Items:             items,
+			SchoolAllocations: schoolAllocations,
 		})
 	}
 
@@ -215,25 +248,28 @@ func (s *KDSService) deductInventory(ctx context.Context, recipe *models.Recipe,
 }
 
 // SyncTodayMenuToFirebase syncs today's menu to Firebase for real-time display
-func (s *KDSService) SyncTodayMenuToFirebase(ctx context.Context) error {
-	recipeStatuses, err := s.GetTodayMenu(ctx)
+// SyncTodayMenuToFirebase syncs menu for the specified date to Firebase for real-time display
+func (s *KDSService) SyncTodayMenuToFirebase(ctx context.Context, date time.Time) error {
+	recipeStatuses, err := s.GetTodayMenu(ctx, date)
 	if err != nil {
 		return err
 	}
 
-	today := time.Now().Format("2006-01-02")
-	firebasePath := fmt.Sprintf("/kds/cooking/%s", today)
+	normalizedDate := normalizeDate(date)
+	dateStr := normalizedDate.Format("2006-01-02")
+	firebasePath := fmt.Sprintf("/kds/cooking/%s", dateStr)
 
 	// Convert to map for Firebase
 	firebaseData := make(map[string]interface{})
 	for _, rs := range recipeStatuses {
 		firebaseData[fmt.Sprintf("%d", rs.RecipeID)] = map[string]interface{}{
-			"recipe_id":         rs.RecipeID,
-			"name":              rs.Name,
-			"status":            rs.Status,
-			"portions_required": rs.PortionsRequired,
-			"instructions":      rs.Instructions,
-			"items":             rs.Items,
+			"recipe_id":          rs.RecipeID,
+			"name":               rs.Name,
+			"status":             rs.Status,
+			"portions_required":  rs.PortionsRequired,
+			"instructions":       rs.Instructions,
+			"items":              rs.Items,
+			"school_allocations": rs.SchoolAllocations,
 		}
 	}
 

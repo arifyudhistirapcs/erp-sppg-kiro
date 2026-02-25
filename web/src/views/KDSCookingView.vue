@@ -2,10 +2,15 @@
   <div class="kds-cooking-view">
     <a-page-header
       title="Dapur - Memasak"
-      sub-title="Tampilan menu masakan hari ini"
+      sub-title="Tampilan menu masakan"
     >
       <template #extra>
         <a-space>
+          <KDSDatePicker
+            v-model="selectedDate"
+            :loading="loading"
+            @change="handleDateChange"
+          />
           <a-tag :color="isConnected ? 'green' : 'red'">
             <template #icon>
               <wifi-outlined v-if="isConnected" />
@@ -22,8 +27,24 @@
     </a-page-header>
 
     <div class="content-wrapper">
+      <a-alert
+        v-if="error"
+        type="error"
+        :message="error"
+        closable
+        show-icon
+        @close="error = null"
+        style="margin-bottom: 16px"
+      >
+        <template #action>
+          <a-button size="small" type="primary" @click="retryLoad">
+            Coba Lagi
+          </a-button>
+        </template>
+      </a-alert>
+
       <a-spin :spinning="loading" tip="Memuat data...">
-        <a-empty v-if="!loading && recipes.length === 0" description="Tidak ada menu untuk hari ini" />
+        <a-empty v-if="!loading && recipes.length === 0" :description="emptyMessage" />
         
         <a-row :gutter="[16, 16]" v-else>
           <a-col
@@ -54,6 +75,30 @@
                     {{ formatTime(recipe.start_time) }}
                   </a-descriptions-item>
                 </a-descriptions>
+
+                <a-divider>Alokasi Sekolah</a-divider>
+                <a-list
+                  v-if="recipe.school_allocations && recipe.school_allocations.length > 0"
+                  size="small"
+                  :data-source="recipe.school_allocations"
+                  :split="false"
+                >
+                  <template #renderItem="{ item }">
+                    <a-list-item>
+                      <a-list-item-meta>
+                        <template #title>
+                          {{ item.school_name }}
+                        </template>
+                        <template #description>
+                          {{ item.portions }} porsi
+                        </template>
+                      </a-list-item-meta>
+                    </a-list-item>
+                  </template>
+                </a-list>
+                <div v-else class="no-allocations">
+                  Tidak ada alokasi sekolah
+                </div>
 
                 <a-divider>Bahan-Bahan</a-divider>
                 <a-list
@@ -122,7 +167,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import {
   WifiOutlined,
@@ -132,6 +177,7 @@ import {
   CheckCircleOutlined,
   CheckOutlined
 } from '@ant-design/icons-vue'
+import KDSDatePicker from '@/components/KDSDatePicker.vue'
 import { getCookingToday, updateCookingStatus } from '@/services/kdsService'
 import { database } from '@/services/firebase'
 import { ref as dbRef, onValue, off } from 'firebase/database'
@@ -140,7 +186,16 @@ const recipes = ref([])
 const loading = ref(false)
 const updatingRecipeId = ref(null)
 const isConnected = ref(true)
+const selectedDate = ref(new Date())
+const error = ref(null)
 let firebaseListener = null
+
+// Compute empty message based on selected date
+const emptyMessage = computed(() => {
+  const today = new Date()
+  const isToday = selectedDate.value.toDateString() === today.toDateString()
+  return isToday ? 'Tidak ada menu untuk hari ini' : 'Tidak ada menu untuk tanggal ini'
+})
 
 // Get status color
 const getStatusColor = (status) => {
@@ -175,19 +230,28 @@ const formatTime = (timestamp) => {
 // Load data from API
 const loadData = async () => {
   loading.value = true
+  error.value = null
+  console.log('[KDS Cooking] Loading data for date:', selectedDate.value)
   try {
-    const response = await getCookingToday()
+    const response = await getCookingToday(selectedDate.value)
+    console.log('[KDS Cooking] API Response:', response)
     if (response.success) {
       recipes.value = response.data || []
+      console.log('[KDS Cooking] Loaded recipes:', recipes.value.length)
     } else {
-      message.error(response.message || 'Gagal memuat data')
+      error.value = response.message || 'Gagal memuat data'
     }
-  } catch (error) {
-    console.error('Error loading cooking data:', error)
-    message.error('Gagal memuat data menu')
+  } catch (err) {
+    console.error('Error loading cooking data:', err)
+    error.value = err.response?.data?.message || 'Gagal memuat data menu. Silakan coba lagi.'
   } finally {
     loading.value = false
   }
+}
+
+// Retry loading data
+const retryLoad = () => {
+  loadData()
 }
 
 // Refresh data
@@ -235,8 +299,11 @@ const finishCooking = async (recipe) => {
 
 // Setup Firebase real-time listener
 const setupFirebaseListener = () => {
-  const today = new Date().toISOString().split('T')[0]
-  const cookingRef = dbRef(database, `/kds/cooking/${today}`)
+  // Clean up existing listener first
+  cleanupFirebaseListener()
+  
+  const dateStr = selectedDate.value.toISOString().split('T')[0]
+  const cookingRef = dbRef(database, `/kds/cooking/${dateStr}`)
   
   firebaseListener = onValue(
     cookingRef,
@@ -272,12 +339,25 @@ const setupFirebaseListener = () => {
 // Cleanup Firebase listener
 const cleanupFirebaseListener = () => {
   if (firebaseListener) {
-    const today = new Date().toISOString().split('T')[0]
-    const cookingRef = dbRef(database, `/kds/cooking/${today}`)
+    const dateStr = selectedDate.value.toISOString().split('T')[0]
+    const cookingRef = dbRef(database, `/kds/cooking/${dateStr}`)
     off(cookingRef)
     firebaseListener = null
   }
 }
+
+// Handle date change from date picker
+const handleDateChange = (date) => {
+  selectedDate.value = date
+  loadData()
+  setupFirebaseListener()
+}
+
+// Watch for date changes
+watch(selectedDate, () => {
+  // This ensures Firebase listener is updated if date changes from other sources
+  setupFirebaseListener()
+})
 
 onMounted(() => {
   loadData()
@@ -346,5 +426,12 @@ onUnmounted(() => {
 :deep(.ant-list-item-meta-description) {
   color: #1890ff;
   font-weight: 600;
+}
+
+.no-allocations {
+  padding: 12px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.45);
+  font-style: italic;
 }
 </style>

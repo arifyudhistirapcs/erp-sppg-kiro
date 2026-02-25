@@ -2,10 +2,15 @@
   <div class="kds-packing-view">
     <a-page-header
       title="Packing - Pengemasan"
-      sub-title="Alokasi porsi per sekolah hari ini"
+      sub-title="Alokasi porsi per sekolah"
     >
       <template #extra>
         <a-space>
+          <KDSDatePicker
+            v-model="selectedDate"
+            :loading="loading"
+            @change="handleDateChange"
+          />
           <a-tag :color="isConnected ? 'green' : 'red'">
             <template #icon>
               <wifi-outlined v-if="isConnected" />
@@ -39,8 +44,24 @@
     </a-alert>
 
     <div class="content-wrapper">
+      <a-alert
+        v-if="error"
+        type="error"
+        :message="error"
+        closable
+        show-icon
+        @close="error = null"
+        style="margin-bottom: 16px"
+      >
+        <template #action>
+          <a-button size="small" type="primary" @click="retryLoad">
+            Coba Lagi
+          </a-button>
+        </template>
+      </a-alert>
+
       <a-spin :spinning="loading" tip="Memuat data...">
-        <a-empty v-if="!loading && schools.length === 0" description="Tidak ada alokasi packing untuk hari ini" />
+        <a-empty v-if="!loading && schools.length === 0" :description="emptyMessage" />
         
         <a-row :gutter="[16, 16]" v-else>
           <a-col
@@ -132,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { message, notification } from 'ant-design-vue'
 import {
   WifiOutlined,
@@ -142,6 +163,7 @@ import {
   CheckCircleOutlined,
   CheckOutlined
 } from '@ant-design/icons-vue'
+import KDSDatePicker from '@/components/KDSDatePicker.vue'
 import { getPackingToday, updatePackingStatus } from '@/services/kdsService'
 import { database } from '@/services/firebase'
 import { ref as dbRef, onValue, off } from 'firebase/database'
@@ -150,6 +172,8 @@ const schools = ref([])
 const loading = ref(false)
 const updatingSchoolId = ref(null)
 const isConnected = ref(true)
+const selectedDate = ref(new Date())
+const error = ref(null)
 let firebaseListener = null
 let notificationListener = null
 
@@ -161,6 +185,13 @@ const readyCount = computed(() => {
 // Computed: Check if all schools are ready
 const allSchoolsReady = computed(() => {
   return schools.value.length > 0 && schools.value.every(s => s.status === 'ready')
+})
+
+// Compute empty message based on selected date
+const emptyMessage = computed(() => {
+  const today = new Date()
+  const isToday = selectedDate.value.toDateString() === today.toDateString()
+  return isToday ? 'Tidak ada alokasi packing untuk hari ini' : 'Tidak ada alokasi packing untuk tanggal ini'
 })
 
 // Get status color
@@ -186,19 +217,25 @@ const getStatusText = (status) => {
 // Load data from API
 const loadData = async () => {
   loading.value = true
+  error.value = null
   try {
-    const response = await getPackingToday()
+    const response = await getPackingToday(selectedDate.value)
     if (response.success) {
       schools.value = response.data || []
     } else {
-      message.error(response.message || 'Gagal memuat data')
+      error.value = response.message || 'Gagal memuat data'
     }
-  } catch (error) {
-    console.error('Error loading packing data:', error)
-    message.error('Gagal memuat data alokasi packing')
+  } catch (err) {
+    console.error('Error loading packing data:', err)
+    error.value = err.response?.data?.message || 'Gagal memuat data alokasi packing. Silakan coba lagi.'
   } finally {
     loading.value = false
   }
+}
+
+// Retry loading data
+const retryLoad = () => {
+  loadData()
 }
 
 // Refresh data
@@ -246,8 +283,11 @@ const finishPacking = async (school) => {
 
 // Setup Firebase real-time listener for packing data
 const setupFirebaseListener = () => {
-  const today = new Date().toISOString().split('T')[0]
-  const packingRef = dbRef(database, `/kds/packing/${today}`)
+  // Clean up existing listener first
+  cleanupFirebaseListener()
+  
+  const dateStr = selectedDate.value.toISOString().split('T')[0]
+  const packingRef = dbRef(database, `/kds/packing/${dateStr}`)
   
   firebaseListener = onValue(
     packingRef,
@@ -309,21 +349,37 @@ const setupNotificationListener = () => {
   )
 }
 
-// Cleanup Firebase listeners
-const cleanupFirebaseListeners = () => {
+// Cleanup Firebase listener
+const cleanupFirebaseListener = () => {
   if (firebaseListener) {
-    const today = new Date().toISOString().split('T')[0]
-    const packingRef = dbRef(database, `/kds/packing/${today}`)
+    const dateStr = selectedDate.value.toISOString().split('T')[0]
+    const packingRef = dbRef(database, `/kds/packing/${dateStr}`)
     off(packingRef)
     firebaseListener = null
   }
-  
+}
+
+// Cleanup notification listener
+const cleanupNotificationListener = () => {
   if (notificationListener) {
     const notificationRef = dbRef(database, '/notifications/logistics/packing_complete')
     off(notificationRef)
     notificationListener = null
   }
 }
+
+// Handle date change from date picker
+const handleDateChange = (date) => {
+  selectedDate.value = date
+  loadData()
+  setupFirebaseListener()
+}
+
+// Watch for date changes
+watch(selectedDate, () => {
+  // This ensures Firebase listener is updated if date changes from other sources
+  setupFirebaseListener()
+})
 
 onMounted(() => {
   loadData()
@@ -332,7 +388,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  cleanupFirebaseListeners()
+  cleanupFirebaseListener()
+  cleanupNotificationListener()
 })
 </script>
 

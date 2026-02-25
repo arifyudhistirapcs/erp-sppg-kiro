@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	firebase "firebase.google.com/go/v4"
@@ -49,64 +50,66 @@ type MenuItemSummary struct {
 	Portions   int    `json:"portions"`
 }
 
-// CalculatePackingAllocations calculates portion distribution per school for today
-func (s *PackingAllocationService) CalculatePackingAllocations(ctx context.Context) ([]SchoolAllocation, error) {
-	today := time.Now()
-	startOfDay := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour)
+// CalculatePackingAllocations calculates portion distribution per school for the specified date
+func (s *PackingAllocationService) CalculatePackingAllocations(ctx context.Context, date time.Time) ([]SchoolAllocation, error) {
+	// Normalize date to start of day in Asia/Jakarta timezone
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
 
-	// Get today's delivery tasks
-	var deliveryTasks []models.DeliveryTask
+	// Get menu item school allocations for the date
+	var menuAllocations []models.MenuItemSchoolAllocation
 	err := s.db.WithContext(ctx).
 		Preload("School").
-		Preload("MenuItems").
-		Preload("MenuItems.Recipe").
-		Where("task_date >= ? AND task_date < ?", startOfDay, endOfDay).
-		Where("status != ?", "cancelled").
-		Find(&deliveryTasks).Error
+		Preload("MenuItem").
+		Preload("MenuItem.Recipe").
+		Where("date = ?", startOfDay).
+		Find(&menuAllocations).Error
 	
 	if err != nil {
-		return nil, fmt.Errorf("failed to get delivery tasks: %w", err)
+		return nil, fmt.Errorf("failed to get menu item school allocations: %w", err)
 	}
 
 	// Group by school
 	schoolMap := make(map[uint]*SchoolAllocation)
-	for _, task := range deliveryTasks {
-		allocation, exists := schoolMap[task.SchoolID]
+	for _, alloc := range menuAllocations {
+		allocation, exists := schoolMap[alloc.SchoolID]
 		if !exists {
 			allocation = &SchoolAllocation{
-				SchoolID:   task.School.ID,
-				SchoolName: task.School.Name,
+				SchoolID:   alloc.School.ID,
+				SchoolName: alloc.School.Name,
 				Portions:   0,
 				MenuItems:  []MenuItemSummary{},
 				Status:     "pending",
 			}
-			schoolMap[task.SchoolID] = allocation
+			schoolMap[alloc.SchoolID] = allocation
 		}
 
-		// Add menu items
-		for _, menuItem := range task.MenuItems {
-			allocation.Portions += menuItem.Portions
-			allocation.MenuItems = append(allocation.MenuItems, MenuItemSummary{
-				RecipeID:   menuItem.Recipe.ID,
-				RecipeName: menuItem.Recipe.Name,
-				Portions:   menuItem.Portions,
-			})
-		}
+		// Add menu item
+		allocation.Portions += alloc.Portions
+		allocation.MenuItems = append(allocation.MenuItems, MenuItemSummary{
+			RecipeID:   alloc.MenuItem.Recipe.ID,
+			RecipeName: alloc.MenuItem.Recipe.Name,
+			Portions:   alloc.Portions,
+		})
 	}
 
-	// Convert map to slice
+	// Convert map to slice and sort alphabetically by school name (Requirement 11.4)
 	allocations := make([]SchoolAllocation, 0, len(schoolMap))
 	for _, allocation := range schoolMap {
 		allocations = append(allocations, *allocation)
 	}
 
+	// Sort by school name alphabetically
+	sort.Slice(allocations, func(i, j int) bool {
+		return allocations[i].SchoolName < allocations[j].SchoolName
+	})
+
 	return allocations, nil
 }
 
-// GetPackingAllocations retrieves packing allocations for today
-func (s *PackingAllocationService) GetPackingAllocations(ctx context.Context) ([]SchoolAllocation, error) {
-	return s.CalculatePackingAllocations(ctx)
+// GetPackingAllocations retrieves packing allocations for the specified date
+func (s *PackingAllocationService) GetPackingAllocations(ctx context.Context, date time.Time) ([]SchoolAllocation, error) {
+	return s.CalculatePackingAllocations(ctx, date)
 }
 
 // UpdatePackingStatus updates the packing status for a school
@@ -196,14 +199,14 @@ func (s *PackingAllocationService) checkAllSchoolsReady(ctx context.Context) err
 }
 
 // SyncPackingAllocationsToFirebase syncs packing allocations to Firebase for real-time display
-func (s *PackingAllocationService) SyncPackingAllocationsToFirebase(ctx context.Context) error {
-	allocations, err := s.CalculatePackingAllocations(ctx)
+func (s *PackingAllocationService) SyncPackingAllocationsToFirebase(ctx context.Context, date time.Time) error {
+	allocations, err := s.CalculatePackingAllocations(ctx, date)
 	if err != nil {
 		return err
 	}
 
-	today := time.Now().Format("2006-01-02")
-	firebasePath := fmt.Sprintf("/kds/packing/%s", today)
+	dateStr := date.Format("2006-01-02")
+	firebasePath := fmt.Sprintf("/kds/packing/%s", dateStr)
 
 	// Convert to map for Firebase
 	firebaseData := make(map[string]interface{})

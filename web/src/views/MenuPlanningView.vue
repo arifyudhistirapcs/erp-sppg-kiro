@@ -93,16 +93,36 @@
                     draggable="true"
                     @dragstart="onDragStart($event, item)"
                   >
-                    <div class="menu-item-name">{{ item.recipe?.name }}</div>
-                    <div class="menu-item-portions">{{ item.portions }} porsi</div>
-                    <a-button
-                      type="text"
-                      size="small"
-                      danger
-                      @click="removeMenuItem(item)"
-                    >
-                      <template #icon><DeleteOutlined /></template>
-                    </a-button>
+                    <div class="menu-item-content">
+                      <div class="menu-item-name">{{ item.recipe?.name }}</div>
+                      <div class="menu-item-portions">{{ item.portions }} porsi</div>
+                      <div v-if="item.school_allocations && item.school_allocations.length > 0" class="menu-item-allocations">
+                        <div v-for="alloc in item.school_allocations" :key="alloc.school_id" class="allocation-item">
+                          <span class="school-name">{{ alloc.school_name || getSchoolName(alloc.school_id) }}</span>
+                          <span class="school-portions">{{ alloc.portions }}</span>
+                        </div>
+                      </div>
+                      <div v-else class="menu-item-allocations no-allocations">
+                        <span class="no-allocation-text">Belum ada alokasi</span>
+                      </div>
+                    </div>
+                    <div class="menu-item-actions">
+                      <a-button
+                        type="text"
+                        size="small"
+                        @click="showEditMenuModal(item)"
+                      >
+                        <template #icon><EditOutlined /></template>
+                      </a-button>
+                      <a-button
+                        type="text"
+                        size="small"
+                        danger
+                        @click="removeMenuItem(item)"
+                      >
+                        <template #icon><DeleteOutlined /></template>
+                      </a-button>
+                    </div>
                   </div>
 
                   <!-- Add Menu Button -->
@@ -149,13 +169,15 @@
       </a-spin>
     </a-card>
 
-    <!-- Add Menu Item Modal -->
+    <!-- Add/Edit Menu Item Modal -->
     <a-modal
       v-model:visible="addMenuModalVisible"
-      title="Tambah Menu"
-      @ok="addMenuItem"
-      ok-text="Tambah"
+      :title="editingMenuItem ? 'Edit Menu' : 'Tambah Menu'"
+      @ok="editingMenuItem ? updateMenuItem() : addMenuItem()"
+      :ok-text="editingMenuItem ? 'Simpan' : 'Tambah'"
       cancel-text="Batal"
+      :ok-button-props="{ disabled: !isAllocationValid }"
+      width="700px"
     >
       <a-form layout="vertical">
         <a-form-item label="Pilih Resep">
@@ -180,6 +202,16 @@
             v-model:value="selectedPortions"
             :min="1"
             style="width: 100%"
+            @change="handlePortionsChange"
+          />
+        </a-form-item>
+        <a-form-item label="Alokasi Sekolah">
+          <SchoolAllocationInput
+            :key="allocationComponentKey"
+            v-model="schoolAllocations"
+            :schools="schools"
+            :total-portions="selectedPortions"
+            @validation-change="handleValidationChange"
           />
         </a-form-item>
       </a-form>
@@ -188,22 +220,25 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
+import { ref, reactive, computed, onMounted, h } from 'vue'
+import { message, Modal } from 'ant-design-vue'
 import {
   PlusOutlined,
   CopyOutlined,
   LeftOutlined,
   RightOutlined,
   CheckOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  EditOutlined
 } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import weekOfYear from 'dayjs/plugin/weekOfYear'
 import isoWeek from 'dayjs/plugin/isoWeek'
 import menuPlanningService from '@/services/menuPlanningService'
 import recipeService from '@/services/recipeService'
+import schoolService from '@/services/schoolService'
 import { useAuthStore } from '@/stores/auth'
+import SchoolAllocationInput from '@/components/SchoolAllocationInput.vue'
 
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
@@ -219,11 +254,16 @@ const selectedWeekStart = ref(dayjs().startOf('isoWeek'))
 const currentMenuPlan = ref(null)
 const menuItems = ref([])
 const availableRecipes = ref([])
+const schools = ref([])
 const addMenuModalVisible = ref(false)
 const selectedDate = ref(null)
 const selectedRecipeId = ref(null)
 const selectedPortions = ref(100)
+const schoolAllocations = ref({})
+const isAllocationValid = ref(false)
 const draggedItem = ref(null)
+const editingMenuItem = ref(null)
+const allocationComponentKey = ref(0) // Key to force re-render
 
 // Minimum nutrition standards per portion
 const MIN_CALORIES_PER_PORTION = 600
@@ -259,6 +299,11 @@ const getMenuItemsForDay = (date) => {
     const itemDate = dayjs(item.date).format('YYYY-MM-DD')
     return itemDate === date
   })
+}
+
+const getSchoolName = (schoolId) => {
+  const school = schools.value.find(s => s.id === schoolId)
+  return school ? school.name : `School ${schoolId}`
 }
 
 const getDailyNutrition = (date, type) => {
@@ -314,6 +359,8 @@ const loadMenuPlan = async () => {
   try {
     const response = await menuPlanningService.getMenuPlans()
     
+    console.log('Load menu plans response:', response.data)
+    
     if (response.data.menu_plans && response.data.menu_plans.length > 0) {
       // Find menu plan for current week
       const weekStart = selectedWeekStart.value.format('YYYY-MM-DD')
@@ -323,6 +370,8 @@ const loadMenuPlan = async () => {
       })
       
       if (plan) {
+        console.log('Found menu plan for current week:', plan)
+        console.log('Menu items:', plan.menu_items)
         currentMenuPlan.value = plan
         menuItems.value = plan.menu_items || []
       } else {
@@ -352,6 +401,16 @@ const loadRecipes = async () => {
   }
 }
 
+const loadSchools = async () => {
+  try {
+    const response = await schoolService.getSchools({ active_only: true })
+    schools.value = response.data.schools || []
+  } catch (error) {
+    message.error('Gagal memuat data sekolah')
+    console.error('Error loading schools:', error)
+  }
+}
+
 const showCreateModal = async () => {
   if (currentMenuPlan.value) {
     message.warning('Menu untuk minggu ini sudah ada')
@@ -361,20 +420,10 @@ const showCreateModal = async () => {
   try {
     const weekStart = selectedWeekStart.value.format('YYYY-MM-DD')
     
-    // Create initial menu items for each day (Mon-Fri)
-    const menuItems = []
-    for (let i = 0; i < 5; i++) {
-      const dayDate = selectedWeekStart.value.add(i, 'day')
-      menuItems.push({
-        date: dayDate.format('YYYY-MM-DD'),
-        recipe_id: recipes.value[0]?.id || 1,
-        portions: 100
-      })
-    }
-    
+    // Create empty menu plan (menu items will be added later)
     const response = await menuPlanningService.createMenuPlan({
       week_start: weekStart,
-      menu_items: menuItems
+      menu_items: [] // Empty array - items will be added via "Tambah Menu" button
     })
     
     currentMenuPlan.value = response.data.menu_plan
@@ -397,14 +446,78 @@ const showAddMenuModal = (date) => {
     return
   }
   
+  // Reset all form state for new menu
   selectedDate.value = date
   selectedRecipeId.value = null
-  selectedPortions.value = 100
+  selectedPortions.value = 0  // Set to 0 instead of 100
+  editingMenuItem.value = null
+  
+  // Reset school allocations to empty object
+  schoolAllocations.value = {}
+  
+  // Reset validation
+  isAllocationValid.value = false
+  
+  // Force re-render of SchoolAllocationInput component
+  allocationComponentKey.value++
+  
+  // Open modal
+  addMenuModalVisible.value = true
+}
+
+const showEditMenuModal = (item) => {
+  if (!currentMenuPlan.value) {
+    message.warning('Buat menu mingguan terlebih dahulu')
+    return
+  }
+  
+  if (currentMenuPlan.value.status === 'approved') {
+    message.warning('Menu yang sudah disetujui tidak dapat diubah')
+    return
+  }
+  
+  editingMenuItem.value = item
+  selectedDate.value = item.date
+  selectedRecipeId.value = item.recipe_id
+  selectedPortions.value = item.portions
+  
+  // Load existing allocations
+  const allocations = {}
+  if (item.school_allocations && item.school_allocations.length > 0) {
+    item.school_allocations.forEach(alloc => {
+      allocations[alloc.school_id] = alloc.portions
+    })
+  }
+  schoolAllocations.value = allocations
+  
+  // Trigger validation
+  isAllocationValid.value = validateAllocations()
+  
+  // Force re-render of SchoolAllocationInput component
+  allocationComponentKey.value++
+  
   addMenuModalVisible.value = true
 }
 
 const filterRecipeOption = (input, option) => {
   return option.children[0].children.toLowerCase().includes(input.toLowerCase())
+}
+
+const handleValidationChange = (validation) => {
+  isAllocationValid.value = validation.isValid
+}
+
+const validateAllocations = () => {
+  const totalAllocated = Object.values(schoolAllocations.value).reduce((sum, val) => sum + (val || 0), 0)
+  if (selectedPortions.value === 0) return false
+  if (totalAllocated === 0) return false
+  return totalAllocated === selectedPortions.value
+}
+
+const handlePortionsChange = () => {
+  // Reset allocations when portions change
+  schoolAllocations.value = {}
+  isAllocationValid.value = false
 }
 
 const addMenuItem = async () => {
@@ -413,26 +526,89 @@ const addMenuItem = async () => {
     return
   }
   
+  if (!isAllocationValid.value) {
+    message.warning('Alokasi sekolah belum valid')
+    return
+  }
+  
   try {
-    const recipe = availableRecipes.value.find(r => r.id === selectedRecipeId.value)
+    // Transform allocations to API format
+    const school_allocations = Object.entries(schoolAllocations.value)
+      .filter(([_, portions]) => portions > 0)
+      .map(([school_id, portions]) => ({
+        school_id: parseInt(school_id),
+        portions
+      }))
     
-    const newItem = {
-      menu_plan_id: currentMenuPlan.value.id,
+    const payload = {
       date: selectedDate.value,
       recipe_id: selectedRecipeId.value,
       portions: selectedPortions.value,
-      recipe: recipe
+      school_allocations
     }
     
-    // Update menu plan with new item
-    const updatedItems = [...menuItems.value, newItem]
-    await saveMenuPlan(updatedItems)
+    console.log('Creating menu item with payload:', payload)
+    
+    // Call the new createMenuItem endpoint
+    const response = await menuPlanningService.createMenuItem(currentMenuPlan.value.id, payload)
+    
+    console.log('Create menu item response:', response.data)
     
     addMenuModalVisible.value = false
     message.success('Menu berhasil ditambahkan')
+    
+    // Reload menu plan to get updated data
+    await loadMenuPlan()
   } catch (error) {
     message.error('Gagal menambahkan menu')
     console.error('Error adding menu item:', error)
+    console.error('Error response:', error.response?.data)
+  }
+}
+
+const updateMenuItem = async () => {
+  if (!selectedRecipeId.value) {
+    message.warning('Pilih resep terlebih dahulu')
+    return
+  }
+  
+  if (!isAllocationValid.value) {
+    message.warning('Alokasi sekolah belum valid')
+    return
+  }
+  
+  try {
+    // Transform allocations to API format
+    const school_allocations = Object.entries(schoolAllocations.value)
+      .filter(([_, portions]) => portions > 0)
+      .map(([school_id, portions]) => ({
+        school_id: parseInt(school_id),
+        portions
+      }))
+    
+    const payload = {
+      date: selectedDate.value,
+      recipe_id: selectedRecipeId.value,
+      portions: selectedPortions.value,
+      school_allocations
+    }
+    
+    // Call the new updateMenuItem endpoint
+    await menuPlanningService.updateMenuItem(
+      currentMenuPlan.value.id,
+      editingMenuItem.value.id,
+      payload
+    )
+    
+    addMenuModalVisible.value = false
+    editingMenuItem.value = null
+    message.success('Menu berhasil diperbarui')
+    
+    // Reload menu plan to get updated data
+    await loadMenuPlan()
+  } catch (error) {
+    message.error('Gagal memperbarui menu')
+    console.error('Error updating menu item:', error)
   }
 }
 
@@ -443,9 +619,12 @@ const removeMenuItem = async (item) => {
   }
   
   try {
-    const updatedItems = menuItems.value.filter(i => i !== item)
-    await saveMenuPlan(updatedItems)
+    // Call the delete endpoint directly
+    await menuPlanningService.deleteMenuItem(currentMenuPlan.value.id, item.id)
     message.success('Menu berhasil dihapus')
+    
+    // Reload menu plan to get updated data
+    await loadMenuPlan()
   } catch (error) {
     message.error('Gagal menghapus menu')
     console.error('Error removing menu item:', error)
@@ -461,7 +640,8 @@ const saveMenuPlan = async (items) => {
       menu_items: items.map(item => ({
         date: item.date,
         recipe_id: item.recipe_id,
-        portions: item.portions
+        portions: item.portions,
+        school_allocations: item.school_allocations || []
       }))
     }
     
@@ -474,19 +654,57 @@ const saveMenuPlan = async (items) => {
 }
 
 const approveMenu = async () => {
-  // Validate all days meet nutrition standards
-  let allDaysValid = true
+  // Check for empty days and insufficient nutrition
+  const emptyDays = []
+  const insufficientDays = []
+  
   weekDays.value.forEach(day => {
-    if (!isDailyNutritionValid(day.date)) {
-      allDaysValid = false
+    const items = getMenuItemsForDay(day.date)
+    if (items.length === 0) {
+      emptyDays.push(day.dayName)
+    } else if (!isDailyNutritionValid(day.date)) {
+      const calories = parseFloat(getDailyNutrition(day.date, 'calories'))
+      const protein = parseFloat(getDailyNutrition(day.date, 'protein'))
+      insufficientDays.push({
+        day: day.dayName,
+        calories: calories.toFixed(0),
+        protein: protein.toFixed(1)
+      })
     }
   })
   
-  if (!allDaysValid) {
-    message.warning('Tidak semua hari memenuhi standar gizi minimum. Yakin ingin menyetujui?')
-    // In production, you might want to show a confirmation modal here
+  // Show confirmation modal if there are issues
+  if (emptyDays.length > 0 || insufficientDays.length > 0) {
+    let content = ''
+    
+    if (emptyDays.length > 0) {
+      content += `<p><strong>Hari yang belum diisi menu:</strong></p>`
+      content += `<ul>${emptyDays.map(d => `<li>${d}</li>`).join('')}</ul>`
+    }
+    
+    if (insufficientDays.length > 0) {
+      content += `<p><strong>Hari dengan nutrisi tidak memenuhi standar (min 600 kcal, 15g protein):</strong></p>`
+      content += `<ul>${insufficientDays.map(d => `<li>${d.day}: ${d.calories} kcal, ${d.protein}g protein</li>`).join('')}</ul>`
+    }
+    
+    content += `<p style="margin-top: 16px;">Apakah Anda yakin ingin menyetujui menu ini?</p>`
+    
+    Modal.confirm({
+      title: 'Konfirmasi Persetujuan Menu',
+      content: h('div', { innerHTML: content }),
+      okText: 'Ya, Setujui',
+      cancelText: 'Batal',
+      onOk: async () => {
+        await performApprove()
+      }
+    })
+  } else {
+    // No issues, approve directly
+    await performApprove()
   }
-  
+}
+
+const performApprove = async () => {
   approving.value = true
   try {
     await menuPlanningService.approveMenuPlan(currentMenuPlan.value.id)
@@ -607,6 +825,7 @@ const goToCurrentWeek = () => {
 onMounted(() => {
   loadMenuPlan()
   loadRecipes()
+  loadSchools()
 })
 </script>
 
@@ -654,23 +873,69 @@ onMounted(() => {
   cursor: move;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .menu-item:hover {
   background: #e6e9ed;
 }
 
+.menu-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .menu-item-name {
   font-weight: 500;
   font-size: 13px;
-  flex: 1;
 }
 
 .menu-item-portions {
   font-size: 11px;
   color: #8c8c8c;
-  margin-right: 8px;
+}
+
+.menu-item-allocations {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.allocation-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 2px 6px;
+  background: #fff;
+  border-radius: 2px;
+}
+
+.allocation-item .school-name {
+  color: #595959;
+}
+
+.allocation-item .school-portions {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.no-allocations {
+  font-size: 11px;
+  color: #ff4d4f;
+  font-style: italic;
+}
+
+.no-allocation-text {
+  padding: 2px 6px;
 }
 
 .nutrition-summary {
