@@ -218,6 +218,7 @@
             <a-select-option value="sambal">Sambal</a-select-option>
             <a-select-option value="sayur">Sayur</a-select-option>
             <a-select-option value="lauk_berkuah">Lauk Berkuah</a-select-option>
+            <a-select-option value="minuman">Minuman</a-select-option>
           </a-select>
         </a-col>
       </a-row>
