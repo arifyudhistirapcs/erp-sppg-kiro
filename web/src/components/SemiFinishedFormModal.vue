@@ -1,7 +1,7 @@
 <template>
   <a-modal
     :visible="visible"
-    :title="isEdit ? 'Edit Barang Setengah Jadi' : 'Tambah Barang Setengah Jadi Baru'"
+    :title="isEdit ? 'Edit Komponen' : 'Tambah Komponen Baru'"
     @ok="handleSubmit"
     @cancel="handleCancel"
     :confirm-loading="submitting"
@@ -26,12 +26,14 @@
               v-model:value="form.category"
               placeholder="Pilih kategori"
             >
-              <a-select-option value="nasi">Nasi</a-select-option>
-              <a-select-option value="lauk">Lauk</a-select-option>
-              <a-select-option value="sambal">Sambal</a-select-option>
-              <a-select-option value="sayur">Sayur</a-select-option>
-              <a-select-option value="lauk_berkuah">Lauk Berkuah</a-select-option>
+              <a-select-option value="protein_hewani">Protein Hewani</a-select-option>
+              <a-select-option value="sumber_lemak">Sumber Lemak</a-select-option>
               <a-select-option value="lainnya">Lainnya</a-select-option>
+              <a-select-option value="sayur">Sayur</a-select-option>
+              <a-select-option value="karbohidrat">Karbohidrat</a-select-option>
+              <a-select-option value="buah">Buah</a-select-option>
+              <a-select-option value="susu">Susu</a-select-option>
+              <a-select-option value="protein_nabati">Protein Nabati</a-select-option>
             </a-select>
           </a-form-item>
         </a-col>
@@ -44,12 +46,9 @@
               v-model:value="form.unit"
               placeholder="Pilih satuan"
             >
-              <a-select-option value="kg">Kilogram (kg)</a-select-option>
-              <a-select-option value="gram">Gram (g)</a-select-option>
-              <a-select-option value="liter">Liter (L)</a-select-option>
-              <a-select-option value="ml">Mililiter (ml)</a-select-option>
-              <a-select-option value="pcs">Pieces (pcs)</a-select-option>
-              <a-select-option value="porsi">Porsi</a-select-option>
+              <a-select-option value="gram">gram</a-select-option>
+              <a-select-option value="ml">ml</a-select-option>
+              <a-select-option value="pieces">pieces</a-select-option>
             </a-select>
           </a-form-item>
         </a-col>
@@ -147,6 +146,42 @@
         Tambah Bahan
       </a-button>
 
+      <!-- Portion Size Requirements -->
+      <a-divider orientation="left">Kebutuhan Per Porsi</a-divider>
+      
+      <a-row :gutter="16">
+        <a-col :span="12">
+          <a-form-item :label="`Kebutuhan Porsi Kecil (${getUnitLabel()})`">
+            <a-input-number
+              v-model:value="form.quantity_per_portion_small"
+              :min="0"
+              :step="1"
+              style="width: 100%"
+              placeholder="Contoh: 50"
+            />
+          </a-form-item>
+        </a-col>
+        <a-col :span="12">
+          <a-form-item :label="`Kebutuhan Porsi Besar (${getUnitLabel()})`">
+            <a-input-number
+              v-model:value="form.quantity_per_portion_large"
+              :min="0"
+              :step="1"
+              style="width: 100%"
+              placeholder="Contoh: 100"
+            />
+          </a-form-item>
+        </a-col>
+      </a-row>
+
+      <a-alert
+        message="Kebutuhan Porsi"
+        :description="`Tentukan berapa ${getUnitLabel()} komponen ini dibutuhkan untuk 1 porsi kecil dan 1 porsi besar. Contoh: Nasi 50${getUnitLabel()} untuk porsi kecil, 100${getUnitLabel()} untuk porsi besar.`"
+        type="info"
+        show-icon
+        class="mt-4"
+      />
+
       <!-- Nutrition Summary -->
       <a-divider orientation="left">Informasi Gizi (per 100g)</a-divider>
       
@@ -226,9 +261,11 @@ const isEdit = ref(false)
 
 const form = ref({
   name: '',
-  unit: 'kg',
-  category: 'nasi',
+  unit: 'gram',
+  category: 'protein_hewani',
   description: '',
+  quantity_per_portion_small: 0,
+  quantity_per_portion_large: 0,
   calories_per_100g: 0,
   protein_per_100g: 0,
   carbs_per_100g: 0,
@@ -249,6 +286,15 @@ const ingredientOptions = computed(() => {
     name: `${ing.name} (${ing.unit})`
   }))
 })
+
+const getUnitLabel = () => {
+  const unitMap = {
+    'gram': 'gram',
+    'ml': 'ml',
+    'pieces': 'pieces'
+  }
+  return unitMap[form.value.unit] || form.value.unit || 'unit'
+}
 
 const fetchIngredients = async () => {
   try {
@@ -274,9 +320,11 @@ const removeIngredient = (index) => {
 const resetForm = () => {
   form.value = {
     name: '',
-    unit: 'kg',
-    category: 'nasi',
+    unit: 'gram',
+    category: 'protein_hewani',
     description: '',
+    quantity_per_portion_small: 0,
+    quantity_per_portion_large: 0,
     calories_per_100g: 0,
     protein_per_100g: 0,
     carbs_per_100g: 0,
@@ -302,6 +350,8 @@ const loadEditData = () => {
     unit: data.unit,
     category: data.category,
     description: data.description,
+    quantity_per_portion_small: data.quantity_per_portion_small || 0,
+    quantity_per_portion_large: data.quantity_per_portion_large || 0,
     calories_per_100g: data.calories_per_100g,
     protein_per_100g: data.protein_per_100g,
     carbs_per_100g: data.carbs_per_100g,
@@ -349,10 +399,10 @@ const handleSubmit = async () => {
 
     if (isEdit.value && props.editData) {
       await semiFinishedService.updateSemiFinishedGoods(props.editData.id, payload)
-      message.success('Barang setengah jadi berhasil diperbarui')
+      message.success('Komponen berhasil diperbarui')
     } else {
       await semiFinishedService.createSemiFinishedGoods(payload)
-      message.success('Barang setengah jadi berhasil dibuat')
+      message.success('Komponen berhasil dibuat')
     }
     
     emit('success')
