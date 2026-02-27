@@ -12,12 +12,12 @@ type SemiFinishedGoods struct {
 	Unit                    string    `gorm:"size:20;not null" json:"unit" validate:"required"` // kg, liter, pcs, etc.
 	Category                string    `gorm:"size:50;index" json:"category"` // nasi, lauk, sambal, etc.
 	Description             string    `gorm:"type:text" json:"description"`
-	CaloriesPer100g         float64   `gorm:"not null" json:"calories_per_100g"`
-	ProteinPer100g          float64   `gorm:"not null" json:"protein_per_100g"`
-	CarbsPer100g            float64   `gorm:"not null" json:"carbs_per_100g"`
-	FatPer100g              float64   `gorm:"not null" json:"fat_per_100g"`
-	QuantityPerPortionSmall float64   `gorm:"default:0" json:"quantity_per_portion_small"` // gram needed for 1 small portion (e.g., 50g nasi)
-	QuantityPerPortionLarge float64   `gorm:"default:0" json:"quantity_per_portion_large"` // gram needed for 1 large portion (e.g., 100g nasi)
+	CaloriesPer100g         float64   `gorm:"column:calories_per100g;not null" json:"calories_per_100g"`
+	ProteinPer100g          float64   `gorm:"column:protein_per100g;not null" json:"protein_per_100g"`
+	CarbsPer100g            float64   `gorm:"column:carbs_per100g;not null" json:"carbs_per_100g"`
+	FatPer100g              float64   `gorm:"column:fat_per100g;not null" json:"fat_per_100g"`
+	QuantityPerPortionSmall float64   `gorm:"column:quantity_per_portion_small;default:0" json:"quantity_per_portion_small"` // gram needed for 1 small portion (e.g., 50g nasi)
+	QuantityPerPortionLarge float64   `gorm:"column:quantity_per_portion_large;default:0" json:"quantity_per_portion_large"` // gram needed for 1 large portion (e.g., 100g nasi)
 	StockQuantity           float64   `gorm:"default:0" json:"stock_quantity"`
 	MinThreshold            float64   `gorm:"default:10" json:"min_threshold"`
 	IsActive                bool      `gorm:"default:true;index" json:"is_active"`
