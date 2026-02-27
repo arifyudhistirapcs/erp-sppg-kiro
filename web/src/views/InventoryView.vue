@@ -340,6 +340,31 @@
               placeholder="Masukkan nama bahan"
             />
           </a-form-item>
+
+          <a-form-item label="Kategori" name="category">
+            <a-select 
+              v-model:value="initFormData.category" 
+              placeholder="Pilih kategori bahan"
+              allow-clear
+            >
+              <a-select-option value="Sayuran">Sayuran</a-select-option>
+              <a-select-option value="Buah">Buah</a-select-option>
+              <a-select-option value="Daging">Daging</a-select-option>
+              <a-select-option value="Ikan & Seafood">Ikan & Seafood</a-select-option>
+              <a-select-option value="Bumbu">Bumbu</a-select-option>
+              <a-select-option value="Rempah">Rempah</a-select-option>
+              <a-select-option value="Minyak & Lemak">Minyak & Lemak</a-select-option>
+              <a-select-option value="Beras & Biji-bijian">Beras & Biji-bijian</a-select-option>
+              <a-select-option value="Tepung">Tepung</a-select-option>
+              <a-select-option value="Gula & Pemanis">Gula & Pemanis</a-select-option>
+              <a-select-option value="Susu & Produk Susu">Susu & Produk Susu</a-select-option>
+              <a-select-option value="Telur">Telur</a-select-option>
+              <a-select-option value="Kacang-kacangan">Kacang-kacangan</a-select-option>
+              <a-select-option value="Saus & Kecap">Saus & Kecap</a-select-option>
+              <a-select-option value="Kemasan & Wadah">Kemasan & Wadah</a-select-option>
+              <a-select-option value="Lainnya">Lainnya</a-select-option>
+            </a-select>
+          </a-form-item>
         </a-form>
       </a-spin>
     </a-modal>
@@ -401,6 +426,7 @@ const initFormRef = ref()
 const initFormData = reactive({
   code: '',
   name: '',
+  category: undefined,
   unit: undefined
 })
 
@@ -616,6 +642,7 @@ const generateIngredientCode = async () => {
 const resetInitForm = () => {
   initFormData.code = ''
   initFormData.name = ''
+  initFormData.category = undefined
   initFormData.unit = undefined
   initFormRef.value?.resetFields()
 }
@@ -632,6 +659,7 @@ const handleInitialize = async () => {
     // Create new ingredient
     const ingredientData = {
       name: initFormData.name,
+      category: initFormData.category,
       unit: initFormData.unit,
       code: initFormData.code
     }
