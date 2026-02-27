@@ -9,6 +9,7 @@ type Ingredient struct {
 	ID              uint      `gorm:"primaryKey" json:"id"`
 	Code            string    `gorm:"size:20;index;default:''" json:"code"` // Auto-generated: B-XXXX
 	Name            string    `gorm:"size:100;not null;index" json:"name" validate:"required"`
+	Category        string    `gorm:"size:50;index" json:"category"` // Kategori: Sayuran, Daging, Bumbu, dll
 	Unit            string    `gorm:"size:20;not null" json:"unit" validate:"required"` // kg, liter, pcs, etc.
 	CaloriesPer100g float64   `gorm:"default:0" json:"calories_per_100g"`
 	ProteinPer100g  float64   `gorm:"default:0" json:"protein_per_100g"`
@@ -24,7 +25,7 @@ type Recipe struct {
 	ID                   uint                    `gorm:"primaryKey" json:"id"`
 	Name                 string                  `gorm:"size:200;not null;index" json:"name" validate:"required"`
 	Category             string                  `gorm:"size:50;index" json:"category"`
-	ServingSize          int                     `gorm:"not null" json:"serving_size" validate:"required,gt=0"` // number of portions
+	PhotoURL             string                  `gorm:"size:500" json:"photo_url"`
 	Instructions         string                  `gorm:"type:text" json:"instructions"`
 	TotalCalories        float64                 `gorm:"not null" json:"total_calories"`
 	TotalProtein         float64                 `gorm:"not null" json:"total_protein"`
@@ -44,10 +45,12 @@ type Recipe struct {
 // RecipeItem represents semi-finished goods used in a menu/recipe
 // Example: "Paket Ayam Goreng" uses 1 portion of Nasi, 1 portion of Ayam Goreng
 type RecipeItem struct {
-	ID                  uint              `gorm:"primaryKey" json:"id"`
-	RecipeID            uint              `gorm:"index;not null" json:"recipe_id"`
-	SemiFinishedGoodsID uint              `gorm:"index;not null" json:"semi_finished_goods_id"`
-	Quantity            float64           `gorm:"not null" json:"quantity" validate:"required,gt=0"` // quantity of semi-finished goods
+	ID                        uint              `gorm:"primaryKey" json:"id"`
+	RecipeID                  uint              `gorm:"index;not null" json:"recipe_id"`
+	SemiFinishedGoodsID       uint              `gorm:"index;not null" json:"semi_finished_goods_id"`
+	Quantity                  float64           `gorm:"not null" json:"quantity" validate:"required,gt=0"` // quantity of semi-finished goods (deprecated, use portion-specific quantities)
+	QuantityPerPortionSmall   float64           `gorm:"default:0" json:"quantity_per_portion_small"` // quantity needed for 1 small portion (e.g., 50g nasi)
+	QuantityPerPortionLarge   float64           `gorm:"default:0" json:"quantity_per_portion_large"` // quantity needed for 1 large portion (e.g., 100g nasi)
 	
 	// Relationships
 	Recipe              Recipe            `gorm:"foreignKey:RecipeID" json:"recipe,omitempty"`
@@ -84,13 +87,14 @@ type MenuItem struct {
 
 // MenuItemSchoolAllocation represents portions of a menu item allocated to a specific school
 type MenuItemSchoolAllocation struct {
-	ID         uint      `gorm:"primaryKey" json:"id"`
-	MenuItemID uint      `gorm:"index;not null" json:"menu_item_id"`
-	SchoolID   uint      `gorm:"index;not null" json:"school_id"`
-	Portions   int       `gorm:"not null;check:portions > 0" json:"portions" validate:"required,gt=0"`
-	Date       time.Time `gorm:"index;not null" json:"date"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	MenuItemID  uint      `gorm:"index;not null" json:"menu_item_id"`
+	SchoolID    uint      `gorm:"index;not null" json:"school_id"`
+	Portions    int       `gorm:"not null;check:portions > 0" json:"portions" validate:"required,gt=0"`
+	PortionSize string    `gorm:"size:10;not null;check:portion_size IN ('small', 'large')" json:"portion_size" validate:"required,oneof=small large"`
+	Date        time.Time `gorm:"index;not null" json:"date"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 	
 	// Relationships
 	MenuItem   MenuItem  `gorm:"foreignKey:MenuItemID;constraint:OnDelete:CASCADE" json:"menu_item,omitempty"`
@@ -106,7 +110,7 @@ type RecipeVersion struct {
 	Version              int       `gorm:"not null;index" json:"version"`
 	Name                 string    `gorm:"size:200;not null" json:"name"`
 	Category             string    `gorm:"size:50" json:"category"`
-	ServingSize          int       `gorm:"not null" json:"serving_size"`
+	PhotoURL             string    `gorm:"size:500" json:"photo_url"`
 	Instructions         string    `gorm:"type:text" json:"instructions"`
 	TotalCalories        float64   `gorm:"not null" json:"total_calories"`
 	TotalProtein         float64   `gorm:"not null" json:"total_protein"`

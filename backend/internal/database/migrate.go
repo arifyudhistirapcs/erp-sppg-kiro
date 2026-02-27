@@ -28,6 +28,11 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// Add Ingredient Category column
+	if err := AddIngredientCategoryColumn(db); err != nil {
+		return err
+	}
+
 	// Create indexes for frequently queried columns
 	if err := createIndexes(db); err != nil {
 		return err
@@ -294,6 +299,25 @@ func AddActivityTrackerColumns(db *gorm.DB) error {
 	}
 	
 	log.Println("Activity Tracker columns added successfully")
+	
+	return nil
+}
+
+// AddIngredientCategoryColumn adds category field to ingredients table
+func AddIngredientCategoryColumn(db *gorm.DB) error {
+	log.Println("Adding Ingredient category column...")
+	
+	// Add category to ingredients
+	if err := db.Exec("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS category VARCHAR(50)").Error; err != nil {
+		log.Printf("Warning: Failed to add category column to ingredients: %v", err)
+	}
+	
+	// Create index on category
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_ingredients_category ON ingredients(category)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on category: %v", err)
+	}
+	
+	log.Println("Ingredient category column added successfully")
 	
 	return nil
 }
