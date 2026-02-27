@@ -18,6 +18,16 @@ func Migrate(db *gorm.DB) error {
 
 	log.Println("Database migration completed successfully")
 
+	// Add portion size quantity columns
+	if err := AddPortionSizeQuantityColumns(db); err != nil {
+		return err
+	}
+
+	// Add Activity Tracker columns
+	if err := AddActivityTrackerColumns(db); err != nil {
+		return err
+	}
+
 	// Create indexes for frequently queried columns
 	if err := createIndexes(db); err != nil {
 		return err
@@ -55,7 +65,11 @@ func createIndexes(db *gorm.DB) error {
 	}
 
 	// MenuItemSchoolAllocation: unique constraint to prevent duplicate allocations
-	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_item_school_allocation_unique ON menu_item_school_allocations(menu_item_id, school_id)").Error; err != nil {
+	// Include portion_size to allow multiple records for same school (e.g., SD schools with small and large portions)
+	if err := db.Exec("DROP INDEX IF EXISTS idx_menu_item_school_allocation_unique").Error; err != nil {
+		log.Printf("Warning: Failed to drop old unique index: %v", err)
+	}
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_item_school_allocation_unique ON menu_item_school_allocations(menu_item_id, school_id, portion_size)").Error; err != nil {
 		log.Printf("Warning: Failed to create unique index idx_menu_item_school_allocation_unique: %v", err)
 	}
 
@@ -211,5 +225,75 @@ func optimizeDatabase(db *gorm.DB) error {
 		}
 	}
 
+	return nil
+}
+
+// AddPortionSizeQuantityColumns adds quantity_per_portion_small and quantity_per_portion_large columns to recipe_items
+func AddPortionSizeQuantityColumns(db *gorm.DB) error {
+	log.Println("Adding portion size quantity columns to recipe_items...")
+	
+	// Add columns if they don't exist
+	if err := db.Exec("ALTER TABLE recipe_items ADD COLUMN IF NOT EXISTS quantity_per_portion_small DOUBLE PRECISION DEFAULT 0").Error; err != nil {
+		log.Printf("Warning: Failed to add quantity_per_portion_small column: %v", err)
+	}
+	
+	if err := db.Exec("ALTER TABLE recipe_items ADD COLUMN IF NOT EXISTS quantity_per_portion_large DOUBLE PRECISION DEFAULT 0").Error; err != nil {
+		log.Printf("Warning: Failed to add quantity_per_portion_large column: %v", err)
+	}
+	
+	log.Println("Portion size quantity columns added successfully to recipe_items")
+	
+	// Add columns to semi_finished_goods table
+	log.Println("Adding portion size quantity columns to semi_finished_goods...")
+	
+	if err := db.Exec("ALTER TABLE semi_finished_goods ADD COLUMN IF NOT EXISTS quantity_per_portion_small DOUBLE PRECISION DEFAULT 0").Error; err != nil {
+		log.Printf("Warning: Failed to add quantity_per_portion_small column to semi_finished_goods: %v", err)
+	}
+	
+	if err := db.Exec("ALTER TABLE semi_finished_goods ADD COLUMN IF NOT EXISTS quantity_per_portion_large DOUBLE PRECISION DEFAULT 0").Error; err != nil {
+		log.Printf("Warning: Failed to add quantity_per_portion_large column to semi_finished_goods: %v", err)
+	}
+	
+	log.Println("Portion size quantity columns added successfully to semi_finished_goods")
+	
+	return nil
+}
+
+// AddActivityTrackerColumns adds Activity Tracker fields to delivery_records and status_transitions
+func AddActivityTrackerColumns(db *gorm.DB) error {
+	log.Println("Adding Activity Tracker columns...")
+	
+	// Add current_stage to delivery_records
+	if err := db.Exec("ALTER TABLE delivery_records ADD COLUMN IF NOT EXISTS current_stage INTEGER DEFAULT 1 NOT NULL").Error; err != nil {
+		log.Printf("Warning: Failed to add current_stage column to delivery_records: %v", err)
+	}
+	
+	// Create index on current_stage
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_delivery_records_current_stage ON delivery_records(current_stage)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on current_stage: %v", err)
+	}
+	
+	// Add stage to status_transitions
+	if err := db.Exec("ALTER TABLE status_transitions ADD COLUMN IF NOT EXISTS stage INTEGER DEFAULT 1 NOT NULL").Error; err != nil {
+		log.Printf("Warning: Failed to add stage column to status_transitions: %v", err)
+	}
+	
+	// Create index on stage
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_status_transitions_stage ON status_transitions(stage)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on stage: %v", err)
+	}
+	
+	// Add media_url to status_transitions
+	if err := db.Exec("ALTER TABLE status_transitions ADD COLUMN IF NOT EXISTS media_url VARCHAR(500)").Error; err != nil {
+		log.Printf("Warning: Failed to add media_url column to status_transitions: %v", err)
+	}
+	
+	// Add media_type to status_transitions
+	if err := db.Exec("ALTER TABLE status_transitions ADD COLUMN IF NOT EXISTS media_type VARCHAR(20)").Error; err != nil {
+		log.Printf("Warning: Failed to add media_type column to status_transitions: %v", err)
+	}
+	
+	log.Println("Activity Tracker columns added successfully")
+	
 	return nil
 }

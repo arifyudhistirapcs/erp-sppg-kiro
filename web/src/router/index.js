@@ -112,6 +112,16 @@ const router = createRouter({
           }
         },
         {
+          path: 'kds/cleaning',
+          name: 'kds-cleaning',
+          component: () => import('@/views/KDSCleaningView.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'kebersihan'],
+            title: 'KDS - Pencucian Ompreng'
+          }
+        },
+        {
           path: 'suppliers',
           name: 'suppliers',
           component: () => import('@/views/SupplierListView.vue'),
@@ -222,6 +232,26 @@ const router = createRouter({
           }
         },
         {
+          path: 'logistics/monitoring',
+          name: 'logistics-monitoring',
+          component: () => import('@/views/logistics/MonitoringDashboardView.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan'],
+            title: 'Monitoring Pengiriman'
+          }
+        },
+        {
+          path: 'logistics/monitoring/deliveries/:id',
+          name: 'delivery-detail',
+          component: () => import('@/views/logistics/DeliveryDetailView.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan'],
+            title: 'Detail Pengiriman'
+          }
+        },
+        {
           path: 'employees',
           name: 'employees',
           component: () => import('@/views/EmployeeListView.vue'),
@@ -320,8 +350,27 @@ const router = createRouter({
             roles: ['kepala_sppg'],
             title: 'Konfigurasi Sistem'
           }
+        },
+        {
+          path: 'activity-tracker',
+          name: 'activity-tracker',
+          component: () => import('@/views/ActivityTrackerListView.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan'],
+            title: 'Aktivitas Pelacakan'
+          }
+        },
+        {
+          path: 'activity-tracker/:id',
+          name: 'activity-tracker-detail',
+          component: () => import('@/views/ActivityTrackerDetailView.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan'],
+            title: 'Detail Aktivitas Pelacakan'
+          }
         }
-        // Additional routes will be added in subsequent tasks
       ]
     },
     {

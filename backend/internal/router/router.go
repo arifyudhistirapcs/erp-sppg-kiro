@@ -95,6 +95,8 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				recipes.DELETE("/:id", recipeHandler.DeleteRecipe)
 				recipes.GET("/:id/nutrition", recipeHandler.GetRecipeNutrition)
 				recipes.GET("/:id/history", recipeHandler.GetRecipeHistory)
+				recipes.POST("/upload-photo", recipeHandler.UploadRecipePhoto)
+				recipes.DELETE("/delete-photo", recipeHandler.DeleteRecipePhoto)
 			}
 
 			// Ingredient routes
@@ -140,12 +142,19 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				menuPlans.DELETE("/:id/items/:item_id", menuPlanningHandler.DeleteMenuItem)
 			}
 
+			// Monitoring routes (logistics monitoring process)
+			// Requirements: 1.1, 8.2, 8.3
+			monitoringService, err := services.NewMonitoringService(db, firebaseApp)
+			if err != nil {
+				panic("Failed to initialize Monitoring service: " + err.Error())
+			}
+
 			// KDS routes
-			kdsService, err := services.NewKDSService(db, firebaseApp)
+			kdsService, err := services.NewKDSService(db, firebaseApp, monitoringService)
 			if err != nil {
 				panic("Failed to initialize KDS service: " + err.Error())
 			}
-			packingAllocationService, err := services.NewPackingAllocationService(db, firebaseApp)
+			packingAllocationService, err := services.NewPackingAllocationService(db, firebaseApp, monitoringService)
 			if err != nil {
 				panic("Failed to initialize Packing Allocation service: " + err.Error())
 			}
@@ -223,6 +232,9 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				schools.POST("", logisticsHandler.CreateSchool)
 				schools.GET("/:id", logisticsHandler.GetSchool)
 				schools.PUT("/:id", logisticsHandler.UpdateSchool)
+				schools.DELETE("/:id", logisticsHandler.DeleteSchool)
+				schools.POST("/upload-cooperation-letter", logisticsHandler.UploadCooperationLetter)
+				schools.DELETE("/delete-cooperation-letter", logisticsHandler.DeleteCooperationLetter)
 			}
 
 			// Delivery Task routes
@@ -377,6 +389,47 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 			{
 				auditTrail.GET("", auditHandler.GetAuditTrail)
 				auditTrail.GET("/stats", auditHandler.GetAuditStats)
+			}
+
+			monitoringHandler := handlers.NewMonitoringHandler(monitoringService)
+			monitoring := protected.Group("/monitoring")
+			// Exclude kebersihan role from monitoring routes
+			monitoring.Use(middleware.RequireRole("kepala_sppg", "kepala_yayasan", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan"))
+			{
+				monitoring.GET("/deliveries", monitoringHandler.GetDeliveryRecords)
+				monitoring.GET("/deliveries/:id", monitoringHandler.GetDeliveryDetail)
+				monitoring.PUT("/deliveries/:id/status", monitoringHandler.UpdateStatus)
+				monitoring.GET("/deliveries/:id/activity", monitoringHandler.GetActivityLog)
+				monitoring.GET("/summary", monitoringHandler.GetDailySummary)
+			}
+
+			// Cleaning routes (KDS Cleaning module)
+			// Requirements: 7.1, 7.2, 7.3, 8.2
+			cleaningService, err := services.NewCleaningService(db, firebaseApp)
+			if err != nil {
+				panic("Failed to initialize Cleaning service: " + err.Error())
+			}
+			cleaningHandler := handlers.NewCleaningHandler(cleaningService)
+			cleaning := protected.Group("/cleaning")
+			// Allow kebersihan role and admin override (kepala_sppg, kepala_yayasan)
+			cleaning.Use(middleware.RequireRole("kebersihan", "kepala_sppg", "kepala_yayasan"))
+			{
+				cleaning.GET("/pending", cleaningHandler.GetPendingOmpreng)
+				cleaning.POST("/:id/start", cleaningHandler.StartCleaning)
+				cleaning.POST("/:id/complete", cleaningHandler.CompleteCleaning)
+			}
+
+			// Activity Tracker routes (standalone module)
+			activityTrackerService := services.NewActivityTrackerService(db)
+			activityTrackerHandler := handlers.NewActivityTrackerHandler(activityTrackerService)
+			activityTracker := protected.Group("/activity-tracker")
+			// Allow kepala_sppg and management roles
+			activityTracker.Use(middleware.RequireRole("kepala_sppg", "kepala_yayasan", "akuntan"))
+			{
+				activityTracker.GET("/orders", activityTrackerHandler.GetOrdersByDate)
+				activityTracker.GET("/orders/:id", activityTrackerHandler.GetOrderDetails)
+				activityTracker.PUT("/orders/:id/status", activityTrackerHandler.UpdateOrderStatus)
+				activityTracker.POST("/orders/:id/stages/:stage/media", activityTrackerHandler.AttachStageMedia)
 			}
 		}
 	}

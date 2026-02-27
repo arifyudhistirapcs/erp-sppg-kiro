@@ -143,7 +143,8 @@ import {
   TeamOutlined,
   DollarOutlined,
   SettingOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons-vue'
 
 const router = useRouter()
@@ -171,11 +172,11 @@ const pageTitle = computed(() => {
   const titles = {
     '/dashboard/kepala-sppg': 'Dashboard Kepala SPPG',
     '/dashboard/kepala-yayasan': 'Dashboard Kepala Yayasan',
-    '/recipes': 'Manajemen Resep',
-    '/ingredients': 'Manajemen Bahan',
-    '/semi-finished': 'Barang Setengah Jadi',
+    '/recipes': 'Manajemen Menu',
+    // '/ingredients': 'Manajemen Bahan',
+    '/semi-finished': 'Manajemen Komponen',
     '/menu-planning': 'Perencanaan Menu',
-    '/kds': 'Kitchen Display System',
+    '/kds': 'Monitoring Display System',
     '/suppliers': 'Manajemen Supplier',
     '/purchase-orders': 'Purchase Order',
     '/goods-receipts': 'Penerimaan Barang',
@@ -183,6 +184,7 @@ const pageTitle = computed(() => {
     '/schools': 'Data Sekolah',
     '/delivery-tasks': 'Tugas Pengiriman',
     '/ompreng-tracking': 'Pelacakan Ompreng',
+    '/activity-tracker': 'Aktivitas Pelacakan',
     '/employees': 'Data Karyawan',
     '/attendance-report': 'Laporan Absensi',
     '/wifi-config': 'Konfigurasi Wi-Fi',
@@ -222,46 +224,51 @@ const getMenuItems = () => {
     {
       key: 'recipes',
       icon: () => h(BookOutlined),
-      label: 'Resep & Menu',
+      label: 'Menu & Komponen',
       roles: ['kepala_sppg', 'ahli_gizi'],
       children: [
-        {
-          key: '/recipes',
-          label: 'Manajemen Resep',
-          roles: ['kepala_sppg', 'ahli_gizi']
-        },
-        {
-          key: '/ingredients',
-          label: 'Manajemen Bahan',
-          roles: ['kepala_sppg', 'ahli_gizi']
-        },
-        {
-          key: '/semi-finished',
-          label: 'Barang Setengah Jadi',
-          roles: ['kepala_sppg', 'ahli_gizi', 'chef']
-        },
         {
           key: '/menu-planning',
           label: 'Perencanaan Menu',
           roles: ['kepala_sppg', 'ahli_gizi']
+        },
+        {
+          key: '/recipes',
+          label: 'Manajemen Menu',
+          roles: ['kepala_sppg', 'ahli_gizi']
+        },
+        // {
+        //   key: '/ingredients',
+        //   label: 'Manajemen Bahan',
+        //   roles: ['kepala_sppg', 'ahli_gizi']
+        // },
+        {
+          key: '/semi-finished',
+          label: 'Manajemen Komponen',
+          roles: ['kepala_sppg', 'ahli_gizi', 'chef']
         }
       ]
     },
     {
       key: 'kds',
       icon: () => h(DesktopOutlined),
-      label: 'Kitchen Display',
-      roles: ['kepala_sppg', 'ahli_gizi', 'chef', 'packing'],
+      label: 'Monitoring Display',
+      roles: ['kepala_sppg', 'ahli_gizi', 'chef', 'packing', 'kebersihan'],
       children: [
         {
           key: '/kds/cooking',
-          label: 'Dapur - Memasak',
+          label: 'Dapur',
           roles: ['kepala_sppg', 'ahli_gizi', 'chef']
         },
         {
           key: '/kds/packing',
-          label: 'Packing',
+          label: 'Pengemasan',
           roles: ['kepala_sppg', 'ahli_gizi', 'chef', 'packing']
+        },
+        {
+          key: '/kds/cleaning',
+          label: 'Kebersihan',
+          roles: ['kepala_sppg', 'kebersihan']
         }
       ]
     },
@@ -297,7 +304,7 @@ const getMenuItems = () => {
       key: 'logistics',
       icon: () => h(CarOutlined),
       label: 'Logistik',
-      roles: ['kepala_sppg', 'pengadaan'],
+      roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan'],
       children: [
         {
           key: '/schools',
@@ -313,8 +320,19 @@ const getMenuItems = () => {
           key: '/ompreng-tracking',
           label: 'Pelacakan Ompreng',
           roles: ['kepala_sppg', 'pengadaan']
+        },
+        {
+          key: '/logistics/monitoring',
+          label: 'Monitoring Pengiriman',
+          roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan']
         }
       ]
+    },
+    {
+      key: '/activity-tracker',
+      icon: () => h(ClockCircleOutlined),
+      label: 'Aktivitas Pelacakan',
+      roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan']
     },
     {
       key: 'hrm',
