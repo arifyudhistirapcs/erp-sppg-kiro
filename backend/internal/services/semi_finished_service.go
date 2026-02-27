@@ -26,17 +26,9 @@ func NewSemiFinishedService(db *gorm.DB) *SemiFinishedService {
 
 // CreateSemiFinishedGoods creates a new semi-finished goods with its recipe
 func (s *SemiFinishedService) CreateSemiFinishedGoods(goods *models.SemiFinishedGoods, recipe *models.SemiFinishedRecipe, ingredients []models.SemiFinishedRecipeIngredient, userID uint) error {
-	// Calculate nutrition values from ingredients
-	nutrition, err := s.calculateRecipeNutrition(ingredients)
-	if err != nil {
-		return err
-	}
-
-	// Set nutrition values on the goods
-	goods.CaloriesPer100g = nutrition.CaloriesPer100g
-	goods.ProteinPer100g = nutrition.ProteinPer100g
-	goods.CarbsPer100g = nutrition.CarbsPer100g
-	goods.FatPer100g = nutrition.FatPer100g
+	// Note: Nutrition values are provided by the user in the goods object
+	// We don't calculate from ingredients because semi-finished goods nutrition
+	// may differ from raw ingredients due to cooking process
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// Create semi-finished goods
@@ -114,30 +106,25 @@ func (s *SemiFinishedService) UpdateSemiFinishedGoods(id uint, updates *models.S
 		return err
 	}
 
-	// Calculate new nutrition values
-	nutrition, err := s.calculateRecipeNutrition(ingredients)
-	if err != nil {
-		return err
-	}
-
-	// Update nutrition values
-	updates.CaloriesPer100g = nutrition.CaloriesPer100g
-	updates.ProteinPer100g = nutrition.ProteinPer100g
-	updates.CarbsPer100g = nutrition.CarbsPer100g
-	updates.FatPer100g = nutrition.FatPer100g
+	// Note: Nutrition values are provided by the user in the updates object
+	// We don't calculate from ingredients because semi-finished goods nutrition
+	// may differ from raw ingredients due to cooking process
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// Update goods
 		if err := tx.Model(&models.SemiFinishedGoods{}).Where("id = ?", id).Updates(map[string]interface{}{
-			"name":              updates.Name,
-			"unit":              updates.Unit,
-			"description":       updates.Description,
-			"calories_per_100g": updates.CaloriesPer100g,
-			"protein_per_100g":  updates.ProteinPer100g,
-			"carbs_per_100g":    updates.CarbsPer100g,
-			"fat_per_100g":      updates.FatPer100g,
-			"is_active":         updates.IsActive,
-			"updated_at":        time.Now(),
+			"name":                       updates.Name,
+			"unit":                       updates.Unit,
+			"category":                   updates.Category,
+			"description":                updates.Description,
+			"calories_per_100g":          updates.CaloriesPer100g,
+			"protein_per_100g":           updates.ProteinPer100g,
+			"carbs_per_100g":             updates.CarbsPer100g,
+			"fat_per_100g":               updates.FatPer100g,
+			"quantity_per_portion_small": updates.QuantityPerPortionSmall,
+			"quantity_per_portion_large": updates.QuantityPerPortionLarge,
+			"is_active":                  updates.IsActive,
+			"updated_at":                 time.Now(),
 		}).Error; err != nil {
 			return err
 		}
