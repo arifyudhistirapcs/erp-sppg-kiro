@@ -111,7 +111,7 @@ func (s *SemiFinishedService) UpdateSemiFinishedGoods(id uint, updates *models.S
 	// may differ from raw ingredients due to cooking process
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Update goods
+		// Update goods (excluding is_active to prevent accidental deactivation)
 		if err := tx.Model(&models.SemiFinishedGoods{}).Where("id = ?", id).Updates(map[string]interface{}{
 			"name":                       updates.Name,
 			"unit":                       updates.Unit,
@@ -123,18 +123,16 @@ func (s *SemiFinishedService) UpdateSemiFinishedGoods(id uint, updates *models.S
 			"fat_per100g":                updates.FatPer100g,
 			"quantity_per_portion_small": updates.QuantityPerPortionSmall,
 			"quantity_per_portion_large": updates.QuantityPerPortionLarge,
-			"is_active":                  updates.IsActive,
 			"updated_at":                 time.Now(),
 		}).Error; err != nil {
 			return err
 		}
 
-		// Update recipe
+		// Update recipe (excluding is_active to prevent accidental deactivation)
 		if err := tx.Model(&models.SemiFinishedRecipe{}).Where("semi_finished_goods_id = ?", id).Updates(map[string]interface{}{
 			"name":         recipe.Name,
 			"instructions": recipe.Instructions,
 			"yield_amount": recipe.YieldAmount,
-			"is_active":    recipe.IsActive,
 			"updated_at":   time.Now(),
 		}).Error; err != nil {
 			return err
