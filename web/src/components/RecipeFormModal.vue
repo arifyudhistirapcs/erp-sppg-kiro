@@ -96,31 +96,6 @@
               <span class="text-muted">{{ record.category }}</span>
             </div>
           </template>
-          <template v-else-if="column.key === 'quantity_small'">
-            <a-input-number
-              v-model:value="record.quantity_per_portion_small"
-              :min="0"
-              :step="10"
-              style="width: 100%"
-              placeholder="0"
-              @change="calculateNutrition"
-            />
-          </template>
-          <template v-else-if="column.key === 'quantity_large'">
-            <a-input-number
-              v-model:value="record.quantity_per_portion_large"
-              :min="0"
-              :step="10"
-              style="width: 100%"
-              placeholder="0"
-              @change="calculateNutrition"
-            />
-          </template>
-          <template v-else-if="column.key === 'nutrition'">
-            <div style="font-size: 11px">
-              {{ ((record.calories_per_100g || 0) * (record.quantity_per_portion_large || 0) / 100).toFixed(0) }} kkal
-            </div>
-          </template>
           <template v-else-if="column.key === 'actions'">
             <a-button type="link" danger size="small" @click="removeItem(index)">
               Hapus
@@ -308,11 +283,8 @@ const rules = {
 }
 
 const itemColumns = [
-  { title: 'Komponen', key: 'name', width: '25%' },
-  { title: 'Porsi Kecil (gram)', key: 'quantity_small', width: '20%' },
-  { title: 'Porsi Besar (gram)', key: 'quantity_large', width: '20%' },
-  { title: 'Kontribusi Gizi', key: 'nutrition', width: '20%' },
-  { title: 'Aksi', key: 'actions', width: '15%', align: 'center' }
+  { title: 'Komponen', key: 'name', width: '70%' },
+  { title: 'Aksi', key: 'actions', width: '30%', align: 'center' }
 ]
 
 const itemSelectorColumns = [
@@ -403,8 +375,8 @@ const addSelectedItems = () => {
       name: item.name,
       category: item.category,
       quantity: 100, // deprecated, kept for backward compatibility
-      quantity_per_portion_small: 0, // default 0, user will fill
-      quantity_per_portion_large: 0, // default 0, user will fill
+      quantity_per_portion_small: item.quantity_per_portion_small || 0, // use value from database
+      quantity_per_portion_large: item.quantity_per_portion_large || 0, // use value from database
       unit: item.unit,
       calories_per_100g: item.calories_per_100g,
       protein_per_100g: item.protein_per_100g,
