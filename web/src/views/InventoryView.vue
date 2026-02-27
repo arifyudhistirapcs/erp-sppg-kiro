@@ -322,13 +322,8 @@
             <a-col :span="12">
               <a-form-item label="Satuan" name="unit">
                 <a-select v-model:value="initFormData.unit" placeholder="Pilih satuan">
-                  <a-select-option value="kg">kg (Kilogram)</a-select-option>
                   <a-select-option value="gram">gram</a-select-option>
-                  <a-select-option value="liter">liter</a-select-option>
                   <a-select-option value="ml">ml (Mililiter)</a-select-option>
-                  <a-select-option value="pcs">pcs (Pieces)</a-select-option>
-                  <a-select-option value="bungkus">bungkus</a-select-option>
-                  <a-select-option value="kaleng">kaleng</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -347,22 +342,19 @@
               placeholder="Pilih kategori bahan"
               allow-clear
             >
-              <a-select-option value="Sayuran">Sayuran</a-select-option>
               <a-select-option value="Buah">Buah</a-select-option>
-              <a-select-option value="Daging">Daging</a-select-option>
-              <a-select-option value="Ikan & Seafood">Ikan & Seafood</a-select-option>
               <a-select-option value="Bumbu">Bumbu</a-select-option>
-              <a-select-option value="Rempah">Rempah</a-select-option>
-              <a-select-option value="Minyak & Lemak">Minyak & Lemak</a-select-option>
-              <a-select-option value="Beras & Biji-bijian">Beras & Biji-bijian</a-select-option>
-              <a-select-option value="Tepung">Tepung</a-select-option>
-              <a-select-option value="Gula & Pemanis">Gula & Pemanis</a-select-option>
-              <a-select-option value="Susu & Produk Susu">Susu & Produk Susu</a-select-option>
+              <a-select-option value="Daging, Unggas">Daging, Unggas</a-select-option>
+              <a-select-option value="Gula, Sirup, Konfeksioneri">Gula, Sirup, Konfeksioneri</a-select-option>
+              <a-select-option value="Ikan, Kerang, Udang">Ikan, Kerang, Udang</a-select-option>
+              <a-select-option value="Kacang, Biji, Bean">Kacang, Biji, Bean</a-select-option>
+              <a-select-option value="Lemak dan Minyak">Lemak dan Minyak</a-select-option>
+              <a-select-option value="Minuman">Minuman</a-select-option>
+              <a-select-option value="Sayuran">Sayuran</a-select-option>
+              <a-select-option value="Serealia">Serealia</a-select-option>
+              <a-select-option value="Susu">Susu</a-select-option>
               <a-select-option value="Telur">Telur</a-select-option>
-              <a-select-option value="Kacang-kacangan">Kacang-kacangan</a-select-option>
-              <a-select-option value="Saus & Kecap">Saus & Kecap</a-select-option>
-              <a-select-option value="Kemasan & Wadah">Kemasan & Wadah</a-select-option>
-              <a-select-option value="Lainnya">Lainnya</a-select-option>
+              <a-select-option value="Umbi Berpati">Umbi Berpati</a-select-option>
             </a-select>
           </a-form-item>
         </a-form>
