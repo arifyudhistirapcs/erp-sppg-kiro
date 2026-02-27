@@ -104,7 +104,10 @@
               :row-class-name="getRowClassName"
             >
               <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'ingredient_name'">
+                <template v-if="column.key === 'ingredient_code'">
+                  <a-tag color="blue">{{ record.ingredient?.code }}</a-tag>
+                </template>
+                <template v-else-if="column.key === 'ingredient_name'">
                   <strong>{{ record.ingredient?.name }}</strong>
                 </template>
                 <template v-else-if="column.key === 'quantity'">
@@ -450,6 +453,11 @@ const lastUpdate = computed(() => {
 })
 
 const inventoryColumns = [
+  {
+    title: 'Kode',
+    key: 'ingredient_code',
+    width: 100
+  },
   {
     title: 'Nama Bahan',
     key: 'ingredient_name',
