@@ -213,12 +213,14 @@
             style="width: 100%"
             @change="loadItems"
           >
-            <a-select-option value="nasi">Nasi</a-select-option>
-            <a-select-option value="lauk">Lauk</a-select-option>
-            <a-select-option value="sambal">Sambal</a-select-option>
+            <a-select-option value="protein_hewani">Protein Hewani</a-select-option>
+            <a-select-option value="sumber_lemak">Sumber Lemak</a-select-option>
+            <a-select-option value="lainnya">Lainnya</a-select-option>
             <a-select-option value="sayur">Sayur</a-select-option>
-            <a-select-option value="lauk_berkuah">Lauk Berkuah</a-select-option>
-            <a-select-option value="minuman">Minuman</a-select-option>
+            <a-select-option value="karbohidrat">Karbohidrat</a-select-option>
+            <a-select-option value="buah">Buah</a-select-option>
+            <a-select-option value="susu">Susu</a-select-option>
+            <a-select-option value="protein_nabati">Protein Nabati</a-select-option>
           </a-select>
         </a-col>
       </a-row>
