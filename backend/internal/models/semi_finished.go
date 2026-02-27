@@ -7,20 +7,22 @@ import (
 // SemiFinishedGoods represents semi-finished products (barang setengah jadi)
 // Examples: Nasi, Ayam Goreng, Sambal
 type SemiFinishedGoods struct {
-	ID              uint      `gorm:"primaryKey" json:"id"`
-	Name            string    `gorm:"size:100;not null;index" json:"name" validate:"required"`
-	Unit            string    `gorm:"size:20;not null" json:"unit" validate:"required"` // kg, liter, pcs, etc.
-	Category        string    `gorm:"size:50;index" json:"category"` // nasi, lauk, sambal, etc.
-	Description     string    `gorm:"type:text" json:"description"`
-	CaloriesPer100g float64   `gorm:"not null" json:"calories_per_100g"`
-	ProteinPer100g  float64   `gorm:"not null" json:"protein_per_100g"`
-	CarbsPer100g    float64   `gorm:"not null" json:"carbs_per_100g"`
-	FatPer100g      float64   `gorm:"not null" json:"fat_per_100g"`
-	StockQuantity   float64   `gorm:"default:0" json:"stock_quantity"`
-	MinThreshold    float64   `gorm:"default:10" json:"min_threshold"`
-	IsActive        bool      `gorm:"default:true;index" json:"is_active"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID                      uint      `gorm:"primaryKey" json:"id"`
+	Name                    string    `gorm:"size:100;not null;index" json:"name" validate:"required"`
+	Unit                    string    `gorm:"size:20;not null" json:"unit" validate:"required"` // kg, liter, pcs, etc.
+	Category                string    `gorm:"size:50;index" json:"category"` // nasi, lauk, sambal, etc.
+	Description             string    `gorm:"type:text" json:"description"`
+	CaloriesPer100g         float64   `gorm:"not null" json:"calories_per_100g"`
+	ProteinPer100g          float64   `gorm:"not null" json:"protein_per_100g"`
+	CarbsPer100g            float64   `gorm:"not null" json:"carbs_per_100g"`
+	FatPer100g              float64   `gorm:"not null" json:"fat_per_100g"`
+	QuantityPerPortionSmall float64   `gorm:"default:0" json:"quantity_per_portion_small"` // gram needed for 1 small portion (e.g., 50g nasi)
+	QuantityPerPortionLarge float64   `gorm:"default:0" json:"quantity_per_portion_large"` // gram needed for 1 large portion (e.g., 100g nasi)
+	StockQuantity           float64   `gorm:"default:0" json:"stock_quantity"`
+	MinThreshold            float64   `gorm:"default:10" json:"min_threshold"`
+	IsActive                bool      `gorm:"default:true;index" json:"is_active"`
+	CreatedAt               time.Time `json:"created_at"`
+	UpdatedAt               time.Time `json:"updated_at"`
 	
 	// Relationships
 	Recipe            *SemiFinishedRecipe           `gorm:"foreignKey:SemiFinishedGoodsID" json:"recipe,omitempty"`

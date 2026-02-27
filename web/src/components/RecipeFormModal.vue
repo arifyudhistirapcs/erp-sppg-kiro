@@ -1,7 +1,7 @@
 <template>
   <a-modal
     :visible="visible"
-    :title="isEdit ? 'Edit Resep' : 'Tambah Resep Baru'"
+    :title="isEdit ? 'Edit Menu' : 'Tambah Menu Baru'"
     width="900px"
     :confirm-loading="loading"
     @ok="handleSubmit"
@@ -17,41 +17,43 @@
     >
       <a-row :gutter="16">
         <a-col :span="16">
-          <a-form-item label="Nama Resep" name="name">
-            <a-input v-model:value="formData.name" placeholder="Masukkan nama resep (contoh: Paket Ayam Goreng)" />
+          <a-form-item label="Nama Menu" name="name">
+            <a-input v-model:value="formData.name" placeholder="Masukkan nama menu (contoh: Paket Ayam Goreng)" />
           </a-form-item>
         </a-col>
         <a-col :span="8">
           <a-form-item label="Kategori" name="category">
             <a-select v-model:value="formData.category" placeholder="Pilih kategori">
-              <a-select-option value="paket_lengkap">Paket Lengkap</a-select-option>
-              <a-select-option value="makanan_pokok">Makanan Pokok</a-select-option>
-              <a-select-option value="lauk_pauk">Lauk Pauk</a-select-option>
-              <a-select-option value="sayuran">Sayuran</a-select-option>
-              <a-select-option value="buah">Buah</a-select-option>
-              <a-select-option value="minuman">Minuman</a-select-option>
+              <a-select-option value="masakan_indonesia">Masakan Indonesia</a-select-option>
+              <a-select-option value="masakan_china">Masakan China</a-select-option>
+              <a-select-option value="masakan_western">Masakan Western</a-select-option>
+              <a-select-option value="masakan_india">Masakan India</a-select-option>
+              <a-select-option value="masakan_gabungan">Masakan Gabungan</a-select-option>
+              <a-select-option value="lainnya">Lainnya</a-select-option>
             </a-select>
           </a-form-item>
         </a-col>
       </a-row>
 
-      <a-row :gutter="16">
-        <a-col :span="12">
-          <a-form-item label="Jumlah Porsi" name="serving_size">
-            <a-input-number
-              v-model:value="formData.serving_size"
-              :min="1"
-              style="width: 100%"
-              placeholder="Jumlah porsi yang dihasilkan"
-            />
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item label="Status" name="is_active">
-            <a-switch v-model:checked="formData.is_active" checked-children="Aktif" un-checked-children="Nonaktif" />
-          </a-form-item>
-        </a-col>
-      </a-row>
+      <a-form-item label="Foto Menu">
+        <a-upload
+          v-model:file-list="fileList"
+          list-type="picture-card"
+          :before-upload="beforeUpload"
+          :custom-request="handleUpload"
+          :max-count="1"
+          accept="image/*"
+          @remove="handleRemovePhoto"
+        >
+          <div v-if="fileList.length < 1">
+            <plus-outlined />
+            <div style="margin-top: 8px">Upload</div>
+          </div>
+        </a-upload>
+        <div style="color: #8c8c8c; font-size: 12px; margin-top: 8px">
+          Format: JPG, PNG, JPEG. Maksimal 2MB
+        </div>
+      </a-form-item>
 
       <a-form-item label="Instruksi Penyajian" name="instructions">
         <a-textarea
@@ -61,11 +63,11 @@
         />
       </a-form-item>
 
-      <a-divider>Komposisi Menu (Barang Setengah Jadi)</a-divider>
+      <a-divider>Komposisi Menu (Komponen)</a-divider>
 
       <a-alert
         message="Panduan"
-        description="Menu terdiri dari barang setengah jadi seperti Nasi, Ayam Goreng, Sambal, dll. Pilih dari daftar yang sudah tersedia."
+        description="Menu terdiri dari komponen seperti Nasi, Ayam Goreng, Sambal, dll. Pilih dari daftar yang sudah tersedia."
         type="info"
         show-icon
         style="margin-bottom: 16px"
@@ -94,19 +96,29 @@
               <span class="text-muted">{{ record.category }}</span>
             </div>
           </template>
-          <template v-else-if="column.key === 'quantity'">
+          <template v-else-if="column.key === 'quantity_small'">
             <a-input-number
-              v-model:value="record.quantity"
-              :min="0.01"
+              v-model:value="record.quantity_per_portion_small"
+              :min="0"
               :step="10"
               style="width: 100%"
-              addon-after="gram"
+              placeholder="0"
+              @change="calculateNutrition"
+            />
+          </template>
+          <template v-else-if="column.key === 'quantity_large'">
+            <a-input-number
+              v-model:value="record.quantity_per_portion_large"
+              :min="0"
+              :step="10"
+              style="width: 100%"
+              placeholder="0"
               @change="calculateNutrition"
             />
           </template>
           <template v-else-if="column.key === 'nutrition'">
             <div style="font-size: 11px">
-              {{ ((record.calories_per_100g || 0) * record.quantity / 100).toFixed(0) }} kkal
+              {{ ((record.calories_per_100g || 0) * (record.quantity_per_portion_large || 0) / 100).toFixed(0) }} kkal
             </div>
           </template>
           <template v-else-if="column.key === 'actions'">
@@ -157,18 +169,14 @@
         </a-col>
       </a-row>
 
-      <!-- Per Portion Nutrition -->
-      <a-row :gutter="16" style="margin-top: 16px">
-        <a-col :span="24">
-          <div class="per-portion-summary">
-            <strong>Gizi per Porsi:</strong>
-            <a-tag color="red">{{ (nutritionSummary.calories / formData.serving_size).toFixed(0) }} kkal</a-tag>
-            <a-tag color="blue">P: {{ (nutritionSummary.protein / formData.serving_size).toFixed(1) }}g</a-tag>
-            <a-tag color="green">K: {{ (nutritionSummary.carbs / formData.serving_size).toFixed(1) }}g</a-tag>
-            <a-tag color="orange">L: {{ (nutritionSummary.fat / formData.serving_size).toFixed(1) }}g</a-tag>
-          </div>
-        </a-col>
-      </a-row>
+      <!-- Note about nutrition -->
+      <a-alert
+        message="Catatan"
+        description="Nilai gizi di atas adalah total per menu/paket. Standar minimum: 600 kkal dan 15g protein per menu."
+        type="info"
+        show-icon
+        style="margin-top: 16px"
+      />
 
       <!-- Validation Alert -->
       <a-alert
@@ -183,7 +191,7 @@
     <!-- Item Selector Modal -->
     <a-modal
       v-model:visible="itemSelectorVisible"
-      title="Pilih Barang Setengah Jadi"
+      title="Pilih Komponen"
       width="700px"
       @ok="addSelectedItems"
       ok-text="Tambah"
@@ -193,7 +201,7 @@
         <a-col :span="12">
           <a-input-search
             v-model:value="itemSearch"
-            placeholder="Cari barang setengah jadi..."
+            placeholder="Cari komponen..."
             @search="searchItems"
           />
         </a-col>
@@ -268,15 +276,16 @@ const itemSearch = ref('')
 const categoryFilter = ref(undefined)
 const availableItems = ref([])
 const selectedItemIds = ref([])
+const fileList = ref([])
+const uploadedPhotoUrl = ref('')
+const uploading = ref(false)
 
 const isEdit = computed(() => !!props.recipe?.id)
 
 const formData = reactive({
   name: '',
   category: undefined,
-  serving_size: 1,
   instructions: '',
-  is_active: true,
   items: []
 })
 
@@ -290,16 +299,16 @@ const nutritionSummary = reactive({
 const validationMessage = ref(null)
 
 const rules = {
-  name: [{ required: true, message: 'Nama resep harus diisi', trigger: 'blur' }],
+  name: [{ required: true, message: 'Nama menu harus diisi', trigger: 'blur' }],
   category: [{ required: true, message: 'Kategori harus dipilih', trigger: 'change' }],
-  serving_size: [{ required: true, message: 'Jumlah porsi harus diisi', trigger: 'blur' }],
   instructions: [{ required: true, message: 'Instruksi penyajian harus diisi', trigger: 'blur' }]
 }
 
 const itemColumns = [
-  { title: 'Komponen', key: 'name', width: '35%' },
-  { title: 'Jumlah', key: 'quantity', width: '25%' },
-  { title: 'Kontribusi Gizi', key: 'nutrition', width: '25%' },
+  { title: 'Komponen', key: 'name', width: '25%' },
+  { title: 'Porsi Kecil (gram)', key: 'quantity_small', width: '20%' },
+  { title: 'Porsi Besar (gram)', key: 'quantity_large', width: '20%' },
+  { title: 'Kontribusi Gizi', key: 'nutrition', width: '20%' },
   { title: 'Aksi', key: 'actions', width: '15%', align: 'center' }
 ]
 
@@ -317,7 +326,9 @@ const calculateNutrition = () => {
   let totalFat = 0
 
   formData.items.forEach(item => {
-    const factor = item.quantity / 100
+    // Use large portion as base for nutrition calculation
+    const quantity = item.quantity_per_portion_large || item.quantity || 0
+    const factor = quantity / 100
     totalCalories += (item.calories_per_100g || 0) * factor
     totalProtein += (item.protein_per_100g || 0) * factor
     totalCarbs += (item.carbs_per_100g || 0) * factor
@@ -333,22 +344,19 @@ const calculateNutrition = () => {
 }
 
 const validateNutrition = () => {
-  // Minimum standards per portion
-  const minCaloriesPerPortion = 600
-  const minProteinPerPortion = 15
+  // Minimum standards per menu
+  const minCalories = 600
+  const minProtein = 15
 
-  const caloriesPerPortion = nutritionSummary.calories / formData.serving_size
-  const proteinPerPortion = nutritionSummary.protein / formData.serving_size
-
-  if (caloriesPerPortion < minCaloriesPerPortion || proteinPerPortion < minProteinPerPortion) {
+  if (nutritionSummary.calories < minCalories || nutritionSummary.protein < minProtein) {
     validationMessage.value = {
       type: 'warning',
-      text: `Peringatan: Gizi per porsi belum memenuhi standar minimum (${minCaloriesPerPortion} kkal, ${minProteinPerPortion}g protein)`
+      text: `Peringatan: Gizi menu belum memenuhi standar minimum (${minCalories} kkal, ${minProtein}g protein)`
     }
   } else {
     validationMessage.value = {
       type: 'success',
-      text: 'Gizi per porsi sudah memenuhi standar minimum'
+      text: 'Gizi menu sudah memenuhi standar minimum'
     }
   }
 }
@@ -368,7 +376,7 @@ const loadItems = async () => {
     const response = await semiFinishedService.getAllSemiFinishedGoods(params)
     availableItems.value = response.data.data || []
   } catch (error) {
-    message.error('Gagal memuat data barang setengah jadi')
+    message.error('Gagal memuat data komponen')
     console.error('Error loading items:', error)
   } finally {
     itemsLoading.value = false
@@ -391,7 +399,9 @@ const addSelectedItems = () => {
       semi_finished_goods_id: item.id,
       name: item.name,
       category: item.category,
-      quantity: 100, // default 100g
+      quantity: 100, // deprecated, kept for backward compatibility
+      quantity_per_portion_small: 0, // default 0, user will fill
+      quantity_per_portion_large: 0, // default 0, user will fill
       unit: item.unit,
       calories_per_100g: item.calories_per_100g,
       protein_per_100g: item.protein_per_100g,
@@ -411,6 +421,82 @@ const removeItem = (index) => {
   calculateNutrition()
 }
 
+const beforeUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  if (!isImage) {
+    message.error('Hanya file gambar yang diperbolehkan!')
+    return false
+  }
+  
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    message.error('Ukuran gambar harus kurang dari 2MB!')
+    return false
+  }
+  
+  return true
+}
+
+const handleUpload = async ({ file, onSuccess, onError }) => {
+  uploading.value = true
+  
+  try {
+    const formData = new FormData()
+    formData.append('photo', file)
+    
+    const token = localStorage.getItem('token')
+    const response = await fetch('http://localhost:8080/api/v1/recipes/upload-photo', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    })
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      uploadedPhotoUrl.value = `http://localhost:8080${data.photo_url}`
+      fileList.value = [{
+        uid: file.uid,
+        name: file.name,
+        status: 'done',
+        url: uploadedPhotoUrl.value
+      }]
+      message.success('Foto berhasil diupload')
+      onSuccess(data, file)
+    } else {
+      message.error(data.message || 'Gagal upload foto')
+      onError(new Error(data.message))
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    message.error('Gagal upload foto')
+    onError(error)
+  } finally {
+    uploading.value = false
+  }
+}
+
+const handleRemovePhoto = async () => {
+  if (uploadedPhotoUrl.value) {
+    try {
+      const token = localStorage.getItem('token')
+      await fetch(`http://localhost:8080/api/v1/recipes/delete-photo?photo_url=${encodeURIComponent(uploadedPhotoUrl.value)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+    } catch (error) {
+      console.error('Delete photo error:', error)
+    }
+  }
+  
+  uploadedPhotoUrl.value = ''
+  fileList.value = []
+}
+
 const handleSubmit = async () => {
   try {
     await formRef.value.validate()
@@ -425,25 +511,27 @@ const handleSubmit = async () => {
     const payload = {
       name: formData.name,
       category: formData.category,
-      serving_size: formData.serving_size,
+      photo_url: uploadedPhotoUrl.value || undefined,
       instructions: formData.instructions,
-      is_active: formData.is_active,
+      is_active: true,
       total_calories: nutritionSummary.calories,
       total_protein: nutritionSummary.protein,
       total_carbs: nutritionSummary.carbs,
       total_fat: nutritionSummary.fat,
       items: formData.items.map(item => ({
         semi_finished_goods_id: item.semi_finished_goods_id,
-        quantity: item.quantity
+        quantity: item.quantity_per_portion_large || item.quantity || 0, // fallback for backward compatibility
+        quantity_per_portion_small: item.quantity_per_portion_small || 0,
+        quantity_per_portion_large: item.quantity_per_portion_large || 0
       }))
     }
 
     if (isEdit.value) {
       await recipeService.updateRecipe(props.recipe.id, payload)
-      message.success('Resep berhasil diperbarui')
+      message.success('Menu berhasil diperbarui')
     } else {
       await recipeService.createRecipe(payload)
-      message.success('Resep berhasil ditambahkan')
+      message.success('Menu berhasil ditambahkan')
     }
 
     emit('success')
@@ -451,9 +539,9 @@ const handleSubmit = async () => {
     if (error.errorFields) {
       message.error('Mohon lengkapi semua field yang wajib diisi')
     } else if (error.response?.data?.error_code === 'INSUFFICIENT_NUTRITION') {
-      message.error('Nilai gizi tidak memenuhi standar minimum (600 kkal, 15g protein per porsi)')
+      message.error('Nilai gizi tidak memenuhi standar minimum (600 kkal, 15g protein per menu)')
     } else {
-      message.error('Gagal menyimpan resep')
+      message.error('Gagal menyimpan menu')
       console.error('Error saving recipe:', error)
     }
   } finally {
@@ -468,15 +556,15 @@ const handleCancel = () => {
 const resetForm = () => {
   formData.name = ''
   formData.category = undefined
-  formData.serving_size = 1
   formData.instructions = ''
-  formData.is_active = true
   formData.items = []
   nutritionSummary.calories = 0
   nutritionSummary.protein = 0
   nutritionSummary.carbs = 0
   nutritionSummary.fat = 0
   validationMessage.value = null
+  fileList.value = []
+  uploadedPhotoUrl.value = ''
   formRef.value?.resetFields()
 }
 
@@ -487,21 +575,33 @@ watch(() => props.visible, (newVal) => {
       Object.assign(formData, {
         name: props.recipe.name,
         category: props.recipe.category,
-        serving_size: props.recipe.serving_size,
         instructions: props.recipe.instructions,
-        is_active: props.recipe.is_active,
         items: props.recipe.recipe_items?.map(ri => ({
           semi_finished_goods_id: ri.semi_finished_goods_id,
           name: ri.semi_finished_goods?.name,
           category: ri.semi_finished_goods?.category,
           unit: ri.semi_finished_goods?.unit,
           quantity: ri.quantity,
+          quantity_per_portion_small: ri.quantity_per_portion_small || 0,
+          quantity_per_portion_large: ri.quantity_per_portion_large || 0,
           calories_per_100g: ri.semi_finished_goods?.calories_per_100g,
           protein_per_100g: ri.semi_finished_goods?.protein_per_100g,
           carbs_per_100g: ri.semi_finished_goods?.carbs_per_100g,
           fat_per_100g: ri.semi_finished_goods?.fat_per_100g
         })) || []
       })
+      
+      // Load existing photo
+      if (props.recipe.photo_url) {
+        uploadedPhotoUrl.value = props.recipe.photo_url
+        fileList.value = [{
+          uid: '-1',
+          name: 'photo.jpg',
+          status: 'done',
+          url: props.recipe.photo_url
+        }]
+      }
+      
       calculateNutrition()
     } else {
       resetForm()
@@ -529,5 +629,25 @@ watch(() => props.visible, (newVal) => {
 
 .per-portion-summary .ant-tag {
   margin: 0 4px;
+}
+
+:deep(.ant-upload-picture-card-wrapper) {
+  width: auto;
+}
+
+:deep(.ant-upload.ant-upload-select-picture-card) {
+  width: 200px;
+  height: 200px;
+  margin: 0;
+}
+
+:deep(.ant-upload-list-picture-card-container) {
+  width: 200px;
+  height: 200px;
+  margin: 0;
+}
+
+:deep(.ant-upload-list-picture-card .ant-upload-list-item) {
+  padding: 0;
 }
 </style>

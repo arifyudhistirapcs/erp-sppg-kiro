@@ -1,0 +1,431 @@
+{
+  "info": {
+    "name": "Portion Size Differentiation API",
+    "description": "API collection for testing portion size differentiation feature in menu planning system. This feature enables allocation of small portions (SD grades 1-3) and large portions (SD grades 4-6, SMP, SMA). Includes 17 requests covering menu planning, validation, and KDS (Kitchen Display System) endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "menu_plan_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "menu_item_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "sd_school_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "smp_school_id",
+      "value": "2",
+      "type": "string"
+    },
+    {
+      "key": "recipe_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "test_date",
+      "value": "2024-01-15",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Create Menu Item - SD School Mixed Portions",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 350,\n  \"school_allocations\": [\n    {\n      \"school_id\": {{sd_school_id}},\n      \"portions_small\": 150,\n      \"portions_large\": 200\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items"]
+        },
+        "description": "Creates a menu item for an SD school with both small portions (grades 1-3) and large portions (grades 4-6). This will create 2 allocation records in the database."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create Menu Item - SMP School Large Only",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 150,\n  \"school_allocations\": [\n    {\n      \"school_id\": {{smp_school_id}},\n      \"portions_small\": 0,\n      \"portions_large\": 150\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items"]
+        },
+        "description": "Creates a menu item for an SMP school with only large portions. SMP schools cannot have small portions."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Create Menu Item - Multiple Schools",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 800,\n  \"school_allocations\": [\n    {\n      \"school_id\": 1,\n      \"portions_small\": 150,\n      \"portions_large\": 200\n    },\n    {\n      \"school_id\": 2,\n      \"portions_small\": 0,\n      \"portions_large\": 200\n    },\n    {\n      \"school_id\": 3,\n      \"portions_small\": 100,\n      \"portions_large\": 150\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items"]
+        },
+        "description": "Creates a menu item with allocations to multiple schools with different portion size combinations. Total: 150+200+200+100+150 = 800."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Menu Item with Portion Breakdown",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items/{{menu_item_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items", "{{menu_item_id}}"]
+        },
+        "description": "Retrieves a menu item with school allocations grouped by school, showing portion size breakdown (portions_small, portions_large, total_portions)."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Update Menu Item - Change Portions",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 600,\n  \"school_allocations\": [\n    {\n      \"school_id\": {{sd_school_id}},\n      \"portions_small\": 200,\n      \"portions_large\": 250\n    },\n    {\n      \"school_id\": {{smp_school_id}},\n      \"portions_small\": 0,\n      \"portions_large\": 150\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items/{{menu_item_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items", "{{menu_item_id}}"]
+        },
+        "description": "Updates an existing menu item with new portion size allocations. Old allocations are deleted and new ones are created atomically."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Validation Error - Sum Mismatch",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 500,\n  \"school_allocations\": [\n    {\n      \"school_id\": {{sd_school_id}},\n      \"portions_small\": 150,\n      \"portions_large\": 200\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items"]
+        },
+        "description": "Test validation error: Sum of allocated portions (350) does not equal total portions (500). Expected to return 400 Bad Request."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Validation Error - SMP Small Portions",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 200,\n  \"school_allocations\": [\n    {\n      \"school_id\": {{smp_school_id}},\n      \"portions_small\": 50,\n      \"portions_large\": 150\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items"]
+        },
+        "description": "Test validation error: SMP schools cannot have small portions. Expected to return 400 Bad Request with error 'SMP schools cannot have small portions'."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Validation Error - No Portions",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 0,\n  \"school_allocations\": [\n    {\n      \"school_id\": {{sd_school_id}},\n      \"portions_small\": 0,\n      \"portions_large\": 0\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items"]
+        },
+        "description": "Test validation error: School must have at least one portion. Expected to return 400 Bad Request."
+      },
+      "response": []
+    },
+    {
+      "name": "9. Validation Error - Negative Portions",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 100,\n  \"school_allocations\": [\n    {\n      \"school_id\": {{sd_school_id}},\n      \"portions_small\": -50,\n      \"portions_large\": 150\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items"]
+        },
+        "description": "Test validation error: Portions cannot be negative. Expected to return 400 Bad Request."
+      },
+      "response": []
+    },
+    {
+      "name": "10. Validation Error - Duplicate School",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"recipe_id\": {{recipe_id}},\n  \"portions\": 500,\n  \"school_allocations\": [\n    {\n      \"school_id\": {{sd_school_id}},\n      \"portions_small\": 150,\n      \"portions_large\": 200\n    },\n    {\n      \"school_id\": {{sd_school_id}},\n      \"portions_small\": 50,\n      \"portions_large\": 100\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items"]
+        },
+        "description": "Test validation error: Duplicate allocation for the same school. Expected to return 400 Bad Request."
+      },
+      "response": []
+    },
+    {
+      "name": "11. Delete Menu Item",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/menu-plans/{{menu_plan_id}}/items/{{menu_item_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["menu-plans", "{{menu_plan_id}}", "items", "{{menu_item_id}}"]
+        },
+        "description": "Deletes a menu item and all its associated school allocations (cascade delete)."
+      },
+      "response": []
+    },
+    {
+      "name": "12. KDS - Get Today's Cooking Menu",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/kds/cooking/today?date={{test_date}}",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "kds", "cooking", "today"],
+          "query": [
+            {
+              "key": "date",
+              "value": "{{test_date}}",
+              "description": "Optional date in YYYY-MM-DD format. Defaults to today if not provided."
+            }
+          ]
+        },
+        "description": "Retrieves today's cooking menu with portion size breakdown by school. Shows all recipes that need to be cooked with their allocations."
+      },
+      "response": []
+    },
+    {
+      "name": "13. KDS - Get Today's Packing Allocations",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/kds/packing/today?date={{test_date}}",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "kds", "packing", "today"],
+          "query": [
+            {
+              "key": "date",
+              "value": "{{test_date}}",
+              "description": "Optional date in YYYY-MM-DD format. Defaults to today if not provided."
+            }
+          ]
+        },
+        "description": "Retrieves today's packing allocations grouped by school with portion size breakdown. Only shows allocations for recipes that have been cooked (status = 'ready')."
+      },
+      "response": []
+    },
+    {
+      "name": "14. KDS - Update Cooking Status to Cooking",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"cooking\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v1/kds/cooking/{{recipe_id}}/status",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "kds", "cooking", "{{recipe_id}}", "status"]
+        },
+        "description": "Updates the cooking status of a recipe to 'cooking'. Valid statuses: pending, cooking, ready."
+      },
+      "response": []
+    },
+    {
+      "name": "15. KDS - Update Cooking Status to Ready",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"ready\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v1/kds/cooking/{{recipe_id}}/status",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "kds", "cooking", "{{recipe_id}}", "status"]
+        },
+        "description": "Updates the cooking status of a recipe to 'ready'. Once ready, the recipe becomes visible in the packing view."
+      },
+      "response": []
+    },
+    {
+      "name": "16. KDS - Update Packing Status to Packing",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"packing\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v1/kds/packing/{{sd_school_id}}/status",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "kds", "packing", "{{sd_school_id}}", "status"]
+        },
+        "description": "Updates the packing status for a school to 'packing'. Valid statuses: pending, packing, packed."
+      },
+      "response": []
+    },
+    {
+      "name": "17. KDS - Update Packing Status to Packed",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"packed\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v1/kds/packing/{{sd_school_id}}/status",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "kds", "packing", "{{sd_school_id}}", "status"]
+        },
+        "description": "Updates the packing status for a school to 'packed'. Indicates that all meals for this school have been packed."
+      },
+      "response": []
+    }
+  ]
+}

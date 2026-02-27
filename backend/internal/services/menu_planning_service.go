@@ -312,10 +312,11 @@ func (s *MenuPlanningService) CalculateDailyNutrition(menuPlanID uint) ([]DailyN
 		}
 
 		// Add recipe nutrition scaled by portions
-		dailyMap[dateKey].TotalCalories += item.Recipe.TotalCalories * float64(item.Portions) / float64(item.Recipe.ServingSize)
-		dailyMap[dateKey].TotalProtein += item.Recipe.TotalProtein * float64(item.Portions) / float64(item.Recipe.ServingSize)
-		dailyMap[dateKey].TotalCarbs += item.Recipe.TotalCarbs * float64(item.Portions) / float64(item.Recipe.ServingSize)
-		dailyMap[dateKey].TotalFat += item.Recipe.TotalFat * float64(item.Portions) / float64(item.Recipe.ServingSize)
+		// Since serving_size is removed, nutrition is per menu, so just multiply by portions
+		dailyMap[dateKey].TotalCalories += item.Recipe.TotalCalories * float64(item.Portions)
+		dailyMap[dateKey].TotalProtein += item.Recipe.TotalProtein * float64(item.Portions)
+		dailyMap[dateKey].TotalCarbs += item.Recipe.TotalCarbs * float64(item.Portions)
+		dailyMap[dateKey].TotalFat += item.Recipe.TotalFat * float64(item.Portions)
 		dailyMap[dateKey].TotalPortions += item.Portions
 	}
 
@@ -347,9 +348,8 @@ func (s *MenuPlanningService) CalculateIngredientRequirements(menuPlanID uint) (
 	sfGoodsMap := make(map[uint]*IngredientRequirement)
 
 	for _, item := range menuPlan.MenuItems {
-		// Calculate scaling factor based on portions
-		scaleFactor := float64(item.Portions) / float64(item.Recipe.ServingSize)
-
+		// No need to calculate scaling factor since serving_size is removed
+		// Nutrition is per menu, so just multiply by portions
 		for _, recipeItem := range item.Recipe.RecipeItems {
 			sfGoodsID := recipeItem.SemiFinishedGoodsID
 
@@ -362,7 +362,8 @@ func (s *MenuPlanningService) CalculateIngredientRequirements(menuPlanID uint) (
 				}
 			}
 
-			sfGoodsMap[sfGoodsID].TotalQuantity += recipeItem.Quantity * scaleFactor
+			// Multiply by portions directly (no scaling factor needed)
+			sfGoodsMap[sfGoodsID].TotalQuantity += recipeItem.Quantity * float64(item.Portions)
 		}
 	}
 
@@ -398,8 +399,9 @@ func (s *MenuPlanningService) validateWeeklyNutrition(menuItems []models.MenuIte
 		}
 
 		daily := dailyMap[dateKey]
-		daily.totalCalories += recipe.TotalCalories * float64(item.Portions) / float64(recipe.ServingSize)
-		daily.totalProtein += recipe.TotalProtein * float64(item.Portions) / float64(recipe.ServingSize)
+		// Since serving_size is removed, nutrition is per menu
+		daily.totalCalories += recipe.TotalCalories * float64(item.Portions)
+		daily.totalProtein += recipe.TotalProtein * float64(item.Portions)
 		daily.totalPortions += item.Portions
 		dailyMap[dateKey] = daily
 	}
@@ -427,6 +429,15 @@ type SchoolAllocationInput struct {
 	SchoolID uint `json:"school_id" validate:"required"`
 	Portions int  `json:"portions" validate:"required,gt=0"`
 }
+
+// PortionSizeAllocationInput represents input for school allocation with portion sizes
+// Used for portion size differentiation feature (Requirements 3, 4)
+type PortionSizeAllocationInput struct {
+	SchoolID       uint `json:"school_id" validate:"required"`
+	PortionsSmall  int  `json:"portions_small" validate:"gte=0"`
+	PortionsLarge  int  `json:"portions_large" validate:"gte=0"`
+}
+
 
 // ValidateSchoolAllocations validates that school allocations meet business rules
 // Returns an error if any validation rule is violated:
@@ -470,19 +481,102 @@ func (s *MenuPlanningService) ValidateSchoolAllocations(
 	return nil
 }
 
+// ValidatePortionSizeAllocations validates that portion size allocations meet business rules
+// Returns (true, "") if all validations pass, or (false, error_message) if any validation fails
+//
+// Validation rules (from Requirements 3):
+// - Allocations array must not be empty (Requirement 3.1)
+// - Sum of all portions_small + portions_large must equal total_portions (Requirement 3.1, 3.2)
+// - SMP/SMA schools cannot have portions_small > 0 (Requirement 3.3)
+// - SD schools can have portions_small >= 0 and portions_large >= 0 (Requirement 3.4)
+// - At least one of portions_small or portions_large must be > 0 for each school (Requirement 3.5)
+// - Both portions_small and portions_large must be non-negative (Requirement 3.6)
+// - No duplicate school IDs allowed
+func (s *MenuPlanningService) ValidatePortionSizeAllocations(
+	allocations []PortionSizeAllocationInput,
+	totalPortions int,
+) (bool, string) {
+	// Check for empty allocations
+	if len(allocations) == 0 {
+		return false, "at least one school allocation is required"
+	}
+
+	// Validate total_portions is positive
+	if totalPortions <= 0 {
+		return false, "total portions must be positive"
+	}
+
+	// Track schools to detect duplicates and accumulate totals
+	schoolSet := make(map[uint]bool)
+	totalSmall := 0
+	totalLarge := 0
+
+	for _, alloc := range allocations {
+		// Check for duplicate schools
+		if schoolSet[alloc.SchoolID] {
+			return false, fmt.Sprintf("duplicate allocation for school_id %d", alloc.SchoolID)
+		}
+		schoolSet[alloc.SchoolID] = true
+
+		// Validate non-negative portions (Requirement 3.6)
+		if alloc.PortionsSmall < 0 {
+			return false, fmt.Sprintf("small portions cannot be negative for school_id %d", alloc.SchoolID)
+		}
+		if alloc.PortionsLarge < 0 {
+			return false, fmt.Sprintf("large portions cannot be negative for school_id %d", alloc.SchoolID)
+		}
+
+		// At least one portion type must be positive (Requirement 3.5)
+		if alloc.PortionsSmall == 0 && alloc.PortionsLarge == 0 {
+			return false, fmt.Sprintf("school must have at least one portion: school_id %d", alloc.SchoolID)
+		}
+
+		// Fetch school to check category (Requirement 3.3, 12)
+		var school models.School
+		if err := s.db.First(&school, alloc.SchoolID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return false, fmt.Sprintf("school not found: school_id %d", alloc.SchoolID)
+			}
+			return false, fmt.Sprintf("error fetching school: %v", err)
+		}
+
+		// Validate SMP/SMA schools cannot have small portions (Requirement 3.3, 12)
+		if school.Category == "SMP" && alloc.PortionsSmall > 0 {
+			return false, "SMP schools cannot have small portions"
+		}
+		if school.Category == "SMA" && alloc.PortionsSmall > 0 {
+			return false, "SMA schools cannot have small portions"
+		}
+
+		// Accumulate totals
+		totalSmall += alloc.PortionsSmall
+		totalLarge += alloc.PortionsLarge
+	}
+
+	// Validate sum equals total (Requirements 3.1, 3.2)
+	totalAllocated := totalSmall + totalLarge
+	if totalAllocated != totalPortions {
+		return false, fmt.Sprintf("sum of allocated portions (%d) does not equal total portions (%d)", totalAllocated, totalPortions)
+	}
+
+	// All validations passed
+	return true, ""
+}
+
+
 // MenuItemInput represents input for creating a menu item with allocations
 type MenuItemInput struct {
-	Date              time.Time               `json:"date" validate:"required"`
-	RecipeID          uint                    `json:"recipe_id" validate:"required"`
-	Portions          int                     `json:"portions" validate:"required,gt=0"`
-	SchoolAllocations []SchoolAllocationInput `json:"school_allocations" validate:"required,dive"`
+	Date              time.Time                     `json:"date" validate:"required"`
+	RecipeID          uint                          `json:"recipe_id" validate:"required"`
+	Portions          int                           `json:"portions" validate:"required,gt=0"`
+	SchoolAllocations []PortionSizeAllocationInput  `json:"school_allocations" validate:"required,dive"`
 }
 
 // CreateMenuItemWithAllocations creates a menu item and its school allocations
 // This method:
-// 1. Validates allocations using ValidateSchoolAllocations
+// 1. Validates allocations using ValidatePortionSizeAllocations
 // 2. Verifies all school IDs exist in the database
-// 3. Creates the menu item and all allocations in a single transaction
+// 3. Creates the menu item and separate allocation records for small and large portions in a single transaction
 // 4. Handles transaction rollback on any errors
 // 5. Loads relationships (Recipe, SchoolAllocations.School) before returning
 // Returns the created menu item with all relationships loaded
@@ -490,12 +584,13 @@ func (s *MenuPlanningService) CreateMenuItemWithAllocations(
 	menuPlanID uint,
 	input MenuItemInput,
 ) (*models.MenuItem, error) {
-	// Validate allocations (Requirements 2.1, 2.2, 7.1, 8.1, 9.1)
-	if err := s.ValidateSchoolAllocations(input.Portions, input.SchoolAllocations); err != nil {
-		return nil, err
+	// Validate allocations (Requirements 3, 4)
+	isValid, errMsg := s.ValidatePortionSizeAllocations(input.SchoolAllocations, input.Portions)
+	if !isValid {
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 
-	// Verify all schools exist (Requirement 1.4)
+	// Verify all schools exist and validate portion size compatibility (Requirement 1.4, 12)
 	for _, alloc := range input.SchoolAllocations {
 		var school models.School
 		if err := s.db.First(&school, alloc.SchoolID).Error; err != nil {
@@ -504,9 +599,14 @@ func (s *MenuPlanningService) CreateMenuItemWithAllocations(
 			}
 			return nil, err
 		}
+
+		// Validate portion size compatibility with school category (Requirement 12)
+		if (school.Category == "SMP" || school.Category == "SMA") && alloc.PortionsSmall > 0 {
+			return nil, fmt.Errorf("%s schools cannot have small portions", school.Category)
+		}
 	}
 
-	// Create menu item and allocations in transaction (Requirements 3.1, 3.2)
+	// Create menu item and allocations in transaction (Requirements 3.1, 3.2, 4)
 	var menuItem models.MenuItem
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// Create menu item
@@ -520,16 +620,34 @@ func (s *MenuPlanningService) CreateMenuItemWithAllocations(
 			return err
 		}
 
-		// Create allocations (Requirements 1.1, 1.2)
+		// Create separate allocation records for small and large portions (Requirement 4)
 		for _, alloc := range input.SchoolAllocations {
-			allocation := models.MenuItemSchoolAllocation{
-				MenuItemID: menuItem.ID,
-				SchoolID:   alloc.SchoolID,
-				Portions:   alloc.Portions,
-				Date:       input.Date,
+			// Create small portion allocation if portions_small > 0 (Requirement 4.1)
+			if alloc.PortionsSmall > 0 {
+				smallAllocation := models.MenuItemSchoolAllocation{
+					MenuItemID:  menuItem.ID,
+					SchoolID:    alloc.SchoolID,
+					Portions:    alloc.PortionsSmall,
+					PortionSize: "small",
+					Date:        input.Date,
+				}
+				if err := tx.Create(&smallAllocation).Error; err != nil {
+					return err
+				}
 			}
-			if err := tx.Create(&allocation).Error; err != nil {
-				return err
+
+			// Create large portion allocation if portions_large > 0 (Requirement 4.2)
+			if alloc.PortionsLarge > 0 {
+				largeAllocation := models.MenuItemSchoolAllocation{
+					MenuItemID:  menuItem.ID,
+					SchoolID:    alloc.SchoolID,
+					Portions:    alloc.PortionsLarge,
+					PortionSize: "large",
+					Date:        input.Date,
+				}
+				if err := tx.Create(&largeAllocation).Error; err != nil {
+					return err
+				}
 			}
 		}
 
@@ -576,11 +694,12 @@ func (s *MenuPlanningService) UpdateMenuItemWithAllocations(
 	}
 
 	// Validate allocations (Requirements 5.2, 5.5)
-	if err := s.ValidateSchoolAllocations(input.Portions, input.SchoolAllocations); err != nil {
-		return nil, err
+	isValid, errMsg := s.ValidatePortionSizeAllocations(input.SchoolAllocations, input.Portions)
+	if !isValid {
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 
-	// Verify all schools exist (Requirement 1.4)
+	// Verify all schools exist and validate portion size compatibility (Requirement 1.4, 12)
 	for _, alloc := range input.SchoolAllocations {
 		var school models.School
 		if err := s.db.First(&school, alloc.SchoolID).Error; err != nil {
@@ -588,6 +707,11 @@ func (s *MenuPlanningService) UpdateMenuItemWithAllocations(
 				return nil, fmt.Errorf("school_id %d not found", alloc.SchoolID)
 			}
 			return nil, err
+		}
+
+		// Validate portion size compatibility with school category (Requirement 12)
+		if (school.Category == "SMP" || school.Category == "SMA") && alloc.PortionsSmall > 0 {
+			return nil, fmt.Errorf("%s schools cannot have small portions", school.Category)
 		}
 	}
 
@@ -609,16 +733,34 @@ func (s *MenuPlanningService) UpdateMenuItemWithAllocations(
 			return err
 		}
 
-		// Create new allocations (Requirements 5.3)
+		// Create new allocations with portion sizes (Requirements 5.3)
 		for _, alloc := range input.SchoolAllocations {
-			allocation := models.MenuItemSchoolAllocation{
-				MenuItemID: menuItem.ID,
-				SchoolID:   alloc.SchoolID,
-				Portions:   alloc.Portions,
-				Date:       input.Date,
+			// Create small portion allocation if portions_small > 0
+			if alloc.PortionsSmall > 0 {
+				smallAllocation := models.MenuItemSchoolAllocation{
+					MenuItemID:  menuItem.ID,
+					SchoolID:    alloc.SchoolID,
+					Portions:    alloc.PortionsSmall,
+					PortionSize: "small",
+					Date:        input.Date,
+				}
+				if err := tx.Create(&smallAllocation).Error; err != nil {
+					return err
+				}
 			}
-			if err := tx.Create(&allocation).Error; err != nil {
-				return err
+
+			// Create large portion allocation if portions_large > 0
+			if alloc.PortionsLarge > 0 {
+				largeAllocation := models.MenuItemSchoolAllocation{
+					MenuItemID:  menuItem.ID,
+					SchoolID:    alloc.SchoolID,
+					Portions:    alloc.PortionsLarge,
+					PortionSize: "large",
+					Date:        input.Date,
+				}
+				if err := tx.Create(&largeAllocation).Error; err != nil {
+					return err
+				}
 			}
 		}
 
@@ -737,10 +879,115 @@ func (s *MenuPlanningService) DeleteMenuItem(menuPlanID uint, menuItemID uint) e
 		return ErrMenuPlanAlreadyApproved
 	}
 
-	// Delete menu item (allocations will be cascade deleted)
-	if err := s.db.Delete(&menuItem).Error; err != nil {
-		return err
+	// Delete in transaction to ensure atomicity
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Delete allocations first
+		if err := tx.Where("menu_item_id = ?", menuItemID).Delete(&models.MenuItemSchoolAllocation{}).Error; err != nil {
+			return err
+		}
+
+		// Delete menu item
+		if err := tx.Delete(&menuItem).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// SchoolAllocationDisplay represents a school allocation with portion size breakdown
+// Used for displaying allocations grouped by school (Requirement 8)
+type SchoolAllocationDisplay struct {
+	SchoolID         uint   `json:"school_id"`
+	SchoolName       string `json:"school_name"`
+	SchoolCategory   string `json:"school_category"`
+	PortionSizeType  string `json:"portion_size_type"`  // 'small', 'large', or 'mixed'
+	PortionsSmall    int    `json:"portions_small"`
+	PortionsLarge    int    `json:"portions_large"`
+	TotalPortions    int    `json:"total_portions"`
+}
+
+// GetSchoolAllocationsWithPortionSizes retrieves allocations for a menu item grouped by school
+// This method implements Requirement 8: Retrieve Allocations Grouped by School
+//
+// Algorithm (from Design Document):
+// 1. Fetch all allocations for the menu item
+// 2. Group allocations by school_id
+// 3. For SD schools with multiple records (small + large), combine into single display record
+// 4. For SMP/SMA schools, display single allocation with large portions only
+// 5. Return allocations ordered alphabetically by school name
+//
+// Preconditions:
+// - menu_item_id is a positive integer
+// - Menu item exists in database
+//
+// Postconditions (Requirements 8.1-8.5):
+// - Returns array of allocations grouped by school (8.1)
+// - SD schools with multiple records are combined into single display record (8.2)
+// - SMP/SMA schools display single allocation with portions_large only (8.3)
+// - Allocations are ordered alphabetically by school name (8.4)
+// - Each allocation includes school category in response (8.5)
+func (s *MenuPlanningService) GetSchoolAllocationsWithPortionSizes(menuItemID uint) ([]SchoolAllocationDisplay, error) {
+	// Step 1: Fetch all allocations for menu item
+	var rawAllocations []models.MenuItemSchoolAllocation
+	err := s.db.
+		Preload("School").
+		Where("menu_item_id = ?", menuItemID).
+		Find(&rawAllocations).Error
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve allocations for menu item %d: %w", menuItemID, err)
 	}
 
-	return nil
+	// Step 2: Group allocations by school
+	schoolMap := make(map[uint]*SchoolAllocationDisplay)
+
+	for _, allocation := range rawAllocations {
+		schoolID := allocation.SchoolID
+
+		// Initialize school entry if not exists
+		if _, exists := schoolMap[schoolID]; !exists {
+			// Determine portion size type based on school category (Requirement 1)
+			portionSizeType := "large"
+			if allocation.School.Category == "SD" {
+				portionSizeType = "mixed"
+			}
+
+			schoolMap[schoolID] = &SchoolAllocationDisplay{
+				SchoolID:        schoolID,
+				SchoolName:      allocation.School.Name,
+				SchoolCategory:  allocation.School.Category,
+				PortionSizeType: portionSizeType,
+				PortionsSmall:   0,
+				PortionsLarge:   0,
+				TotalPortions:   0,
+			}
+		}
+
+		// Accumulate portions by size (Requirements 8.2, 8.3)
+		if allocation.PortionSize == "small" {
+			schoolMap[schoolID].PortionsSmall += allocation.Portions
+		} else if allocation.PortionSize == "large" {
+			schoolMap[schoolID].PortionsLarge += allocation.Portions
+		}
+
+		schoolMap[schoolID].TotalPortions += allocation.Portions
+	}
+
+	// Step 3: Convert map to sorted array (Requirement 8.4)
+	result := make([]SchoolAllocationDisplay, 0, len(schoolMap))
+	for _, display := range schoolMap {
+		result = append(result, *display)
+	}
+
+	// Sort by school name alphabetically (Requirement 8.4)
+	for i := 0; i < len(result)-1; i++ {
+		for j := i + 1; j < len(result); j++ {
+			if result[i].SchoolName > result[j].SchoolName {
+				result[i], result[j] = result[j], result[i]
+			}
+		}
+	}
+
+	return result, nil
 }

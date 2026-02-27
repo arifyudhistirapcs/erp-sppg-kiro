@@ -58,7 +58,7 @@ func TestProperty1_AuthenticationSuccessForValidCredentials(t *testing.T) {
 			nik := fmt.Sprintf("NIK%d", nikSuffix)
 			
 			// Select role
-			roles := []string{"kepala_sppg", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan"}
+			roles := []string{"kepala_sppg", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan", "kebersihan"}
 			role := roles[roleIdx%len(roles)]
 
 			// Limit password length to 72 bytes for bcrypt
@@ -205,7 +205,7 @@ func TestProperty2_AuthenticationRejectionForInvalidCredentials(t *testing.T) {
 			nik := fmt.Sprintf("NIK%d", nikSuffix)
 			
 			// Select role
-			roles := []string{"kepala_sppg", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan"}
+			roles := []string{"kepala_sppg", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan", "kebersihan"}
 			role := roles[roleIdx%len(roles)]
 
 			correctPassword := fmt.Sprintf("correct_password_%d", passwordSuffix)
@@ -268,7 +268,7 @@ func TestProperty2_AuthenticationRejectionForInvalidCredentials(t *testing.T) {
 			nik := fmt.Sprintf("INACTIVE%d", nikSuffix)
 			
 			// Select role
-			roles := []string{"kepala_sppg", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan"}
+			roles := []string{"kepala_sppg", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan", "kebersihan"}
 			role := roles[roleIdx%len(roles)]
 
 			// Generate password
@@ -350,7 +350,7 @@ func TestProperty3_RoleBasedAccessControl(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 
 	// Define all roles and features with their permissions
-	allRoles := []string{"kepala_sppg", "kepala_yayasan", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan"}
+	allRoles := []string{"kepala_sppg", "kepala_yayasan", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan", "kebersihan"}
 	
 	// Define feature permissions (from middleware/auth.go)
 	featurePermissions := map[string][]string{

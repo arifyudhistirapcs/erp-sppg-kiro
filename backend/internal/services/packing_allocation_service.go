@@ -14,13 +14,14 @@ import (
 
 // PackingAllocationService handles packing allocation operations
 type PackingAllocationService struct {
-	db          *gorm.DB
-	firebaseApp *firebase.App
-	dbClient    *db.Client
+	db                *gorm.DB
+	firebaseApp       *firebase.App
+	dbClient          *db.Client
+	monitoringService *MonitoringService
 }
 
 // NewPackingAllocationService creates a new packing allocation service instance
-func NewPackingAllocationService(database *gorm.DB, firebaseApp *firebase.App) (*PackingAllocationService, error) {
+func NewPackingAllocationService(database *gorm.DB, firebaseApp *firebase.App, monitoringService *MonitoringService) (*PackingAllocationService, error) {
 	ctx := context.Background()
 	dbClient, err := firebaseApp.Database(ctx)
 	if err != nil {
@@ -28,26 +29,33 @@ func NewPackingAllocationService(database *gorm.DB, firebaseApp *firebase.App) (
 	}
 
 	return &PackingAllocationService{
-		db:          database,
-		firebaseApp: firebaseApp,
-		dbClient:    dbClient,
+		db:                database,
+		firebaseApp:       firebaseApp,
+		dbClient:          dbClient,
+		monitoringService: monitoringService,
 	}, nil
 }
 
 // SchoolAllocation represents packing allocation for a school
 type SchoolAllocation struct {
-	SchoolID   uint              `json:"school_id"`
-	SchoolName string            `json:"school_name"`
-	Portions   int               `json:"portions"`
-	MenuItems  []MenuItemSummary `json:"menu_items"`
-	Status     string            `json:"status"` // pending, packing, ready
+	SchoolID        uint              `json:"school_id"`
+	SchoolName      string            `json:"school_name"`
+	SchoolCategory  string            `json:"school_category"`
+	PortionSizeType string            `json:"portion_size_type"` // 'small', 'large', or 'mixed'
+	PortionsSmall   int               `json:"portions_small"`
+	PortionsLarge   int               `json:"portions_large"`
+	TotalPortions   int               `json:"total_portions"`
+	MenuItems       []MenuItemSummary `json:"menu_items"`
+	Status          string            `json:"status"` // pending, packing, ready
 }
 
 // MenuItemSummary represents a menu item summary for packing
 type MenuItemSummary struct {
-	RecipeID   uint   `json:"recipe_id"`
-	RecipeName string `json:"recipe_name"`
-	Portions   int    `json:"portions"`
+	RecipeID      uint   `json:"recipe_id"`
+	RecipeName    string `json:"recipe_name"`
+	PortionsSmall int    `json:"portions_small"`
+	PortionsLarge int    `json:"portions_large"`
+	TotalPortions int    `json:"total_portions"`
 }
 
 // CalculatePackingAllocations calculates portion distribution per school for the specified date
@@ -71,26 +79,64 @@ func (s *PackingAllocationService) CalculatePackingAllocations(ctx context.Conte
 
 	// Group by school
 	schoolMap := make(map[uint]*SchoolAllocation)
+	menuItemMap := make(map[uint]map[uint]*MenuItemSummary) // schoolID -> recipeID -> MenuItemSummary
+	
 	for _, alloc := range menuAllocations {
-		allocation, exists := schoolMap[alloc.SchoolID]
-		if !exists {
-			allocation = &SchoolAllocation{
-				SchoolID:   alloc.School.ID,
-				SchoolName: alloc.School.Name,
-				Portions:   0,
-				MenuItems:  []MenuItemSummary{},
-				Status:     "pending",
+		// Initialize school entry if not exists
+		if _, exists := schoolMap[alloc.SchoolID]; !exists {
+			// Determine portion size type based on school category
+			portionSizeType := "large"
+			if alloc.School.Category == "SD" {
+				portionSizeType = "mixed"
 			}
-			schoolMap[alloc.SchoolID] = allocation
+			
+			schoolMap[alloc.SchoolID] = &SchoolAllocation{
+				SchoolID:        alloc.School.ID,
+				SchoolName:      alloc.School.Name,
+				SchoolCategory:  alloc.School.Category,
+				PortionSizeType: portionSizeType,
+				PortionsSmall:   0,
+				PortionsLarge:   0,
+				TotalPortions:   0,
+				MenuItems:       []MenuItemSummary{},
+				Status:          "pending",
+			}
+			menuItemMap[alloc.SchoolID] = make(map[uint]*MenuItemSummary)
 		}
-
-		// Add menu item
-		allocation.Portions += alloc.Portions
-		allocation.MenuItems = append(allocation.MenuItems, MenuItemSummary{
-			RecipeID:   alloc.MenuItem.Recipe.ID,
-			RecipeName: alloc.MenuItem.Recipe.Name,
-			Portions:   alloc.Portions,
-		})
+		
+		// Accumulate school-level portions by size
+		if alloc.PortionSize == "small" {
+			schoolMap[alloc.SchoolID].PortionsSmall += alloc.Portions
+		} else if alloc.PortionSize == "large" {
+			schoolMap[alloc.SchoolID].PortionsLarge += alloc.Portions
+		}
+		schoolMap[alloc.SchoolID].TotalPortions += alloc.Portions
+		
+		// Group menu items by recipe and accumulate portions by size
+		recipeID := alloc.MenuItem.Recipe.ID
+		if _, exists := menuItemMap[alloc.SchoolID][recipeID]; !exists {
+			menuItemMap[alloc.SchoolID][recipeID] = &MenuItemSummary{
+				RecipeID:      recipeID,
+				RecipeName:    alloc.MenuItem.Recipe.Name,
+				PortionsSmall: 0,
+				PortionsLarge: 0,
+				TotalPortions: 0,
+			}
+		}
+		
+		if alloc.PortionSize == "small" {
+			menuItemMap[alloc.SchoolID][recipeID].PortionsSmall += alloc.Portions
+		} else if alloc.PortionSize == "large" {
+			menuItemMap[alloc.SchoolID][recipeID].PortionsLarge += alloc.Portions
+		}
+		menuItemMap[alloc.SchoolID][recipeID].TotalPortions += alloc.Portions
+	}
+	
+	// Convert menu item map to slices
+	for schoolID, school := range schoolMap {
+		for _, menuItem := range menuItemMap[schoolID] {
+			school.MenuItems = append(school.MenuItems, *menuItem)
+		}
 	}
 
 	// Convert map to slice and sort alphabetically by school name (Requirement 11.4)
@@ -108,12 +154,183 @@ func (s *PackingAllocationService) CalculatePackingAllocations(ctx context.Conte
 }
 
 // GetPackingAllocations retrieves packing allocations for the specified date
+// Only returns allocations for recipes that have been cooked (status = "ready")
 func (s *PackingAllocationService) GetPackingAllocations(ctx context.Context, date time.Time) ([]SchoolAllocation, error) {
-	return s.CalculatePackingAllocations(ctx, date)
+	// Normalize date to start of day in Asia/Jakarta timezone
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
+
+	fmt.Printf("[Packing] Getting allocations for date: %s\n", startOfDay.Format("2006-01-02"))
+
+	// Get cooking statuses from Firebase to filter only ready recipes
+	dateStr := startOfDay.Format("2006-01-02")
+	firebasePath := fmt.Sprintf("/kds/cooking/%s", dateStr)
+	var cookingData map[string]interface{}
+	err := s.dbClient.NewRef(firebasePath).Get(ctx, &cookingData)
+	if err != nil {
+		// If Firebase read fails, return empty list (no recipes are ready yet)
+		fmt.Printf("[Packing] Warning: failed to read cooking status from Firebase: %v\n", err)
+		return []SchoolAllocation{}, nil
+	}
+
+	fmt.Printf("[Packing] Firebase cooking data: %+v\n", cookingData)
+
+	// Get list of recipe IDs that are ready
+	readyRecipeIDs := make(map[uint]bool)
+	if cookingData != nil {
+		for recipeIDStr, data := range cookingData {
+			if recipeData, ok := data.(map[string]interface{}); ok {
+				if status, ok := recipeData["status"].(string); ok && status == "ready" {
+					// Parse recipe ID from string key
+					var recipeID uint
+					fmt.Sscanf(recipeIDStr, "%d", &recipeID)
+					readyRecipeIDs[recipeID] = true
+					fmt.Printf("[Packing] Recipe %d is ready\n", recipeID)
+				}
+			}
+		}
+	}
+
+	fmt.Printf("[Packing] Ready recipe IDs: %+v\n", readyRecipeIDs)
+
+	// If no recipes are ready, return empty list
+	if len(readyRecipeIDs) == 0 {
+		fmt.Printf("[Packing] No recipes are ready yet\n")
+		return []SchoolAllocation{}, nil
+	}
+
+	// Get menu item school allocations for the date, filtered by ready recipes
+	var menuAllocations []models.MenuItemSchoolAllocation
+	err = s.db.WithContext(ctx).
+		Preload("School").
+		Preload("MenuItem").
+		Preload("MenuItem.Recipe").
+		Joins("JOIN menu_items ON menu_item_school_allocations.menu_item_id = menu_items.id").
+		Where("DATE(menu_items.date) = DATE(?)", startOfDay).
+		Find(&menuAllocations).Error
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get menu item school allocations: %w", err)
+	}
+
+	fmt.Printf("[Packing] Found %d menu allocations from database\n", len(menuAllocations))
+
+	// Filter allocations to only include ready recipes
+	filteredAllocations := []models.MenuItemSchoolAllocation{}
+	for _, alloc := range menuAllocations {
+		if readyRecipeIDs[alloc.MenuItem.Recipe.ID] {
+			filteredAllocations = append(filteredAllocations, alloc)
+			fmt.Printf("[Packing] Including allocation for recipe %d (%s) to school %s\n", 
+				alloc.MenuItem.Recipe.ID, alloc.MenuItem.Recipe.Name, alloc.School.Name)
+		}
+	}
+
+	fmt.Printf("[Packing] Filtered to %d allocations (only ready recipes)\n", len(filteredAllocations))
+
+	// Group by school
+	schoolMap := make(map[uint]*SchoolAllocation)
+	menuItemMap := make(map[uint]map[uint]*MenuItemSummary) // schoolID -> recipeID -> MenuItemSummary
+	
+	for _, alloc := range filteredAllocations {
+		// Initialize school entry if not exists
+		if _, exists := schoolMap[alloc.SchoolID]; !exists {
+			// Determine portion size type based on school category
+			portionSizeType := "large"
+			if alloc.School.Category == "SD" {
+				portionSizeType = "mixed"
+			}
+			
+			schoolMap[alloc.SchoolID] = &SchoolAllocation{
+				SchoolID:        alloc.School.ID,
+				SchoolName:      alloc.School.Name,
+				SchoolCategory:  alloc.School.Category,
+				PortionSizeType: portionSizeType,
+				PortionsSmall:   0,
+				PortionsLarge:   0,
+				TotalPortions:   0,
+				MenuItems:       []MenuItemSummary{},
+				Status:          "pending",
+			}
+			menuItemMap[alloc.SchoolID] = make(map[uint]*MenuItemSummary)
+		}
+		
+		// Accumulate school-level portions by size
+		if alloc.PortionSize == "small" {
+			schoolMap[alloc.SchoolID].PortionsSmall += alloc.Portions
+		} else if alloc.PortionSize == "large" {
+			schoolMap[alloc.SchoolID].PortionsLarge += alloc.Portions
+		}
+		schoolMap[alloc.SchoolID].TotalPortions += alloc.Portions
+		
+		// Group menu items by recipe and accumulate portions by size
+		recipeID := alloc.MenuItem.Recipe.ID
+		if _, exists := menuItemMap[alloc.SchoolID][recipeID]; !exists {
+			menuItemMap[alloc.SchoolID][recipeID] = &MenuItemSummary{
+				RecipeID:      recipeID,
+				RecipeName:    alloc.MenuItem.Recipe.Name,
+				PortionsSmall: 0,
+				PortionsLarge: 0,
+				TotalPortions: 0,
+			}
+		}
+		
+		if alloc.PortionSize == "small" {
+			menuItemMap[alloc.SchoolID][recipeID].PortionsSmall += alloc.Portions
+		} else if alloc.PortionSize == "large" {
+			menuItemMap[alloc.SchoolID][recipeID].PortionsLarge += alloc.Portions
+		}
+		menuItemMap[alloc.SchoolID][recipeID].TotalPortions += alloc.Portions
+	}
+	
+	// Convert menu item map to slices
+	for schoolID, school := range schoolMap {
+		for _, menuItem := range menuItemMap[schoolID] {
+			school.MenuItems = append(school.MenuItems, *menuItem)
+		}
+	}
+
+	// Get packing statuses from Firebase
+	packingPath := fmt.Sprintf("/kds/packing/%s", dateStr)
+	var packingData map[string]interface{}
+	err = s.dbClient.NewRef(packingPath).Get(ctx, &packingData)
+	if err != nil {
+		// If Firebase read fails, just log and continue with default status
+		fmt.Printf("[Packing] Warning: failed to read packing status from Firebase: %v\n", err)
+	}
+
+	// Update statuses from Firebase if available
+	if packingData != nil {
+		for schoolIDStr, data := range packingData {
+			if schoolData, ok := data.(map[string]interface{}); ok {
+				var schoolID uint
+				fmt.Sscanf(schoolIDStr, "%d", &schoolID)
+				if allocation, exists := schoolMap[schoolID]; exists {
+					if status, ok := schoolData["status"].(string); ok {
+						allocation.Status = status
+					}
+				}
+			}
+		}
+	}
+
+	// Convert map to slice and sort alphabetically by school name
+	allocations := make([]SchoolAllocation, 0, len(schoolMap))
+	for _, allocation := range schoolMap {
+		allocations = append(allocations, *allocation)
+	}
+
+	// Sort by school name alphabetically
+	sort.Slice(allocations, func(i, j int) bool {
+		return allocations[i].SchoolName < allocations[j].SchoolName
+	})
+
+	fmt.Printf("[Packing] Returning %d school allocations\n", len(allocations))
+
+	return allocations, nil
 }
 
 // UpdatePackingStatus updates the packing status for a school
-func (s *PackingAllocationService) UpdatePackingStatus(ctx context.Context, schoolID uint, status string) error {
+func (s *PackingAllocationService) UpdatePackingStatus(ctx context.Context, schoolID uint, status string, userID uint) error {
 	// Validate status
 	validStatuses := map[string]bool{
 		"pending": true,
@@ -145,6 +362,47 @@ func (s *PackingAllocationService) UpdatePackingStatus(ctx context.Context, scho
 	err = s.dbClient.NewRef(firebasePath).Set(ctx, updateData)
 	if err != nil {
 		return fmt.Errorf("failed to update Firebase: %w", err)
+	}
+
+	// Trigger monitoring system update for packing stages
+	// Requirements: 6.1, 6.2, 6.4
+	if s.monitoringService != nil {
+		// Get today's date for querying delivery records
+		loc, _ := time.LoadLocation("Asia/Jakarta")
+		todayDate := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
+		
+		// Find delivery records for this school and date
+		filters := map[string]interface{}{
+			"school_id": schoolID,
+		}
+		deliveryRecords, err := s.monitoringService.GetDeliveryRecords(todayDate, filters)
+		if err != nil {
+			// Log error but don't fail the packing status update
+			fmt.Printf("Warning: failed to get delivery records for monitoring update: %v\n", err)
+		} else if len(deliveryRecords) > 0 {
+			// Update monitoring status based on packing status
+			var monitoringStatus string
+			var notes string
+			
+			if status == "packing" {
+				monitoringStatus = "siap_dipacking"
+				notes = "Packing started for school"
+			} else if status == "ready" {
+				monitoringStatus = "selesai_dipacking"
+				notes = "Packing completed for school"
+			}
+			
+			// Update all delivery records for this school
+			if monitoringStatus != "" {
+				for _, record := range deliveryRecords {
+					err := s.monitoringService.UpdateDeliveryStatus(record.ID, monitoringStatus, userID, notes)
+					if err != nil {
+						// Log error but don't fail the packing status update
+						fmt.Printf("Warning: failed to update monitoring status for delivery record %d: %v\n", record.ID, err)
+					}
+				}
+			}
+		}
 	}
 
 	// If all schools are ready, send notification to logistics team
@@ -212,11 +470,15 @@ func (s *PackingAllocationService) SyncPackingAllocationsToFirebase(ctx context.
 	firebaseData := make(map[string]interface{})
 	for _, allocation := range allocations {
 		firebaseData[fmt.Sprintf("%d", allocation.SchoolID)] = map[string]interface{}{
-			"school_id":   allocation.SchoolID,
-			"school_name": allocation.SchoolName,
-			"portions":    allocation.Portions,
-			"menu_items":  allocation.MenuItems,
-			"status":      allocation.Status,
+			"school_id":         allocation.SchoolID,
+			"school_name":       allocation.SchoolName,
+			"school_category":   allocation.SchoolCategory,
+			"portion_size_type": allocation.PortionSizeType,
+			"portions_small":    allocation.PortionsSmall,
+			"portions_large":    allocation.PortionsLarge,
+			"total_portions":    allocation.TotalPortions,
+			"menu_items":        allocation.MenuItems,
+			"status":            allocation.Status,
 		}
 	}
 

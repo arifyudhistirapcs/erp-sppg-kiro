@@ -150,7 +150,7 @@ func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, items []mo
 			Version:       existingRecipe.Version,
 			Name:          existingRecipe.Name,
 			Category:      existingRecipe.Category,
-			ServingSize:   existingRecipe.ServingSize,
+			PhotoURL:      existingRecipe.PhotoURL,
 			Instructions:  existingRecipe.Instructions,
 			TotalCalories: existingRecipe.TotalCalories,
 			TotalProtein:  existingRecipe.TotalProtein,
@@ -173,7 +173,7 @@ func (s *RecipeService) UpdateRecipe(id uint, updates *models.Recipe, items []mo
 		if err := tx.Model(&models.Recipe{}).Where("id = ?", id).Updates(map[string]interface{}{
 			"name":           updates.Name,
 			"category":       updates.Category,
-			"serving_size":   updates.ServingSize,
+			"photo_url":      updates.PhotoURL,
 			"instructions":   updates.Instructions,
 			"total_calories": updates.TotalCalories,
 			"total_protein":  updates.TotalProtein,
@@ -236,8 +236,8 @@ func (s *RecipeService) generateChanges(oldRecipe, newRecipe *models.Recipe) str
 	if oldRecipe.Category != newRecipe.Category {
 		changes = append(changes, fmt.Sprintf("Kategori diubah dari '%s' menjadi '%s'", oldRecipe.Category, newRecipe.Category))
 	}
-	if oldRecipe.ServingSize != newRecipe.ServingSize {
-		changes = append(changes, fmt.Sprintf("Ukuran porsi diubah dari %d menjadi %d", oldRecipe.ServingSize, newRecipe.ServingSize))
+	if oldRecipe.PhotoURL != newRecipe.PhotoURL {
+		changes = append(changes, "Foto menu diperbarui")
 	}
 	if oldRecipe.Instructions != newRecipe.Instructions {
 		changes = append(changes, "Instruksi diperbarui")
@@ -259,7 +259,7 @@ func (s *RecipeService) generateChanges(oldRecipe, newRecipe *models.Recipe) str
 	}
 	
 	if len(changes) == 0 {
-		changes = append(changes, "Resep diperbarui")
+		changes = append(changes, "Menu diperbarui")
 	}
 	
 	// Convert to JSON array
@@ -285,7 +285,7 @@ func (s *RecipeService) CalculateNutritionFromItems(recipeItems []models.RecipeI
 		if item.SemiFinishedGoods.ID == 0 {
 			if err := s.db.First(&sfGoods, item.SemiFinishedGoodsID).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return nil, errors.New("barang setengah jadi tidak ditemukan")
+					return nil, errors.New("komponen tidak ditemukan")
 				}
 				return nil, err
 			}
@@ -307,21 +307,14 @@ func (s *RecipeService) CalculateNutritionFromItems(recipeItems []models.RecipeI
 }
 
 // ValidateNutrition validates that a recipe meets minimum nutritional standards
+// Now validates per menu (not per portion since serving_size is removed)
 func (s *RecipeService) ValidateNutrition(recipe *models.Recipe) error {
-	if recipe.ServingSize <= 0 {
-		return ErrRecipeValidation
-	}
-
-	// Calculate per-portion nutrition
-	caloriesPerPortion := recipe.TotalCalories / float64(recipe.ServingSize)
-	proteinPerPortion := recipe.TotalProtein / float64(recipe.ServingSize)
-
-	// Check against minimum standards
-	if caloriesPerPortion < s.nutritionStandards.MinCalories {
+	// Check against minimum standards (per menu)
+	if recipe.TotalCalories < s.nutritionStandards.MinCalories {
 		return ErrInsufficientNutrition
 	}
 
-	if proteinPerPortion < s.nutritionStandards.MinProtein {
+	if recipe.TotalProtein < s.nutritionStandards.MinProtein {
 		return ErrInsufficientNutrition
 	}
 

@@ -48,7 +48,12 @@
           row-key="id"
         >
           <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'is_active'">
+            <template v-if="column.key === 'category'">
+              <a-tag :color="getCategoryColor(record.category)">
+                {{ record.category }}
+              </a-tag>
+            </template>
+            <template v-else-if="column.key === 'is_active'">
               <a-tag :color="record.is_active ? 'green' : 'red'">
                 {{ record.is_active ? 'Aktif' : 'Tidak Aktif' }}
               </a-tag>
@@ -67,7 +72,16 @@
               </a-space>
             </template>
             <template v-else-if="column.key === 'student_count'">
-              {{ formatNumber(record.student_count) }} siswa
+              <div v-if="record.category === 'SD'">
+                <div>Kelas 1-3: {{ formatNumber(record.student_count_grade_1_3 || 0) }}</div>
+                <div>Kelas 4-6: {{ formatNumber(record.student_count_grade_4_6 || 0) }}</div>
+                <div style="font-weight: bold; margin-top: 4px;">
+                  Total: {{ formatNumber((record.student_count_grade_1_3 || 0) + (record.student_count_grade_4_6 || 0)) }}
+                </div>
+              </div>
+              <div v-else>
+                {{ formatNumber(record.student_count || 0) }} siswa
+              </div>
             </template>
             <template v-else-if="column.key === 'actions'">
               <a-space>
@@ -101,7 +115,7 @@
       :confirm-loading="submitting"
       @ok="handleSubmit"
       @cancel="handleCancel"
-      width="700px"
+      width="900px"
     >
       <a-form
         ref="formRef"
@@ -116,6 +130,165 @@
         <a-form-item label="Alamat" name="address">
           <a-textarea v-model:value="formData.address" :rows="3" placeholder="Alamat lengkap sekolah" />
         </a-form-item>
+
+        <a-row :gutter="16">
+          <a-col :span="8">
+            <a-form-item label="Kategori Sekolah" name="category">
+              <a-select v-model:value="formData.category" placeholder="Pilih kategori">
+                <a-select-option value="SD">SD</a-select-option>
+                <a-select-option value="SMP">SMP</a-select-option>
+                <a-select-option value="SMA">SMA</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="8">
+            <a-form-item label="NPSN" name="npsn">
+              <a-input v-model:value="formData.npsn" placeholder="NPSN" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="8">
+            <a-form-item label="Nama Kepala Sekolah" name="principal_name">
+              <a-input v-model:value="formData.principal_name" placeholder="Nama kepala sekolah" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="Email Sekolah" name="school_email">
+              <a-input v-model:value="formData.school_email" placeholder="email@sekolah.sch.id" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Telepon Sekolah" name="school_phone">
+              <a-input v-model:value="formData.school_phone" placeholder="021xxxxxxxx" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <!-- Student Count - SD -->
+        <a-row :gutter="16" v-if="formData.category === 'SD'">
+          <a-col :span="12">
+            <a-form-item label="Jumlah Siswa Kelas 1-3" name="student_count_grade_1_3">
+              <a-input-number
+                v-model:value="formData.student_count_grade_1_3"
+                :min="0"
+                style="width: 100%"
+                placeholder="0"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Jumlah Siswa Kelas 4-6" name="student_count_grade_4_6">
+              <a-input-number
+                v-model:value="formData.student_count_grade_4_6"
+                :min="0"
+                style="width: 100%"
+                placeholder="0"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <!-- Student Count - SMP/SMA -->
+        <a-row :gutter="16" v-if="formData.category === 'SMP' || formData.category === 'SMA'">
+          <a-col :span="12">
+            <a-form-item label="Jumlah Siswa" name="student_count">
+              <a-input-number
+                v-model:value="formData.student_count"
+                :min="0"
+                style="width: 100%"
+                placeholder="0"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Jumlah Guru/Karyawan" name="staff_count">
+              <a-input-number
+                v-model:value="formData.staff_count"
+                :min="0"
+                style="width: 100%"
+                placeholder="0"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <!-- Staff and Committee for SD -->
+        <a-row :gutter="16" v-if="formData.category === 'SD'">
+          <a-col :span="12">
+            <a-form-item label="Jumlah Guru/Karyawan" name="staff_count">
+              <a-input-number
+                v-model:value="formData.staff_count"
+                :min="0"
+                style="width: 100%"
+                placeholder="0"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Jumlah Anggota Komite" name="committee_count">
+              <a-input-number
+                v-model:value="formData.committee_count"
+                :min="0"
+                style="width: 100%"
+                placeholder="0"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <!-- Committee and Cooperation Letter for SMP/SMA -->
+        <a-row :gutter="16" v-if="formData.category === 'SMP' || formData.category === 'SMA'">
+          <a-col :span="12">
+            <a-form-item label="Jumlah Anggota Komite" name="committee_count">
+              <a-input-number
+                v-model:value="formData.committee_count"
+                :min="0"
+                style="width: 100%"
+                placeholder="0"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Surat Kerjasama" name="cooperation_letter_url">
+              <a-upload
+                v-model:file-list="cooperationFileList"
+                :before-upload="beforeCooperationUpload"
+                :custom-request="handleCooperationUpload"
+                :max-count="1"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                @remove="handleCooperationRemove"
+              >
+                <a-button>
+                  <upload-outlined></upload-outlined>
+                  Upload
+                </a-button>
+              </a-upload>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <!-- Cooperation Letter for SD (full width) -->
+        <a-row :gutter="16" v-if="formData.category === 'SD'">
+          <a-col :span="24">
+            <a-form-item label="Surat Kerjasama" name="cooperation_letter_url">
+              <a-upload
+                v-model:file-list="cooperationFileList"
+                :before-upload="beforeCooperationUpload"
+                :custom-request="handleCooperationUpload"
+                :max-count="1"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                @remove="handleCooperationRemove"
+              >
+                <a-button>
+                  <upload-outlined></upload-outlined>
+                  Upload Surat Kerjasama
+                </a-button>
+              </a-upload>
+            </a-form-item>
+          </a-col>
+        </a-row>
 
         <a-row :gutter="16">
           <a-col :span="12">
@@ -166,17 +339,7 @@
         </a-row>
 
         <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="Jumlah Siswa" name="student_count">
-              <a-input-number
-                v-model:value="formData.student_count"
-                :min="0"
-                style="width: 100%"
-                placeholder="0"
-              />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
+          <a-col :span="24">
             <a-form-item label="Status" name="is_active">
               <a-switch 
                 v-model:checked="formData.is_active" 
@@ -200,6 +363,14 @@
         <a-descriptions-item label="Nama Sekolah" :span="2">
           {{ selectedSchool.name }}
         </a-descriptions-item>
+        <a-descriptions-item label="Kategori">
+          <a-tag :color="getCategoryColor(selectedSchool.category)">
+            {{ selectedSchool.category }}
+          </a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="NPSN">
+          {{ selectedSchool.npsn || '-' }}
+        </a-descriptions-item>
         <a-descriptions-item label="Alamat" :span="2">
           {{ selectedSchool.address }}
         </a-descriptions-item>
@@ -209,14 +380,41 @@
         <a-descriptions-item label="Longitude">
           {{ selectedSchool.longitude?.toFixed(6) }}
         </a-descriptions-item>
+        <a-descriptions-item label="Kepala Sekolah">
+          {{ selectedSchool.principal_name || '-' }}
+        </a-descriptions-item>
+        <a-descriptions-item label="Email Sekolah">
+          {{ selectedSchool.school_email || '-' }}
+        </a-descriptions-item>
+        <a-descriptions-item label="Telepon Sekolah">
+          {{ selectedSchool.school_phone || '-' }}
+        </a-descriptions-item>
         <a-descriptions-item label="Kontak Person">
           {{ selectedSchool.contact_person || '-' }}
         </a-descriptions-item>
-        <a-descriptions-item label="Telepon">
+        <a-descriptions-item label="Telepon Kontak">
           {{ selectedSchool.phone_number || '-' }}
         </a-descriptions-item>
-        <a-descriptions-item label="Jumlah Siswa">
-          {{ formatNumber(selectedSchool.student_count) }} siswa
+        <a-descriptions-item label="Jumlah Siswa" :span="2" v-if="selectedSchool.category === 'SD'">
+          <div>Kelas 1-3: {{ formatNumber(selectedSchool.student_count_grade_1_3 || 0) }} siswa</div>
+          <div>Kelas 4-6: {{ formatNumber(selectedSchool.student_count_grade_4_6 || 0) }} siswa</div>
+          <div style="font-weight: bold; margin-top: 8px;">
+            Total: {{ formatNumber((selectedSchool.student_count_grade_1_3 || 0) + (selectedSchool.student_count_grade_4_6 || 0)) }} siswa
+          </div>
+        </a-descriptions-item>
+        <a-descriptions-item label="Jumlah Siswa" v-else>
+          {{ formatNumber(selectedSchool.student_count || 0) }} siswa
+        </a-descriptions-item>
+        <a-descriptions-item label="Jumlah Guru/Karyawan" :span="selectedSchool.category === 'SD' ? 2 : 1">
+          {{ formatNumber(selectedSchool.staff_count || 0) }} orang
+        </a-descriptions-item>
+        <a-descriptions-item label="Jumlah Anggota Komite">
+          {{ formatNumber(selectedSchool.committee_count || 0) }} orang
+        </a-descriptions-item>
+        <a-descriptions-item label="Surat Kerjasama" :span="2" v-if="selectedSchool.cooperation_letter_url">
+          <a :href="selectedSchool.cooperation_letter_url" target="_blank">
+            {{ selectedSchool.cooperation_letter_url }}
+          </a>
         </a-descriptions-item>
         <a-descriptions-item label="Status">
           <a-tag :color="selectedSchool.is_active ? 'green' : 'red'">
@@ -274,8 +472,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { PlusOutlined, EnvironmentOutlined, CopyOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, EnvironmentOutlined, CopyOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import schoolService from '@/services/schoolService'
+import axios from 'axios'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -289,6 +488,7 @@ const loadingHistory = ref(false)
 const searchText = ref('')
 const filterStatus = ref(undefined)
 const formRef = ref()
+const cooperationFileList = ref([])
 
 const pagination = reactive({
   current: 1,
@@ -304,6 +504,16 @@ const formData = reactive({
   contact_person: '',
   phone_number: '',
   student_count: 0,
+  category: 'SD',
+  student_count_grade_1_3: 0,
+  student_count_grade_4_6: 0,
+  staff_count: 0,
+  npsn: '',
+  principal_name: '',
+  school_email: '',
+  school_phone: '',
+  committee_count: 0,
+  cooperation_letter_url: '',
   is_active: true
 })
 
@@ -318,8 +528,10 @@ const rules = {
     { required: true, message: 'Longitude wajib diisi' },
     { type: 'number', min: -180, max: 180, message: 'Longitude harus antara -180 sampai 180' }
   ],
+  category: [
+    { required: true, message: 'Kategori sekolah wajib diisi' }
+  ],
   student_count: [
-    { required: true, message: 'Jumlah siswa wajib diisi' },
     { type: 'number', min: 0, message: 'Jumlah siswa tidak boleh negatif' }
   ]
 }
@@ -332,6 +544,12 @@ const columns = [
     sorter: true
   },
   {
+    title: 'Kategori',
+    dataIndex: 'category',
+    key: 'category',
+    width: 80
+  },
+  {
     title: 'Alamat',
     dataIndex: 'address',
     key: 'address',
@@ -341,11 +559,6 @@ const columns = [
     title: 'Koordinat GPS',
     key: 'coordinates',
     width: 200
-  },
-  {
-    title: 'Kontak',
-    dataIndex: 'contact_person',
-    key: 'contact_person'
   },
   {
     title: 'Jumlah Siswa',
@@ -399,10 +612,10 @@ const fetchSchools = async () => {
     }
     const response = await schoolService.getSchools(params)
     schools.value = response.data.schools || []
-    pagination.total = response.data.total || 0
+    pagination.total = response.data.total || schools.value.length
   } catch (error) {
     message.error('Gagal memuat data sekolah')
-    console.error(error)
+    console.error('Fetch schools error:', error)
   } finally {
     loading.value = false
   }
@@ -434,9 +647,32 @@ const editSchool = (school) => {
     longitude: school.longitude,
     contact_person: school.contact_person,
     phone_number: school.phone_number,
-    student_count: school.student_count,
+    student_count: school.student_count || 0,
+    category: school.category || 'SD',
+    student_count_grade_1_3: school.student_count_grade_1_3 || 0,
+    student_count_grade_4_6: school.student_count_grade_4_6 || 0,
+    staff_count: school.staff_count || 0,
+    npsn: school.npsn || '',
+    principal_name: school.principal_name || '',
+    school_email: school.school_email || '',
+    school_phone: school.school_phone || '',
+    committee_count: school.committee_count || 0,
+    cooperation_letter_url: school.cooperation_letter_url || '',
     is_active: school.is_active
   })
+
+  // Set file list if cooperation letter exists
+  if (school.cooperation_letter_url) {
+    cooperationFileList.value = [{
+      uid: '-1',
+      name: school.cooperation_letter_url.split('/').pop(),
+      status: 'done',
+      url: `http://localhost:8080${school.cooperation_letter_url}`
+    }]
+  } else {
+    cooperationFileList.value = []
+  }
+
   modalVisible.value = true
 }
 
@@ -520,9 +756,80 @@ const resetForm = () => {
     contact_person: '',
     phone_number: '',
     student_count: 0,
+    category: 'SD',
+    student_count_grade_1_3: 0,
+    student_count_grade_4_6: 0,
+    staff_count: 0,
+    npsn: '',
+    principal_name: '',
+    school_email: '',
+    school_phone: '',
+    committee_count: 0,
+    cooperation_letter_url: '',
     is_active: true
   })
+  cooperationFileList.value = []
   formRef.value?.resetFields()
+}
+
+const beforeCooperationUpload = (file) => {
+  const isValidType = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'].includes(file.type)
+  if (!isValidType) {
+    message.error('Format file harus PDF, DOC, DOCX, JPG, atau PNG!')
+    return false
+  }
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isLt5M) {
+    message.error('Ukuran file maksimal 5MB!')
+    return false
+  }
+  return true
+}
+
+const handleCooperationUpload = async ({ file, onSuccess, onError }) => {
+  const uploadFormData = new FormData()
+  uploadFormData.append('file', file)
+
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.post('http://localhost:8080/api/v1/schools/upload-cooperation-letter', uploadFormData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.data.success) {
+      formData.cooperation_letter_url = response.data.file_url
+      message.success('File berhasil diupload')
+      onSuccess(response.data)
+    } else {
+      message.error('Gagal upload file')
+      onError(new Error('Upload failed'))
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    message.error('Gagal upload file')
+    onError(error)
+  }
+}
+
+const handleCooperationRemove = async (file) => {
+  if (formData.cooperation_letter_url) {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(`http://localhost:8080/api/v1/schools/delete-cooperation-letter?file_url=${formData.cooperation_letter_url}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      formData.cooperation_letter_url = ''
+      message.success('File berhasil dihapus')
+    } catch (error) {
+      console.error('Delete error:', error)
+      message.error('Gagal menghapus file')
+    }
+  }
 }
 
 const openMaps = (lat, lng) => {
@@ -577,6 +884,15 @@ const getActionText = (action) => {
     delete: 'Dihapus'
   }
   return texts[action] || action
+}
+
+const getCategoryColor = (category) => {
+  const colors = {
+    SD: 'blue',
+    SMP: 'green',
+    SMA: 'purple'
+  }
+  return colors[category] || 'default'
 }
 
 onMounted(() => {

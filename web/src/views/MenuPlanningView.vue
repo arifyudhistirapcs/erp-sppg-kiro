@@ -93,13 +93,39 @@
                     draggable="true"
                     @dragstart="onDragStart($event, item)"
                   >
+                    <div v-if="item.recipe?.photo_url" class="menu-item-photo">
+                      <img :src="item.recipe.photo_url" :alt="item.recipe.name" />
+                    </div>
                     <div class="menu-item-content">
                       <div class="menu-item-name">{{ item.recipe?.name }}</div>
                       <div class="menu-item-portions">{{ item.portions }} porsi</div>
+                      <div v-if="item.school_allocations && item.school_allocations.length > 0" class="menu-item-portion-summary">
+                        <template v-if="getTotalSmallPortions(item.school_allocations) > 0">
+                          <span class="portion-summary-item">Porsi Kecil: {{ getTotalSmallPortions(item.school_allocations) }}</span>
+                        </template>
+                        <template v-if="getTotalLargePortions(item.school_allocations) > 0">
+                          <span class="portion-summary-item">Porsi Besar: {{ getTotalLargePortions(item.school_allocations) }}</span>
+                        </template>
+                      </div>
                       <div v-if="item.school_allocations && item.school_allocations.length > 0" class="menu-item-allocations">
-                        <div v-for="alloc in item.school_allocations" :key="alloc.school_id" class="allocation-item">
-                          <span class="school-name">{{ alloc.school_name || getSchoolName(alloc.school_id) }}</span>
-                          <span class="school-portions">{{ alloc.portions }}</span>
+                        <div v-for="schoolAlloc in getGroupedAllocations(item.school_allocations)" :key="schoolAlloc.school_id" class="allocation-item">
+                          <span class="school-name">{{ schoolAlloc.school_name }}</span>
+                          <span class="school-portions">
+                            <template v-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_small > 0 && schoolAlloc.portions_large > 0">
+                              <span class="portion-detail">K: {{ schoolAlloc.portions_small }}</span>
+                              <span class="portion-separator">|</span>
+                              <span class="portion-detail">B: {{ schoolAlloc.portions_large }}</span>
+                            </template>
+                            <template v-else-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_small > 0">
+                              <span class="portion-detail">K: {{ schoolAlloc.portions_small }}</span>
+                            </template>
+                            <template v-else-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_large > 0">
+                              <span class="portion-detail">B: {{ schoolAlloc.portions_large }}</span>
+                            </template>
+                            <template v-else>
+                              <span class="portion-detail">B: {{ schoolAlloc.portions_large || schoolAlloc.portions_small }}</span>
+                            </template>
+                          </span>
                         </div>
                       </div>
                       <div v-else class="menu-item-allocations no-allocations">
@@ -178,9 +204,10 @@
       cancel-text="Batal"
       :ok-button-props="{ disabled: !isAllocationValid }"
       width="700px"
+      :body-style="{ paddingTop: '24px', paddingBottom: '24px', maxHeight: '70vh', overflowY: 'auto' }"
     >
-      <a-form layout="vertical">
-        <a-form-item label="Pilih Resep">
+      <a-form layout="vertical" style="padding: 0 4px;">
+        <a-form-item label="Pilih Resep" style="margin-bottom: 24px;">
           <a-select
             v-model:value="selectedRecipeId"
             show-search
@@ -197,15 +224,17 @@
             </a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="Jumlah Porsi">
-          <a-input-number
-            v-model:value="selectedPortions"
-            :min="1"
-            style="width: 100%"
-            @change="handlePortionsChange"
-          />
+        <a-form-item label="Jumlah Porsi Total" style="margin-bottom: 32px;">
+          <div style="padding: 8px 12px; background: #f5f5f5; border: 1px solid #d9d9d9; border-radius: 4px;">
+            <span style="font-size: 24px; font-weight: 600; color: #1890ff;">{{ selectedPortions }}</span>
+            <span style="margin-left: 8px; color: #8c8c8c;">porsi</span>
+          </div>
+          <div style="margin-top: 8px; color: #8c8c8c; font-size: 12px;">
+            Total porsi dihitung otomatis dari jumlah alokasi ke semua sekolah
+          </div>
         </a-form-item>
-        <a-form-item label="Alokasi Sekolah">
+        <a-divider style="margin: 24px 0;" />
+        <a-form-item label="Alokasi Sekolah" style="margin-bottom: 0;">
           <SchoolAllocationInput
             :key="allocationComponentKey"
             v-model="schoolAllocations"
@@ -306,6 +335,59 @@ const getSchoolName = (schoolId) => {
   return school ? school.name : `School ${schoolId}`
 }
 
+const getGroupedAllocations = (allocations) => {
+  // Group allocations by school_id and combine small/large portions
+  const grouped = {}
+  
+  allocations.forEach(alloc => {
+    if (!grouped[alloc.school_id]) {
+      const school = schools.value.find(s => s.id === alloc.school_id)
+      grouped[alloc.school_id] = {
+        school_id: alloc.school_id,
+        school_name: alloc.school_name || getSchoolName(alloc.school_id),
+        category: school?.category || 'SMP',
+        portions_small: 0,
+        portions_large: 0
+      }
+    }
+    
+    // Add portions based on portion_size field
+    if (alloc.portion_size === 'small') {
+      grouped[alloc.school_id].portions_small = alloc.portions
+    } else if (alloc.portion_size === 'large') {
+      grouped[alloc.school_id].portions_large = alloc.portions
+    } else {
+      // Fallback: if no portion_size field, treat as large
+      grouped[alloc.school_id].portions_large = alloc.portions
+    }
+  })
+  
+  return Object.values(grouped)
+}
+
+const getTotalSmallPortions = (allocations) => {
+  let total = 0
+  allocations.forEach(alloc => {
+    if (alloc.portion_size === 'small') {
+      total += alloc.portions
+    }
+  })
+  return total
+}
+
+const getTotalLargePortions = (allocations) => {
+  let total = 0
+  allocations.forEach(alloc => {
+    if (alloc.portion_size === 'large') {
+      total += alloc.portions
+    } else if (!alloc.portion_size) {
+      // Fallback: if no portion_size field, treat as large
+      total += alloc.portions
+    }
+  })
+  return total
+}
+
 const getDailyNutrition = (date, type) => {
   const items = getMenuItemsForDay(date)
   let total = 0
@@ -314,7 +396,8 @@ const getDailyNutrition = (date, type) => {
     const recipe = item.recipe
     if (!recipe) return
     
-    const portionFactor = item.portions / recipe.serving_size
+    // Nutrition is per menu, multiply by portions directly
+    const portionFactor = item.portions
     
     switch (type) {
       case 'calories':
@@ -481,12 +564,31 @@ const showEditMenuModal = (item) => {
   selectedRecipeId.value = item.recipe_id
   selectedPortions.value = item.portions
   
-  // Load existing allocations
-  const allocations = {}
+  // Load existing allocations with portion sizes
+  let allocations = {}
   if (item.school_allocations && item.school_allocations.length > 0) {
+    // Group allocations by school_id and combine small/large portions
+    const groupedAllocations = {}
     item.school_allocations.forEach(alloc => {
-      allocations[alloc.school_id] = alloc.portions
+      if (!groupedAllocations[alloc.school_id]) {
+        groupedAllocations[alloc.school_id] = {
+          portions_small: 0,
+          portions_large: 0
+        }
+      }
+      
+      // Add portions based on portion_size field
+      if (alloc.portion_size === 'small') {
+        groupedAllocations[alloc.school_id].portions_small = alloc.portions
+      } else if (alloc.portion_size === 'large') {
+        groupedAllocations[alloc.school_id].portions_large = alloc.portions
+      } else {
+        // Fallback: if no portion_size field, treat as large
+        groupedAllocations[alloc.school_id].portions_large = alloc.portions
+      }
     })
+    
+    allocations = groupedAllocations
   }
   schoolAllocations.value = allocations
   
@@ -504,14 +606,25 @@ const filterRecipeOption = (input, option) => {
 }
 
 const handleValidationChange = (validation) => {
+  console.log('handleValidationChange called:', validation)
   isAllocationValid.value = validation.isValid
+  // Auto-calculate total portions from allocations
+  selectedPortions.value = validation.totalAllocated || 0
+  console.log('selectedPortions updated to:', selectedPortions.value)
 }
 
 const validateAllocations = () => {
-  const totalAllocated = Object.values(schoolAllocations.value).reduce((sum, val) => sum + (val || 0), 0)
-  if (selectedPortions.value === 0) return false
+  let totalAllocated = 0
+  Object.values(schoolAllocations.value).forEach(alloc => {
+    if (alloc && typeof alloc === 'object') {
+      totalAllocated += (alloc.portions_small || 0) + (alloc.portions_large || 0)
+    }
+  })
+  
+  // Since selectedPortions is auto-calculated from allocations,
+  // we only need to check if there are any allocations
   if (totalAllocated === 0) return false
-  return totalAllocated === selectedPortions.value
+  return true
 }
 
 const handlePortionsChange = () => {
@@ -521,6 +634,12 @@ const handlePortionsChange = () => {
 }
 
 const addMenuItem = async () => {
+  console.log('addMenuItem called')
+  console.log('selectedRecipeId:', selectedRecipeId.value)
+  console.log('selectedPortions:', selectedPortions.value)
+  console.log('isAllocationValid:', isAllocationValid.value)
+  console.log('schoolAllocations:', schoolAllocations.value)
+  
   if (!selectedRecipeId.value) {
     message.warning('Pilih resep terlebih dahulu')
     return
@@ -532,12 +651,16 @@ const addMenuItem = async () => {
   }
   
   try {
-    // Transform allocations to API format
+    // Transform allocations to API format with portion sizes
     const school_allocations = Object.entries(schoolAllocations.value)
-      .filter(([_, portions]) => portions > 0)
-      .map(([school_id, portions]) => ({
+      .filter(([_, alloc]) => {
+        // Include if either portion type > 0
+        return (alloc.portions_small > 0 || alloc.portions_large > 0)
+      })
+      .map(([school_id, alloc]) => ({
         school_id: parseInt(school_id),
-        portions
+        portions_small: alloc.portions_small || 0,
+        portions_large: alloc.portions_large || 0
       }))
     
     const payload = {
@@ -578,12 +701,16 @@ const updateMenuItem = async () => {
   }
   
   try {
-    // Transform allocations to API format
+    // Transform allocations to API format with portion sizes
     const school_allocations = Object.entries(schoolAllocations.value)
-      .filter(([_, portions]) => portions > 0)
-      .map(([school_id, portions]) => ({
+      .filter(([_, alloc]) => {
+        // Include if either portion type > 0
+        return (alloc.portions_small > 0 || alloc.portions_large > 0)
+      })
+      .map(([school_id, alloc]) => ({
         school_id: parseInt(school_id),
-        portions
+        portions_small: alloc.portions_small || 0,
+        portions_large: alloc.portions_large || 0
       }))
     
     const payload = {
@@ -872,7 +999,7 @@ onMounted(() => {
   border-radius: 4px;
   cursor: move;
   display: flex;
-  justify-content: space-between;
+  gap: 8px;
   align-items: flex-start;
 }
 
@@ -880,11 +1007,26 @@ onMounted(() => {
   background: #e6e9ed;
 }
 
+.menu-item-photo {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.menu-item-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .menu-item-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .menu-item-actions {
@@ -901,6 +1043,22 @@ onMounted(() => {
 .menu-item-portions {
   font-size: 11px;
   color: #8c8c8c;
+}
+
+.menu-item-portion-summary {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: #595959;
+  margin-top: 2px;
+}
+
+.portion-summary-item {
+  padding: 1px 6px;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 2px;
+  font-weight: 500;
 }
 
 .menu-item-allocations {
@@ -926,6 +1084,18 @@ onMounted(() => {
 .allocation-item .school-portions {
   color: #1890ff;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.portion-detail {
+  white-space: nowrap;
+}
+
+.portion-separator {
+  color: #d9d9d9;
+  margin: 0 2px;
 }
 
 .no-allocations {

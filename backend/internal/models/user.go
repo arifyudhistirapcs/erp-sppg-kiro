@@ -12,7 +12,7 @@ type User struct {
 	PasswordHash string    `gorm:"size:255;not null" json:"-"`
 	FullName     string    `gorm:"size:100;not null" json:"full_name" validate:"required"`
 	PhoneNumber  string    `gorm:"size:20" json:"phone_number"`
-	Role         string    `gorm:"size:50;not null;index" json:"role" validate:"required,oneof=kepala_sppg kepala_yayasan akuntan ahli_gizi pengadaan chef packing driver asisten_lapangan"`
+	Role         string    `gorm:"size:50;not null;index" json:"role" validate:"required,oneof=kepala_sppg kepala_yayasan akuntan ahli_gizi pengadaan chef packing driver asisten_lapangan kebersihan"`
 	IsActive     bool      `gorm:"default:true;index" json:"is_active"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`

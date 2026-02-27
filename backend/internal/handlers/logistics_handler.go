@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/erp-sppg/backend/internal/models"
 	"github.com/erp-sppg/backend/internal/services"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -33,13 +38,23 @@ func NewLogisticsHandler(db *gorm.DB) *LogisticsHandler {
 
 // CreateSchoolRequest represents create school request
 type CreateSchoolRequest struct {
-	Name          string  `json:"name" binding:"required"`
-	Address       string  `json:"address"`
-	Latitude      float64 `json:"latitude" binding:"required"`
-	Longitude     float64 `json:"longitude" binding:"required"`
-	ContactPerson string  `json:"contact_person"`
-	PhoneNumber   string  `json:"phone_number"`
-	StudentCount  int     `json:"student_count" binding:"required,gte=0"`
+	Name                 string  `json:"name" binding:"required"`
+	Address              string  `json:"address"`
+	Latitude             float64 `json:"latitude" binding:"required"`
+	Longitude            float64 `json:"longitude" binding:"required"`
+	ContactPerson        string  `json:"contact_person"`
+	PhoneNumber          string  `json:"phone_number"`
+	StudentCount         int     `json:"student_count" binding:"gte=0"`
+	Category             string  `json:"category" binding:"required,oneof=SD SMP SMA"`
+	StudentCountGrade13  int     `json:"student_count_grade_1_3" binding:"gte=0"`
+	StudentCountGrade46  int     `json:"student_count_grade_4_6" binding:"gte=0"`
+	StaffCount           int     `json:"staff_count" binding:"gte=0"`
+	NPSN                 string  `json:"npsn"`
+	PrincipalName        string  `json:"principal_name"`
+	SchoolEmail          string  `json:"school_email"`
+	SchoolPhone          string  `json:"school_phone"`
+	CommitteeCount       int     `json:"committee_count" binding:"gte=0"`
+	CooperationLetterURL string  `json:"cooperation_letter_url"`
 }
 
 // CreateSchool creates a new school
@@ -56,13 +71,23 @@ func (h *LogisticsHandler) CreateSchool(c *gin.Context) {
 	}
 
 	school := &models.School{
-		Name:          req.Name,
-		Address:       req.Address,
-		Latitude:      req.Latitude,
-		Longitude:     req.Longitude,
-		ContactPerson: req.ContactPerson,
-		PhoneNumber:   req.PhoneNumber,
-		StudentCount:  req.StudentCount,
+		Name:                 req.Name,
+		Address:              req.Address,
+		Latitude:             req.Latitude,
+		Longitude:            req.Longitude,
+		ContactPerson:        req.ContactPerson,
+		PhoneNumber:          req.PhoneNumber,
+		StudentCount:         req.StudentCount,
+		Category:             req.Category,
+		StudentCountGrade13:  req.StudentCountGrade13,
+		StudentCountGrade46:  req.StudentCountGrade46,
+		StaffCount:           req.StaffCount,
+		NPSN:                 req.NPSN,
+		PrincipalName:        req.PrincipalName,
+		SchoolEmail:          req.SchoolEmail,
+		SchoolPhone:          req.SchoolPhone,
+		CommitteeCount:       req.CommitteeCount,
+		CooperationLetterURL: req.CooperationLetterURL,
 	}
 
 	if err := h.schoolService.CreateSchool(school); err != nil {
@@ -180,13 +205,23 @@ func (h *LogisticsHandler) UpdateSchool(c *gin.Context) {
 	}
 
 	school := &models.School{
-		Name:          req.Name,
-		Address:       req.Address,
-		Latitude:      req.Latitude,
-		Longitude:     req.Longitude,
-		ContactPerson: req.ContactPerson,
-		PhoneNumber:   req.PhoneNumber,
-		StudentCount:  req.StudentCount,
+		Name:                 req.Name,
+		Address:              req.Address,
+		Latitude:             req.Latitude,
+		Longitude:            req.Longitude,
+		ContactPerson:        req.ContactPerson,
+		PhoneNumber:          req.PhoneNumber,
+		StudentCount:         req.StudentCount,
+		Category:             req.Category,
+		StudentCountGrade13:  req.StudentCountGrade13,
+		StudentCountGrade46:  req.StudentCountGrade46,
+		StaffCount:           req.StaffCount,
+		NPSN:                 req.NPSN,
+		PrincipalName:        req.PrincipalName,
+		SchoolEmail:          req.SchoolEmail,
+		SchoolPhone:          req.SchoolPhone,
+		CommitteeCount:       req.CommitteeCount,
+		CooperationLetterURL: req.CooperationLetterURL,
 	}
 
 	if err := h.schoolService.UpdateSchool(uint(id), school); err != nil {
@@ -222,16 +257,52 @@ func (h *LogisticsHandler) UpdateSchool(c *gin.Context) {
 	})
 }
 
+// DeleteSchool deletes a school
+func (h *LogisticsHandler) DeleteSchool(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_ID",
+			"message":    "ID tidak valid",
+		})
+		return
+	}
+
+	if err := h.schoolService.DeleteSchool(uint(id)); err != nil {
+		if err == services.ErrSchoolNotFound {
+			c.JSON(http.StatusNotFound, gin.H{
+				"success":    false,
+				"error_code": "SCHOOL_NOT_FOUND",
+				"message":    "Sekolah tidak ditemukan",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan pada server",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Sekolah berhasil dihapus atau dinonaktifkan",
+	})
+}
+
 // Delivery Task Endpoints
 
 // CreateDeliveryTaskRequest represents create delivery task request
 type CreateDeliveryTaskRequest struct {
-	TaskDate   string                      `json:"task_date" binding:"required"`
-	DriverID   uint                        `json:"driver_id" binding:"required"`
-	SchoolID   uint                        `json:"school_id" binding:"required"`
-	Portions   int                         `json:"portions" binding:"required,gt=0"`
-	RouteOrder int                         `json:"route_order"`
-	MenuItems  []DeliveryMenuItemRequest   `json:"menu_items" binding:"required,min=1"`
+	TaskDate   string                    `json:"task_date" binding:"required"`
+	DriverID   uint                      `json:"driver_id" binding:"required"`
+	SchoolID   uint                      `json:"school_id" binding:"required"`
+	Portions   int                       `json:"portions" binding:"required,gt=0"`
+	RouteOrder int                       `json:"route_order"`
+	MenuItems  []DeliveryMenuItemRequest `json:"menu_items" binding:"required,min=1"`
 }
 
 // DeliveryMenuItemRequest represents delivery menu item request
@@ -451,12 +522,12 @@ func (h *LogisticsHandler) UpdateDeliveryTaskStatus(c *gin.Context) {
 
 // UpdateDeliveryTaskRequest represents update delivery task request
 type UpdateDeliveryTaskRequest struct {
-	TaskDate   string                      `json:"task_date"`
-	DriverID   uint                        `json:"driver_id"`
-	SchoolID   uint                        `json:"school_id"`
-	Portions   int                         `json:"portions"`
-	RouteOrder int                         `json:"route_order"`
-	MenuItems  []DeliveryMenuItemRequest   `json:"menu_items"`
+	TaskDate   string                    `json:"task_date"`
+	DriverID   uint                      `json:"driver_id"`
+	SchoolID   uint                      `json:"school_id"`
+	Portions   int                       `json:"portions"`
+	RouteOrder int                       `json:"route_order"`
+	MenuItems  []DeliveryMenuItemRequest `json:"menu_items"`
 }
 
 // UpdateDeliveryTask updates an existing delivery task
@@ -483,7 +554,7 @@ func (h *LogisticsHandler) UpdateDeliveryTask(c *gin.Context) {
 	}
 
 	task := &models.DeliveryTask{}
-	
+
 	// Parse task date if provided
 	if req.TaskDate != "" {
 		taskDate, err := time.Parse("2006-01-02", req.TaskDate)
@@ -891,5 +962,133 @@ func (h *LogisticsHandler) GetOmprengReports(c *gin.Context) {
 		"report":    report,
 		"inventory": inventory,
 		"missing":   missing,
+	})
+}
+
+// UploadCooperationLetter handles cooperation letter file upload
+func (h *LogisticsHandler) UploadCooperationLetter(c *gin.Context) {
+	// Get file from form
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "NO_FILE",
+			"message":    "File tidak ditemukan",
+		})
+		return
+	}
+
+	// Validate file size (max 5MB for documents)
+	if file.Size > 5*1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "FILE_TOO_LARGE",
+			"message":    "Ukuran file maksimal 5MB",
+		})
+		return
+	}
+
+	// Validate file type (PDF, DOC, DOCX, JPG, PNG)
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := map[string]bool{
+		".pdf":  true,
+		".doc":  true,
+		".docx": true,
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+	}
+	if !allowedExts[ext] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_FILE_TYPE",
+			"message":    "Format file harus PDF, DOC, DOCX, JPG, JPEG, atau PNG",
+		})
+		return
+	}
+
+	// Create uploads directory if not exists
+	uploadDir := "./uploads/cooperation-letters"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Gagal membuat direktori upload",
+		})
+		return
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("%s_%d%s", uuid.New().String(), time.Now().Unix(), ext)
+	filePath := filepath.Join(uploadDir, filename)
+
+	// Save file
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Gagal menyimpan file",
+		})
+		return
+	}
+
+	// Return URL
+	fileURL := fmt.Sprintf("/uploads/cooperation-letters/%s", filename)
+	c.JSON(http.StatusOK, gin.H{
+		"success":  true,
+		"message":  "File berhasil diupload",
+		"file_url": fileURL,
+	})
+}
+
+// DeleteCooperationLetter deletes a cooperation letter file
+func (h *LogisticsHandler) DeleteCooperationLetter(c *gin.Context) {
+	fileURL := c.Query("file_url")
+	if fileURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "MISSING_FILE_URL",
+			"message":    "URL file tidak ditemukan",
+		})
+		return
+	}
+
+	// Extract filename from URL
+	parts := strings.Split(fileURL, "/")
+	if len(parts) < 2 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_FILE_URL",
+			"message":    "URL file tidak valid",
+		})
+		return
+	}
+
+	filename := parts[len(parts)-1]
+	filePath := filepath.Join("./uploads/cooperation-letters", filename)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success":    false,
+			"error_code": "FILE_NOT_FOUND",
+			"message":    "File tidak ditemukan",
+		})
+		return
+	}
+
+	// Delete file
+	if err := os.Remove(filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Gagal menghapus file",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "File berhasil dihapus",
 	})
 }

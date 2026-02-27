@@ -192,22 +192,24 @@ const recipeItems = computed(() => {
 
 const getCategoryLabel = (category) => {
   const labels = {
-    makanan_pokok: 'Makanan Pokok',
-    lauk_pauk: 'Lauk Pauk',
-    sayuran: 'Sayuran',
-    buah: 'Buah',
-    minuman: 'Minuman'
+    masakan_indonesia: 'Masakan Indonesia',
+    masakan_china: 'Masakan China',
+    masakan_western: 'Masakan Western',
+    masakan_india: 'Masakan India',
+    masakan_gabungan: 'Masakan Gabungan',
+    lainnya: 'Lainnya'
   }
   return labels[category] || category
 }
 
 const getCategoryColor = (category) => {
   const colors = {
-    makanan_pokok: 'orange',
-    lauk_pauk: 'red',
-    sayuran: 'green',
-    buah: 'purple',
-    minuman: 'blue'
+    masakan_indonesia: 'red',
+    masakan_china: 'orange',
+    masakan_western: 'blue',
+    masakan_india: 'purple',
+    masakan_gabungan: 'green',
+    lainnya: 'default'
   }
   return colors[category] || 'default'
 }

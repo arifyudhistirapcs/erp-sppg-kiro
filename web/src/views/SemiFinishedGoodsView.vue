@@ -1,8 +1,8 @@
 <template>
   <div class="semi-finished-goods">
     <a-page-header
-      title="Barang Setengah Jadi"
-      sub-title="Kelola produk setengah jadi (nasi, lauk, sambal)"
+      title="Manajemen Komponen"
+      sub-title="Kelola komponen menu (nasi, lauk, sambal)"
     >
       <template #extra>
         <a-space>
@@ -37,12 +37,14 @@
             style="width: 100%"
             @change="handleSearch"
           >
-            <a-select-option value="nasi">Nasi</a-select-option>
-            <a-select-option value="lauk">Lauk</a-select-option>
-            <a-select-option value="sambal">Sambal</a-select-option>
-            <a-select-option value="sayur">Sayur</a-select-option>
-            <a-select-option value="lauk_berkuah">Lauk Berkuah</a-select-option>
+            <a-select-option value="protein_hewani">Protein Hewani</a-select-option>
+            <a-select-option value="sumber_lemak">Sumber Lemak</a-select-option>
             <a-select-option value="lainnya">Lainnya</a-select-option>
+            <a-select-option value="sayur">Sayur</a-select-option>
+            <a-select-option value="karbohidrat">Karbohidrat</a-select-option>
+            <a-select-option value="buah">Buah</a-select-option>
+            <a-select-option value="susu">Susu</a-select-option>
+            <a-select-option value="protein_nabati">Protein Nabati</a-select-option>
           </a-select>
         </a-col>
       </a-row>
@@ -68,6 +70,21 @@
               <a-tag color="blue">P: {{ record.protein_per_100g?.toFixed(1) }}g</a-tag>
               <a-tag color="green">K: {{ record.carbs_per_100g?.toFixed(1) }}g</a-tag>
               <a-tag color="orange">L: {{ record.fat_per_100g?.toFixed(1) }}g</a-tag>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'portion_requirements'">
+            <div class="portion-info">
+              <div v-if="record.quantity_per_portion_small > 0" class="portion-item">
+                <span class="portion-label">Kecil:</span>
+                <span class="portion-value">{{ record.quantity_per_portion_small }} {{ record.unit }}</span>
+              </div>
+              <div v-if="record.quantity_per_portion_large > 0" class="portion-item">
+                <span class="portion-label">Besar:</span>
+                <span class="portion-value">{{ record.quantity_per_portion_large }} {{ record.unit }}</span>
+              </div>
+              <span v-if="!record.quantity_per_portion_small && !record.quantity_per_portion_large" class="text-muted">
+                Belum diatur
+              </span>
             </div>
           </template>
           <template v-else-if="column.key === 'stock'">
@@ -111,7 +128,7 @@
     <!-- Production Modal -->
     <a-modal
       v-model:visible="produceModalVisible"
-      title="Produksi Barang Setengah Jadi"
+      title="Produksi Komponen"
       @ok="handleProduce"
       :confirm-loading="produceLoading"
     >
@@ -163,7 +180,7 @@
     <!-- Inventory Modal -->
     <a-modal
       v-model:visible="inventoryModalVisible"
-      title="Stok Barang Setengah Jadi"
+      title="Stok Komponen"
       width="800px"
       :footer="null"
     >
@@ -222,16 +239,17 @@ const produceForm = ref({
 })
 
 const columns = [
-  { title: 'Nama', key: 'name', width: '25%' },
-  { title: 'Kategori', dataIndex: 'category', key: 'category', width: '12%' },
-  { title: 'Informasi Gizi (per 100g)', key: 'nutrition', width: '28%' },
-  { title: 'Stok', key: 'stock', width: '15%' },
-  { title: 'Aksi', key: 'actions', width: '20%', align: 'center' }
+  { title: 'Nama', key: 'name', width: '20%' },
+  { title: 'Kategori', dataIndex: 'category', key: 'category', width: '10%' },
+  { title: 'Informasi Gizi (per 100g)', key: 'nutrition', width: '23%' },
+  { title: 'Kebutuhan Per Porsi', key: 'portion_requirements', width: '17%' },
+  { title: 'Stok', key: 'stock', width: '12%' },
+  { title: 'Aksi', key: 'actions', width: '18%', align: 'center' }
 ]
 
 const inventoryColumns = [
   { title: 'ID', dataIndex: 'semi_finished_goods_id', width: '10%' },
-  { title: 'Nama Barang', dataIndex: ['semi_finished_goods', 'name'], width: '25%' },
+  { title: 'Nama Komponen', dataIndex: ['semi_finished_goods', 'name'], width: '25%' },
   { title: 'Stok', dataIndex: 'quantity', width: '15%' },
   { title: 'Min Threshold', dataIndex: 'min_threshold', width: '15%' },
   { title: 'Status', key: 'status', width: '15%' },
@@ -259,7 +277,7 @@ const fetchGoods = async () => {
     const response = await semiFinishedService.getAllSemiFinishedGoods()
     goods.value = response.data.data || []
   } catch (error) {
-    message.error('Gagal memuat data barang setengah jadi')
+    message.error('Gagal memuat data komponen')
     console.error('Error fetching semi-finished goods:', error)
   } finally {
     loading.value = false
@@ -338,7 +356,7 @@ const handleProduce = async () => {
 const handleDelete = async (id) => {
   try {
     await semiFinishedService.deleteSemiFinishedGoods(id)
-    message.success('Barang setengah jadi berhasil dihapus')
+    message.success('Komponen berhasil dihapus')
     fetchGoods()
   } catch (error) {
     message.error('Gagal menghapus barang')
@@ -396,6 +414,30 @@ onMounted(() => {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+}
+
+.portion-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.portion-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.portion-label {
+  color: #8c8c8c;
+  font-weight: 500;
+  min-width: 45px;
+}
+
+.portion-value {
+  color: #1890ff;
+  font-weight: 600;
 }
 
 .help-text {

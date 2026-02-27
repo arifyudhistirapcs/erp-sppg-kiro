@@ -38,6 +38,225 @@
           </a-col>
         </a-row>
 
+        <a-divider>Informasi Sekolah</a-divider>
+
+        <a-row :gutter="24">
+          <a-col :span="8">
+            <a-form-item label="Kategori Sekolah" name="category">
+              <a-select 
+                v-model:value="formData.category" 
+                placeholder="Pilih kategori"
+                size="large"
+              >
+                <a-select-option value="SD">SD (Sekolah Dasar)</a-select-option>
+                <a-select-option value="SMP">SMP (Sekolah Menengah Pertama)</a-select-option>
+                <a-select-option value="SMA">SMA (Sekolah Menengah Atas)</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="8">
+            <a-form-item label="NPSN" name="npsn">
+              <a-input 
+                v-model:value="formData.npsn" 
+                placeholder="Nomor Pokok Sekolah Nasional"
+                size="large"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="8">
+            <a-form-item label="Nama Kepala Sekolah" name="principal_name">
+              <a-input 
+                v-model:value="formData.principal_name" 
+                placeholder="Nama kepala sekolah"
+                size="large"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="24">
+          <a-col :span="12">
+            <a-form-item label="Email Sekolah" name="school_email">
+              <a-input 
+                v-model:value="formData.school_email" 
+                placeholder="email@sekolah.sch.id"
+                size="large"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Telepon Sekolah" name="school_phone">
+              <a-input 
+                v-model:value="formData.school_phone" 
+                placeholder="021xxxxxxxx"
+                size="large"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-divider>Jumlah Siswa</a-divider>
+
+        <a-row :gutter="24" v-if="formData.category === 'SD'">
+          <a-col :span="12">
+            <a-form-item label="Jumlah Siswa Kelas 1-3" name="student_count_grade_1_3">
+              <a-input-number
+                v-model:value="formData.student_count_grade_1_3"
+                :min="0"
+                :max="5000"
+                style="width: 100%"
+                placeholder="0"
+                size="large"
+              />
+              <div class="form-help">
+                Jumlah siswa kelas 1, 2, dan 3
+              </div>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Jumlah Siswa Kelas 4-6" name="student_count_grade_4_6">
+              <a-input-number
+                v-model:value="formData.student_count_grade_4_6"
+                :min="0"
+                :max="5000"
+                style="width: 100%"
+                placeholder="0"
+                size="large"
+              />
+              <div class="form-help">
+                Jumlah siswa kelas 4, 5, dan 6
+              </div>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="24" v-if="formData.category === 'SMP' || formData.category === 'SMA'">
+          <a-col :span="12">
+            <a-form-item label="Jumlah Siswa" name="student_count">
+              <a-input-number
+                v-model:value="formData.student_count"
+                :min="0"
+                :max="10000"
+                style="width: 100%"
+                placeholder="0"
+                size="large"
+              />
+              <div class="form-help">
+                Total jumlah siswa yang akan menerima makanan
+              </div>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Jumlah Guru/Karyawan" name="staff_count">
+              <a-input-number
+                v-model:value="formData.staff_count"
+                :min="0"
+                :max="1000"
+                style="width: 100%"
+                placeholder="0"
+                size="large"
+              />
+              <div class="form-help">
+                Jumlah guru dan karyawan
+              </div>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="24" v-if="formData.category === 'SD'">
+          <a-col :span="12">
+            <a-form-item label="Jumlah Guru/Karyawan" name="staff_count">
+              <a-input-number
+                v-model:value="formData.staff_count"
+                :min="0"
+                :max="1000"
+                style="width: 100%"
+                placeholder="0"
+                size="large"
+              />
+              <div class="form-help">
+                Jumlah guru dan karyawan
+              </div>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Jumlah Anggota Komite" name="committee_count">
+              <a-input-number
+                v-model:value="formData.committee_count"
+                :min="0"
+                :max="100"
+                style="width: 100%"
+                placeholder="0"
+                size="large"
+              />
+              <div class="form-help">
+                Jumlah anggota komite sekolah
+              </div>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="24" v-if="formData.category === 'SMP' || formData.category === 'SMA'">
+          <a-col :span="12">
+            <a-form-item label="Jumlah Anggota Komite" name="committee_count">
+              <a-input-number
+                v-model:value="formData.committee_count"
+                :min="0"
+                :max="100"
+                style="width: 100%"
+                placeholder="0"
+                size="large"
+              />
+              <div class="form-help">
+                Jumlah anggota komite sekolah
+              </div>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Surat Kerjasama" name="cooperation_letter_url">
+              <a-upload
+                v-model:file-list="cooperationFileList"
+                :before-upload="beforeCooperationUpload"
+                :custom-request="handleCooperationUpload"
+                :max-count="1"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                @remove="handleCooperationRemove"
+              >
+                <a-button size="large">
+                  <upload-outlined></upload-outlined>
+                  Upload Surat Kerjasama
+                </a-button>
+              </a-upload>
+              <div class="form-help">
+                Format: PDF, DOC, DOCX, JPG, PNG (Max 5MB)
+              </div>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="24" v-if="formData.category === 'SD'">
+          <a-col :span="24">
+            <a-form-item label="Surat Kerjasama" name="cooperation_letter_url">
+              <a-upload
+                v-model:file-list="cooperationFileList"
+                :before-upload="beforeCooperationUpload"
+                :custom-request="handleCooperationUpload"
+                :max-count="1"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                @remove="handleCooperationRemove"
+              >
+                <a-button size="large">
+                  <upload-outlined></upload-outlined>
+                  Upload Surat Kerjasama
+                </a-button>
+              </a-upload>
+              <div class="form-help">
+                Format: PDF, DOC, DOCX, JPG, PNG (Max 5MB)
+              </div>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
         <a-divider>Koordinat GPS</a-divider>
 
         <a-alert
@@ -124,13 +343,13 @@
             <a-form-item label="Nama Kontak Person" name="contact_person">
               <a-input 
                 v-model:value="formData.contact_person" 
-                placeholder="Nama kepala sekolah atau PIC"
+                placeholder="Nama PIC atau wakil kepala sekolah"
                 size="large"
               />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="Nomor Telepon" name="phone_number">
+            <a-form-item label="Nomor Telepon Kontak" name="phone_number">
               <a-input 
                 v-model:value="formData.phone_number" 
                 placeholder="08xxxxxxxxxx"
@@ -140,25 +359,10 @@
           </a-col>
         </a-row>
 
-        <a-divider>Informasi Tambahan</a-divider>
+        <a-divider>Status Sekolah</a-divider>
 
         <a-row :gutter="24">
-          <a-col :span="12">
-            <a-form-item label="Jumlah Siswa" name="student_count">
-              <a-input-number
-                v-model:value="formData.student_count"
-                :min="0"
-                :max="10000"
-                style="width: 100%"
-                placeholder="0"
-                size="large"
-              />
-              <div class="form-help">
-                Jumlah siswa yang akan menerima makanan
-              </div>
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
+          <a-col :span="24">
             <a-form-item label="Status Sekolah" name="is_active">
               <a-radio-group v-model:value="formData.is_active" size="large">
                 <a-radio :value="true">
@@ -231,8 +435,9 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { EnvironmentOutlined, CopyOutlined } from '@ant-design/icons-vue'
+import { EnvironmentOutlined, CopyOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import schoolService from '@/services/schoolService'
+import axios from 'axios'
 
 const router = useRouter()
 const route = useRoute()
@@ -243,6 +448,7 @@ const gpsValidationStatus = ref('success')
 const gpsValidationTitle = ref('')
 const gpsValidationMessage = ref('')
 const formRef = ref()
+const cooperationFileList = ref([])
 
 const isEdit = computed(() => !!route.params.id)
 const schoolId = computed(() => route.params.id)
@@ -255,6 +461,16 @@ const formData = reactive({
   contact_person: '',
   phone_number: '',
   student_count: 0,
+  category: 'SD',
+  student_count_grade_1_3: 0,
+  student_count_grade_4_6: 0,
+  staff_count: 0,
+  npsn: '',
+  principal_name: '',
+  school_email: '',
+  school_phone: '',
+  committee_count: 0,
+  cooperation_letter_url: '',
   is_active: true
 })
 
@@ -276,13 +492,29 @@ const rules = {
     { required: true, message: 'Longitude wajib diisi' },
     { type: 'number', min: -180, max: 180, message: 'Longitude harus antara -180 sampai 180' }
   ],
+  category: [
+    { required: true, message: 'Kategori sekolah wajib diisi' }
+  ],
   student_count: [
-    { required: true, message: 'Jumlah siswa wajib diisi' },
-    { type: 'number', min: 0, message: 'Jumlah siswa tidak boleh negatif' },
-    { type: 'number', max: 10000, message: 'Jumlah siswa maksimal 10.000' }
+    { type: 'number', min: 0, message: 'Jumlah siswa tidak boleh negatif' }
+  ],
+  student_count_grade_1_3: [
+    { type: 'number', min: 0, message: 'Jumlah siswa tidak boleh negatif' }
+  ],
+  student_count_grade_4_6: [
+    { type: 'number', min: 0, message: 'Jumlah siswa tidak boleh negatif' }
+  ],
+  staff_count: [
+    { type: 'number', min: 0, message: 'Jumlah guru/karyawan tidak boleh negatif' }
   ],
   phone_number: [
     { pattern: /^(\+62|62|0)8[1-9][0-9]{6,9}$/, message: 'Format nomor telepon tidak valid' }
+  ],
+  school_phone: [
+    { pattern: /^(\+62|62|0)[0-9]{8,12}$/, message: 'Format nomor telepon tidak valid' }
+  ],
+  school_email: [
+    { type: 'email', message: 'Format email tidak valid' }
   ]
 }
 
@@ -406,7 +638,7 @@ const loadSchoolData = async () => {
 
   try {
     const response = await schoolService.getSchool(schoolId.value)
-    const school = response.data
+    const school = response.data.school || response.data
     
     Object.assign(formData, {
       name: school.name,
@@ -415,13 +647,93 @@ const loadSchoolData = async () => {
       longitude: school.longitude,
       contact_person: school.contact_person,
       phone_number: school.phone_number,
-      student_count: school.student_count,
+      student_count: school.student_count || 0,
+      category: school.category || 'SD',
+      student_count_grade_1_3: school.student_count_grade_1_3 || 0,
+      student_count_grade_4_6: school.student_count_grade_4_6 || 0,
+      staff_count: school.staff_count || 0,
+      npsn: school.npsn || '',
+      principal_name: school.principal_name || '',
+      school_email: school.school_email || '',
+      school_phone: school.school_phone || '',
+      committee_count: school.committee_count || 0,
+      cooperation_letter_url: school.cooperation_letter_url || '',
       is_active: school.is_active
     })
+
+    // Set file list if cooperation letter exists
+    if (school.cooperation_letter_url) {
+      cooperationFileList.value = [{
+        uid: '-1',
+        name: school.cooperation_letter_url.split('/').pop(),
+        status: 'done',
+        url: `http://localhost:8080${school.cooperation_letter_url}`
+      }]
+    }
   } catch (error) {
     message.error('Gagal memuat data sekolah')
-    console.error(error)
+    console.error('Load school error:', error)
     router.push('/schools')
+  }
+}
+
+const beforeCooperationUpload = (file) => {
+  const isValidType = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'].includes(file.type)
+  if (!isValidType) {
+    message.error('Format file harus PDF, DOC, DOCX, JPG, atau PNG!')
+    return false
+  }
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isLt5M) {
+    message.error('Ukuran file maksimal 5MB!')
+    return false
+  }
+  return true
+}
+
+const handleCooperationUpload = async ({ file, onSuccess, onError }) => {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.post('http://localhost:8080/api/v1/schools/upload-cooperation-letter', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.data.success) {
+      formData.cooperation_letter_url = response.data.file_url
+      message.success('File berhasil diupload')
+      onSuccess(response.data)
+    } else {
+      message.error('Gagal upload file')
+      onError(new Error('Upload failed'))
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    message.error('Gagal upload file')
+    onError(error)
+  }
+}
+
+const handleCooperationRemove = async (file) => {
+  if (formData.cooperation_letter_url) {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(`http://localhost:8080/api/v1/schools/delete-cooperation-letter?file_url=${formData.cooperation_letter_url}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      formData.cooperation_letter_url = ''
+      message.success('File berhasil dihapus')
+    } catch (error) {
+      console.error('Delete error:', error)
+      message.error('Gagal menghapus file')
+    }
   }
 }
 

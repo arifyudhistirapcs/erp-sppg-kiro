@@ -1,33 +1,35 @@
 <template>
   <div class="kds-packing-view">
-    <a-page-header
-      title="Packing - Pengemasan"
-      sub-title="Alokasi porsi per sekolah"
-    >
-      <template #extra>
-        <a-space>
-          <KDSDatePicker
-            v-model="selectedDate"
-            :loading="loading"
-            @change="handleDateChange"
-          />
-          <a-tag :color="isConnected ? 'green' : 'red'">
-            <template #icon>
-              <wifi-outlined v-if="isConnected" />
-              <disconnect-outlined v-else />
-            </template>
-            {{ isConnected ? 'Terhubung' : 'Terputus' }}
-          </a-tag>
-          <a-badge :count="readyCount" :number-style="{ backgroundColor: '#52c41a' }">
-            <a-button @click="refreshData" :loading="loading">
-              <template #icon><reload-outlined /></template>
-              Refresh
-            </a-button>
-          </a-badge>
-        </a-space>
-      </template>
-    </a-page-header>
-
+    <div class="kds-header">
+      <div class="header-content">
+        <div class="header-left">
+          <h2 class="header-title">Packing - Pengemasan</h2>
+          <p class="header-subtitle">Alokasi porsi per sekolah</p>
+        </div>
+        <div class="header-right">
+          <a-space :size="12">
+            <KDSDatePicker
+              v-model="selectedDate"
+              :loading="loading"
+              @change="handleDateChange"
+            />
+            <a-tag :color="isConnected ? 'green' : 'red'" class="connection-tag">
+              <template #icon>
+                <wifi-outlined v-if="isConnected" />
+                <disconnect-outlined v-else />
+              </template>
+              {{ isConnected ? 'Terhubung' : 'Terputus' }}
+            </a-tag>
+            <a-badge :count="readyCount" :number-style="{ backgroundColor: '#52c41a' }">
+              <a-button @click="refreshData" :loading="loading" type="default">
+                <template #icon><reload-outlined /></template>
+                Refresh
+              </a-button>
+            </a-badge>
+          </a-space>
+        </div>
+      </div>
+    </div>
     <!-- All Ready Notification -->
     <a-alert
       v-if="allSchoolsReady && schools.length > 0"
@@ -75,21 +77,50 @@
           >
             <a-card
               :class="['school-card', `status-${school.status}`]"
-              :title="school.school_name"
             >
-              <template #extra>
-                <a-tag :color="getStatusColor(school.status)">
+              <div class="card-header">
+                <div class="school-name">{{ school.school_name }}</div>
+                <a-tag :color="getStatusColor(school.status)" class="status-tag">
                   {{ getStatusText(school.status) }}
                 </a-tag>
-              </template>
+              </div>
 
               <div class="school-info">
                 <a-statistic
                   title="Total Porsi"
-                  :value="school.portions"
+                  :value="school.total_portions"
                   suffix="porsi"
-                  :value-style="{ color: '#1890ff', fontSize: '24px', fontWeight: 'bold' }"
+                  :value-style="{ color: '#1890ff', fontSize: '28px', fontWeight: 'bold' }"
                 />
+
+                <!-- Portion Size Breakdown -->
+                <div v-if="school.portion_size_type === 'mixed'" class="portion-breakdown">
+                  <div class="portion-breakdown-title">Rincian Ukuran Porsi</div>
+                  <a-row :gutter="12">
+                    <a-col :span="12">
+                      <div class="portion-size-card small">
+                        <div class="portion-icon">S</div>
+                        <div class="portion-label">Kecil (Kelas 1-3)</div>
+                        <div class="portion-value">{{ school.portions_small }} porsi</div>
+                      </div>
+                    </a-col>
+                    <a-col :span="12">
+                      <div class="portion-size-card large">
+                        <div class="portion-icon">L</div>
+                        <div class="portion-label">Besar (Kelas 4-6)</div>
+                        <div class="portion-value">{{ school.portions_large }} porsi</div>
+                      </div>
+                    </a-col>
+                  </a-row>
+                </div>
+                <div v-else class="portion-breakdown">
+                  <div class="portion-breakdown-title">Rincian Ukuran Porsi</div>
+                  <div class="portion-size-card large single">
+                    <div class="portion-icon">L</div>
+                    <div class="portion-label">Porsi Besar</div>
+                    <div class="portion-value">{{ school.portions_large }} porsi</div>
+                  </div>
+                </div>
 
                 <a-divider>Menu Items</a-divider>
                 <a-list
@@ -100,11 +131,37 @@
                   <template #renderItem="{ item }">
                     <a-list-item>
                       <a-list-item-meta>
+                        <template #avatar>
+                          <a-avatar
+                            v-if="item.photo_url"
+                            :src="item.photo_url"
+                            shape="square"
+                            :size="48"
+                          />
+                          <a-avatar
+                            v-else
+                            shape="square"
+                            :size="48"
+                            style="background-color: #f0f0f0; color: #999"
+                          >
+                            <template #icon><picture-outlined /></template>
+                          </a-avatar>
+                        </template>
                         <template #title>
                           {{ item.recipe_name }}
                         </template>
                         <template #description>
-                          <a-tag color="blue">{{ item.portions }} porsi</a-tag>
+                          <div class="menu-item-portions">
+                            <a-tag v-if="item.portions_small > 0" color="cyan" class="portion-tag">
+                              Kecil: {{ item.portions_small }}
+                            </a-tag>
+                            <a-tag v-if="item.portions_large > 0" color="blue" class="portion-tag">
+                              Besar: {{ item.portions_large }}
+                            </a-tag>
+                            <a-tag color="default" class="portion-tag">
+                              Total: {{ item.total_portions }}
+                            </a-tag>
+                          </div>
                         </template>
                       </a-list-item-meta>
                     </a-list-item>
@@ -161,7 +218,8 @@ import {
   ReloadOutlined,
   PlayCircleOutlined,
   CheckCircleOutlined,
-  CheckOutlined
+  CheckOutlined,
+  PictureOutlined
 } from '@ant-design/icons-vue'
 import KDSDatePicker from '@/components/KDSDatePicker.vue'
 import { getPackingToday, updatePackingStatus } from '@/services/kdsService'
@@ -250,7 +308,8 @@ const startPacking = async (school) => {
     const response = await updatePackingStatus(school.school_id, 'packing')
     if (response.success) {
       message.success('Status berhasil diperbarui: Mulai Packing')
-      // Update will come from Firebase listener
+      // Reload data from API to get updated status
+      await loadData()
     } else {
       message.error(response.message || 'Gagal memperbarui status')
     }
@@ -269,7 +328,8 @@ const finishPacking = async (school) => {
     const response = await updatePackingStatus(school.school_id, 'ready')
     if (response.success) {
       message.success(`${school.school_name} siap untuk pengiriman!`)
-      // Update will come from Firebase listener
+      // Reload data from API to get updated status
+      await loadData()
     } else {
       message.error(response.message || 'Gagal memperbarui status')
     }
@@ -299,13 +359,18 @@ const setupFirebaseListener = () => {
         // Update schools with Firebase data
         const firebaseSchools = Object.values(data)
         
-        // Merge with existing schools to preserve menu items
+        // Merge with existing schools to preserve menu items and update portion size data
         schools.value = schools.value.map(school => {
           const firebaseSchool = firebaseSchools.find(fs => fs.school_id === school.school_id)
           if (firebaseSchool) {
             return {
               ...school,
-              status: firebaseSchool.status
+              status: firebaseSchool.status,
+              // Update portion size data if present in Firebase
+              portion_size_type: firebaseSchool.portion_size_type || school.portion_size_type,
+              portions_small: firebaseSchool.portions_small !== undefined ? firebaseSchool.portions_small : school.portions_small,
+              portions_large: firebaseSchool.portions_large !== undefined ? firebaseSchool.portions_large : school.portions_large,
+              total_portions: firebaseSchool.total_portions || school.total_portions
             }
           }
           return school
@@ -395,13 +460,58 @@ onUnmounted(() => {
 
 <style scoped>
 .kds-packing-view {
-  padding: 24px;
   background-color: #f0f2f5;
   min-height: 100vh;
 }
 
+.kds-header {
+  background: white;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.header-left {
+  flex: 1;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #262626;
+  line-height: 1.4;
+}
+
+.header-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: #8c8c8c;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.connection-tag {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+
 .content-wrapper {
-  margin-top: 16px;
+  max-width: 1600px;
+  margin: 24px auto;
+  padding: 0 24px;
 }
 
 .school-card {
@@ -421,6 +531,24 @@ onUnmounted(() => {
 .school-card.status-ready {
   border-left: 4px solid #52c41a;
   box-shadow: 0 2px 8px rgba(82, 196, 26, 0.2);
+}
+
+.card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.school-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  line-height: 1.4;
+}
+
+.status-tag {
+  align-self: flex-start;
 }
 
 .school-info {
@@ -443,5 +571,96 @@ onUnmounted(() => {
 
 :deep(.ant-list-item-meta-description) {
   margin-top: 4px;
+}
+
+.portion-breakdown {
+  margin: 16px 0;
+}
+
+.portion-breakdown-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.portion-size-card {
+  padding: 16px 12px;
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.portion-size-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.portion-size-card.small {
+  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+  border: 2px solid #40a9ff;
+}
+
+.portion-size-card.large {
+  background: linear-gradient(135deg, #f0f5ff 0%, #d6e4ff 100%);
+  border: 2px solid #597ef7;
+}
+
+.portion-size-card.single {
+  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+  border: 2px solid #40a9ff;
+}
+
+.portion-icon {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1890ff;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portion-size-card.large .portion-icon {
+  color: #597ef7;
+}
+
+.portion-label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.75);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.portion-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1890ff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  line-height: 1.2;
+}
+
+.portion-size-card.large .portion-value {
+  color: #597ef7;
+}
+
+.menu-item-portions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.portion-tag {
+  margin: 0;
+  font-size: 12px;
 }
 </style>

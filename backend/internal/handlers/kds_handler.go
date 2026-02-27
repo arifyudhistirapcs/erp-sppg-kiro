@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -135,6 +136,8 @@ func (h *KDSHandler) UpdateCookingStatus(c *gin.Context) {
 	// Update status
 	err = h.kdsService.UpdateRecipeStatus(ctx, uint(recipeID), req.Status, userID.(uint))
 	if err != nil {
+		// Log the error for debugging
+		log.Printf("UpdateCookingStatus: Error updating recipe %d status to %s: %v", recipeID, req.Status, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success":    false,
 			"error_code": "UPDATE_FAILED",
@@ -201,6 +204,17 @@ func (h *KDSHandler) UpdatePackingStatus(c *gin.Context) {
 		return
 	}
 
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success":    false,
+			"error_code": "UNAUTHORIZED",
+			"message":    "User tidak terautentikasi",
+		})
+		return
+	}
+
 	// Parse request body
 	var req struct {
 		Status string `json:"status" binding:"required,oneof=pending packing ready"`
@@ -216,7 +230,7 @@ func (h *KDSHandler) UpdatePackingStatus(c *gin.Context) {
 	}
 
 	// Update status
-	err = h.packingAllocationService.UpdatePackingStatus(ctx, uint(schoolID), req.Status)
+	err = h.packingAllocationService.UpdatePackingStatus(ctx, uint(schoolID), req.Status, userID.(uint))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success":    false,

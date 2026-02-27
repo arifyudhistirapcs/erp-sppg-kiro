@@ -165,7 +165,7 @@ func (suite *ProductionWorkflowTestSuite) setupMasterData() {
 	recipe := &models.Recipe{
 		Name:          "Nasi Putih",
 		Category:      "Makanan Pokok",
-		ServingSize:   100,
+		// ServingSize:   100, // Removed - nutrition is now per menu
 		Instructions:  "Masak nasi hingga matang",
 		TotalCalories: 130,
 		TotalProtein:  2.7,

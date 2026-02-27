@@ -85,7 +85,7 @@ func TestPackingAllocationIncludesSchoolAllocations(t *testing.T) {
 	recipe1 := models.Recipe{
 		Name:          "Nasi Goreng",
 		Category:      "Main Course",
-		ServingSize:   1,
+		// ServingSize:   1, // Removed - nutrition is now per menu
 		TotalCalories: 500,
 		TotalProtein:  20,
 		TotalCarbs:    60,
@@ -97,7 +97,7 @@ func TestPackingAllocationIncludesSchoolAllocations(t *testing.T) {
 	recipe2 := models.Recipe{
 		Name:          "Ayam Bakar",
 		Category:      "Main Course",
-		ServingSize:   1,
+		// ServingSize:   1, // Removed - nutrition is now per menu
 		TotalCalories: 400,
 		TotalProtein:  30,
 		TotalCarbs:    20,

@@ -117,6 +117,12 @@ func NewPermissionChecker() *PermissionChecker {
 	pc.permissions["delivery_tasks"] = []string{"kepala_sppg", "driver", "asisten_lapangan"}
 	pc.permissions["attendance"] = []string{"kepala_sppg", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan"}
 	pc.permissions["hrm_management"] = []string{"kepala_sppg", "akuntan"}
+	
+	// Logistics monitoring permissions - all roles except kebersihan
+	pc.permissions["monitoring"] = []string{"kepala_sppg", "kepala_yayasan", "akuntan", "ahli_gizi", "pengadaan", "chef", "packing", "driver", "asisten_lapangan"}
+	
+	// Cleaning module permissions - kebersihan role only (plus admin override)
+	pc.permissions["cleaning"] = []string{"kebersihan", "kepala_sppg", "kepala_yayasan"}
 
 	return pc
 }
@@ -166,4 +172,68 @@ func RequirePermission(feature string) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// StatusCategoryAuthorizer defines authorization logic for status updates
+type StatusCategoryAuthorizer struct {
+	statusRoleMap map[string][]string // status -> allowed roles
+}
+
+// NewStatusCategoryAuthorizer creates a new status category authorizer
+func NewStatusCategoryAuthorizer() *StatusCategoryAuthorizer {
+	sca := &StatusCategoryAuthorizer{
+		statusRoleMap: make(map[string][]string),
+	}
+
+	// Cooking statuses - chef role
+	sca.statusRoleMap["sedang_dimasak"] = []string{"chef", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["selesai_dimasak"] = []string{"chef", "kepala_sppg", "kepala_yayasan"}
+
+	// Packing statuses - packing role
+	sca.statusRoleMap["siap_dipacking"] = []string{"packing", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["selesai_dipacking"] = []string{"packing", "kepala_sppg", "kepala_yayasan"}
+
+	// Delivery statuses - driver role
+	sca.statusRoleMap["siap_dikirim"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["diperjalanan"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["sudah_sampai_sekolah"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["sudah_diterima_pihak_sekolah"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+
+	// Collection statuses - driver role
+	sca.statusRoleMap["driver_ditugaskan_mengambil_ompreng"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["driver_menuju_sekolah"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["driver_sampai_di_sekolah"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["ompreng_telah_diambil"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["ompreng_sampai_di_sppg"] = []string{"driver", "kepala_sppg", "kepala_yayasan"}
+
+	// Cleaning statuses - kebersihan role
+	sca.statusRoleMap["ompreng_proses_pencucian"] = []string{"kebersihan", "kepala_sppg", "kepala_yayasan"}
+	sca.statusRoleMap["ompreng_selesai_dicuci"] = []string{"kebersihan", "kepala_sppg", "kepala_yayasan"}
+
+	return sca
+}
+
+// CheckStatusUpdatePermission checks if a role has permission to update to a specific status
+func (sca *StatusCategoryAuthorizer) CheckStatusUpdatePermission(role, status string) bool {
+	allowedRoles, exists := sca.statusRoleMap[status]
+	if !exists {
+		// If status not in map, deny by default
+		return false
+	}
+
+	for _, allowedRole := range allowedRoles {
+		if role == allowedRole {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ValidateStatusUpdatePermission checks if a user role has permission to update to a specific status
+// This is a helper function to be called from handlers
+// Returns true if the user has permission, false otherwise
+func ValidateStatusUpdatePermission(role, status string) bool {
+	sca := NewStatusCategoryAuthorizer()
+	return sca.CheckStatusUpdatePermission(role, status)
 }

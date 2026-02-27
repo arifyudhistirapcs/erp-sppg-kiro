@@ -39,8 +39,9 @@ type MenuItemRequest struct {
 
 // SchoolAllocationInput represents school allocation in request (POST/PUT)
 type SchoolAllocationInput struct {
-	SchoolID uint `json:"school_id" binding:"required"`
-	Portions int  `json:"portions" binding:"required,gt=0"`
+	SchoolID       uint `json:"school_id" binding:"required"`
+	PortionsSmall  int  `json:"portions_small" binding:"omitempty,gte=0"`
+	PortionsLarge  int  `json:"portions_large" binding:"omitempty,gte=0"`
 }
 
 // SchoolAllocationResponse represents school allocation in API responses
@@ -543,7 +544,7 @@ func (h *MenuPlanningHandler) GetIngredientRequirements(c *gin.Context) {
 type CreateMenuItemRequest struct {
 	Date              string                    `json:"date" binding:"required"` // YYYY-MM-DD format
 	RecipeID          uint                      `json:"recipe_id" binding:"required"`
-	Portions          int                       `json:"portions" binding:"required,gt=0"`
+	Portions          int                       `json:"portions" binding:"omitempty,gte=0"` // Optional, calculated from allocations
 	SchoolAllocations []SchoolAllocationInput   `json:"school_allocations" binding:"required,min=1,dive"`
 }
 
@@ -591,11 +592,12 @@ func (h *MenuPlanningHandler) CreateMenuItem(c *gin.Context) {
 	}
 
 	// Transform request to service input
-	var serviceAllocations []services.SchoolAllocationInput
+	var serviceAllocations []services.PortionSizeAllocationInput
 	for _, alloc := range req.SchoolAllocations {
-		serviceAllocations = append(serviceAllocations, services.SchoolAllocationInput{
-			SchoolID: alloc.SchoolID,
-			Portions: alloc.Portions,
+		serviceAllocations = append(serviceAllocations, services.PortionSizeAllocationInput{
+			SchoolID:       alloc.SchoolID,
+			PortionsSmall:  alloc.PortionsSmall,
+			PortionsLarge:  alloc.PortionsLarge,
 		})
 	}
 
@@ -615,7 +617,10 @@ func (h *MenuPlanningHandler) CreateMenuItem(c *gin.Context) {
 			len(errMsg) >= 3 && errMsg[:3] == "sum" || // sum of allocated portions...
 			len(errMsg) >= 9 && errMsg[:9] == "duplicate" || // duplicate allocation...
 			len(errMsg) >= 8 && errMsg[:8] == "portions" || // portions must be positive...
-			len(errMsg) >= 9 && errMsg[:9] == "school_id" // school_id X not found
+			len(errMsg) >= 9 && errMsg[:9] == "school_id" || // school_id X not found
+			len(errMsg) >= 3 && errMsg[:3] == "SMP" || // SMP schools cannot have small portions
+			len(errMsg) >= 3 && errMsg[:3] == "SMA" || // SMA schools cannot have small portions
+			len(errMsg) >= 6 && errMsg[:6] == "school" // school must have at least one portion
 
 		if isValidationError {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -735,20 +740,18 @@ func (h *MenuPlanningHandler) GetMenuItem(c *gin.Context) {
 		return
 	}
 
-	// Transform SchoolAllocations to SchoolAllocationResponse format
-	var allocationsResponse []SchoolAllocationResponse
-	for _, alloc := range menuItem.SchoolAllocations {
-		allocationsResponse = append(allocationsResponse, SchoolAllocationResponse{
-			ID:         alloc.ID,
-			MenuItemID: alloc.MenuItemID,
-			SchoolID:   alloc.SchoolID,
-			SchoolName: alloc.School.Name,
-			Portions:   alloc.Portions,
-			Date:       alloc.Date.Format("2006-01-02"),
+	// Get school allocations with portion sizes grouped by school
+	allocationsDisplay, err := h.menuPlanningService.GetSchoolAllocationsWithPortionSizes(uint(itemID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan pada server",
 		})
+		return
 	}
 
-	// Return 200 OK with menu item and allocations
+	// Return 200 OK with menu item and allocations with portion size breakdown
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
@@ -761,7 +764,7 @@ func (h *MenuPlanningHandler) GetMenuItem(c *gin.Context) {
 				"id":       menuItem.Recipe.ID,
 				"name":     menuItem.Recipe.Name,
 			},
-			"school_allocations": allocationsResponse,
+			"school_allocations": allocationsDisplay,
 		},
 	})
 }
@@ -827,11 +830,12 @@ func (h *MenuPlanningHandler) UpdateMenuItem(c *gin.Context) {
 	}
 
 	// Transform request to service input
-	var serviceAllocations []services.SchoolAllocationInput
+	var serviceAllocations []services.PortionSizeAllocationInput
 	for _, alloc := range req.SchoolAllocations {
-		serviceAllocations = append(serviceAllocations, services.SchoolAllocationInput{
-			SchoolID: alloc.SchoolID,
-			Portions: alloc.Portions,
+		serviceAllocations = append(serviceAllocations, services.PortionSizeAllocationInput{
+			SchoolID:       alloc.SchoolID,
+			PortionsSmall:  alloc.PortionsSmall,
+			PortionsLarge:  alloc.PortionsLarge,
 		})
 	}
 
@@ -853,7 +857,10 @@ func (h *MenuPlanningHandler) UpdateMenuItem(c *gin.Context) {
 			len(errMsg) >= 9 && errMsg[:9] == "duplicate" || // duplicate allocation...
 			len(errMsg) >= 8 && errMsg[:8] == "portions" || // portions must be positive...
 			len(errMsg) >= 9 && errMsg[:9] == "school_id" || // school_id X not found
-			len(errMsg) >= 9 && errMsg[:9] == "menu item" // menu item with ID X not found
+			len(errMsg) >= 9 && errMsg[:9] == "menu item" || // menu item with ID X not found
+			len(errMsg) >= 3 && errMsg[:3] == "SMP" || // SMP schools cannot have small portions
+			len(errMsg) >= 3 && errMsg[:3] == "SMA" || // SMA schools cannot have small portions
+			len(errMsg) >= 6 && errMsg[:6] == "school" // school must have at least one portion
 
 		if isValidationError {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -887,17 +894,15 @@ func (h *MenuPlanningHandler) UpdateMenuItem(c *gin.Context) {
 		return
 	}
 
-	// Transform SchoolAllocations to SchoolAllocationResponse format
-	var allocationsResponse []SchoolAllocationResponse
-	for _, alloc := range menuItem.SchoolAllocations {
-		allocationsResponse = append(allocationsResponse, SchoolAllocationResponse{
-			ID:         alloc.ID,
-			MenuItemID: alloc.MenuItemID,
-			SchoolID:   alloc.SchoolID,
-			SchoolName: alloc.School.Name,
-			Portions:   alloc.Portions,
-			Date:       alloc.Date.Format("2006-01-02"),
+	// Get school allocations with portion sizes grouped by school
+	allocationsDisplay, err := h.menuPlanningService.GetSchoolAllocationsWithPortionSizes(uint(itemID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan pada server",
 		})
+		return
 	}
 
 	// Return 200 OK with updated menu item and allocations
@@ -914,7 +919,7 @@ func (h *MenuPlanningHandler) UpdateMenuItem(c *gin.Context) {
 				"name":     menuItem.Recipe.Name,
 				"category": menuItem.Recipe.Category,
 			},
-			"school_allocations": allocationsResponse,
+			"school_allocations": allocationsDisplay,
 		},
 	})
 }

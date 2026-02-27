@@ -95,11 +95,12 @@ const currentVersion = ref(null)
 
 const getCategoryLabel = (category) => {
   const labels = {
-    makanan_pokok: 'Makanan Pokok',
-    lauk_pauk: 'Lauk Pauk',
-    sayuran: 'Sayuran',
-    buah: 'Buah',
-    minuman: 'Minuman'
+    masakan_indonesia: 'Masakan Indonesia',
+    masakan_china: 'Masakan China',
+    masakan_western: 'Masakan Western',
+    masakan_india: 'Masakan India',
+    masakan_gabungan: 'Masakan Gabungan',
+    lainnya: 'Lainnya'
   }
   return labels[category] || category
 }

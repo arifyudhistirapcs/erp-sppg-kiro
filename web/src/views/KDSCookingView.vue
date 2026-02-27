@@ -1,30 +1,33 @@
 <template>
   <div class="kds-cooking-view">
-    <a-page-header
-      title="Dapur - Memasak"
-      sub-title="Tampilan menu masakan"
-    >
-      <template #extra>
-        <a-space>
-          <KDSDatePicker
-            v-model="selectedDate"
-            :loading="loading"
-            @change="handleDateChange"
-          />
-          <a-tag :color="isConnected ? 'green' : 'red'">
-            <template #icon>
-              <wifi-outlined v-if="isConnected" />
-              <disconnect-outlined v-else />
-            </template>
-            {{ isConnected ? 'Terhubung' : 'Terputus' }}
-          </a-tag>
-          <a-button @click="refreshData" :loading="loading">
-            <template #icon><reload-outlined /></template>
-            Refresh
-          </a-button>
-        </a-space>
-      </template>
-    </a-page-header>
+    <div class="kds-header">
+      <div class="header-content">
+        <div class="header-left">
+          <h2 class="header-title">Dapur - Memasak</h2>
+          <p class="header-subtitle">Tampilan menu masakan</p>
+        </div>
+        <div class="header-right">
+          <a-space :size="12">
+            <KDSDatePicker
+              v-model="selectedDate"
+              :loading="loading"
+              @change="handleDateChange"
+            />
+            <a-tag :color="isConnected ? 'green' : 'red'" class="connection-tag">
+              <template #icon>
+                <wifi-outlined v-if="isConnected" />
+                <disconnect-outlined v-else />
+              </template>
+              {{ isConnected ? 'Terhubung' : 'Terputus' }}
+            </a-tag>
+            <a-button @click="refreshData" :loading="loading" type="default">
+              <template #icon><reload-outlined /></template>
+              Refresh
+            </a-button>
+          </a-space>
+        </div>
+      </div>
+    </div>
 
     <div class="content-wrapper">
       <a-alert
@@ -66,39 +69,38 @@
                 </a-tag>
               </template>
 
+              <!-- Photo -->
+              <div v-if="recipe.photo_url" class="recipe-photo">
+                <img :src="recipe.photo_url" :alt="recipe.name" />
+              </div>
+
               <div class="recipe-info">
                 <a-descriptions :column="1" size="small" bordered>
                   <a-descriptions-item label="Jumlah Porsi">
-                    <strong>{{ recipe.portions_required }} porsi</strong>
+                    <div class="portions-summary">
+                      <div class="portions-total">
+                        <strong>{{ recipe.portions_required }} porsi</strong>
+                      </div>
+                      <div v-if="getTotalSmallPortions(recipe.school_allocations) > 0 || getTotalLargePortions(recipe.school_allocations) > 0" class="portions-breakdown">
+                        <span v-if="getTotalSmallPortions(recipe.school_allocations) > 0" class="portion-badge portion-badge-small">
+                          K: {{ getTotalSmallPortions(recipe.school_allocations) }}
+                        </span>
+                        <span v-if="getTotalLargePortions(recipe.school_allocations) > 0" class="portion-badge portion-badge-large">
+                          B: {{ getTotalLargePortions(recipe.school_allocations) }}
+                        </span>
+                      </div>
+                    </div>
                   </a-descriptions-item>
                   <a-descriptions-item label="Waktu Mulai" v-if="recipe.start_time">
                     {{ formatTime(recipe.start_time) }}
                   </a-descriptions-item>
+                  <a-descriptions-item label="Waktu Selesai" v-if="recipe.end_time">
+                    {{ formatTime(recipe.end_time) }}
+                  </a-descriptions-item>
+                  <a-descriptions-item label="Durasi Memasak" v-if="recipe.duration_minutes">
+                    <a-tag color="green">{{ recipe.duration_minutes }} menit</a-tag>
+                  </a-descriptions-item>
                 </a-descriptions>
-
-                <a-divider>Alokasi Sekolah</a-divider>
-                <a-list
-                  v-if="recipe.school_allocations && recipe.school_allocations.length > 0"
-                  size="small"
-                  :data-source="recipe.school_allocations"
-                  :split="false"
-                >
-                  <template #renderItem="{ item }">
-                    <a-list-item>
-                      <a-list-item-meta>
-                        <template #title>
-                          {{ item.school_name }}
-                        </template>
-                        <template #description>
-                          {{ item.portions }} porsi
-                        </template>
-                      </a-list-item-meta>
-                    </a-list-item>
-                  </template>
-                </a-list>
-                <div v-else class="no-allocations">
-                  Tidak ada alokasi sekolah
-                </div>
 
                 <a-divider>Bahan-Bahan</a-divider>
                 <a-list
@@ -110,10 +112,22 @@
                     <a-list-item>
                       <a-list-item-meta>
                         <template #title>
-                          {{ item.name }}
+                          <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>{{ item.name }}</span>
+                            <span style="color: #1890ff; font-weight: 600;">{{ item.quantity }} {{ item.unit }}</span>
+                          </div>
                         </template>
-                        <template #description>
-                          {{ item.quantity }} {{ item.unit }}
+                        <template #description v-if="item.raw_materials && item.raw_materials.length > 0">
+                          <a-collapse :bordered="false" size="small" style="background: transparent; margin-top: 8px;">
+                            <a-collapse-panel key="1" header="Bahan Baku">
+                              <div class="raw-materials-list">
+                                <div v-for="(raw, idx) in item.raw_materials" :key="idx" class="raw-material-item">
+                                  <span class="raw-material-name">{{ raw.name }}</span>
+                                  <span class="raw-material-quantity">{{ raw.quantity.toFixed(2) }} {{ raw.unit }}</span>
+                                </div>
+                              </div>
+                            </a-collapse-panel>
+                          </a-collapse>
                         </template>
                       </a-list-item-meta>
                     </a-list-item>
@@ -124,6 +138,72 @@
                 <div class="instructions">
                   {{ recipe.instructions }}
                 </div>
+
+                <a-collapse v-if="recipe.school_allocations && recipe.school_allocations.length > 0" :bordered="false" style="margin-top: 16px; background: transparent;">
+                  <a-collapse-panel key="1" header="Alokasi Sekolah">
+                    <a-list
+                      size="small"
+                      :data-source="recipe.school_allocations"
+                      :split="false"
+                    >
+                      <template #renderItem="{ item }">
+                        <a-list-item>
+                          <a-list-item-meta>
+                            <template #title>
+                              <div class="school-allocation-title">
+                                <span class="school-name-text">{{ formatSchoolAllocation(item) }}</span>
+                                <a-tag :color="getSchoolCategoryColor(item.school_category)" size="small">
+                                  {{ item.school_category }}
+                                </a-tag>
+                              </div>
+                            </template>
+                            <template #description>
+                              <div class="portion-breakdown">
+                                <div v-if="item.portion_size_type === 'mixed'">
+                                  <div v-if="item.portions_small > 0" class="portion-item portion-small">
+                                    <a-badge :count="item.portions_small" :number-style="{ backgroundColor: '#faad14', fontWeight: 'bold' }">
+                                      <a-tag color="orange" class="portion-tag portion-tag-small">
+                                        <template #icon>
+                                          <span class="portion-icon portion-icon-small">S</span>
+                                        </template>
+                                        Kecil (Kelas 1-3)
+                                      </a-tag>
+                                    </a-badge>
+                                  </div>
+                                  <div v-if="item.portions_large > 0" class="portion-item portion-large">
+                                    <a-badge :count="item.portions_large" :number-style="{ backgroundColor: '#1890ff', fontWeight: 'bold' }">
+                                      <a-tag color="blue" class="portion-tag portion-tag-large">
+                                        <template #icon>
+                                          <span class="portion-icon portion-icon-large">L</span>
+                                        </template>
+                                        Besar (Kelas 4-6)
+                                      </a-tag>
+                                    </a-badge>
+                                  </div>
+                                </div>
+                                <div v-else>
+                                  <div class="portion-item portion-large">
+                                    <a-badge :count="item.portions_large" :number-style="{ backgroundColor: '#1890ff', fontWeight: 'bold' }">
+                                      <a-tag color="blue" class="portion-tag portion-tag-large">
+                                        <template #icon>
+                                          <span class="portion-icon portion-icon-large">L</span>
+                                        </template>
+                                        Besar
+                                      </a-tag>
+                                    </a-badge>
+                                  </div>
+                                </div>
+                                <div class="portion-total">
+                                  <strong>Total: {{ item.total_portions }} porsi</strong>
+                                </div>
+                              </div>
+                            </template>
+                          </a-list-item-meta>
+                        </a-list-item>
+                      </template>
+                    </a-list>
+                  </a-collapse-panel>
+                </a-collapse>
               </div>
 
               <template #actions>
@@ -217,6 +297,16 @@ const getStatusText = (status) => {
   return texts[status] || status
 }
 
+// Get school category color
+const getSchoolCategoryColor = (category) => {
+  const colors = {
+    SD: 'blue',
+    SMP: 'green',
+    SMA: 'purple'
+  }
+  return colors[category] || 'default'
+}
+
 // Format timestamp to readable time
 const formatTime = (timestamp) => {
   if (!timestamp) return '-'
@@ -225,6 +315,42 @@ const formatTime = (timestamp) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// Format school allocation display
+const formatSchoolAllocation = (item) => {
+  const parts = [item.school_name + ':']
+  
+  if (item.portion_size_type === 'mixed') {
+    // SD schools with both portion sizes
+    const portionParts = []
+    if (item.portions_small > 0) {
+      portionParts.push(`Kecil (${item.portions_small})`)
+    }
+    if (item.portions_large > 0) {
+      portionParts.push(`Besar (${item.portions_large})`)
+    }
+    return parts[0] + ' ' + portionParts.join(', ')
+  } else {
+    // SMP/SMA schools with only large portions
+    return `${parts[0]} Besar (${item.portions_large})`
+  }
+}
+
+// Calculate total small portions across all schools
+const getTotalSmallPortions = (allocations) => {
+  if (!allocations || allocations.length === 0) return 0
+  return allocations.reduce((total, alloc) => {
+    return total + (alloc.portions_small || 0)
+  }, 0)
+}
+
+// Calculate total large portions across all schools
+const getTotalLargePortions = (allocations) => {
+  if (!allocations || allocations.length === 0) return 0
+  return allocations.reduce((total, alloc) => {
+    return total + (alloc.portions_large || 0)
+  }, 0)
 }
 
 // Load data from API
@@ -266,7 +392,8 @@ const startCooking = async (recipe) => {
     const response = await updateCookingStatus(recipe.recipe_id, 'cooking')
     if (response.success) {
       message.success('Status berhasil diperbarui: Mulai Masak')
-      // Update will come from Firebase listener
+      // Reload data from API to get updated status
+      await loadData()
     } else {
       message.error(response.message || 'Gagal memperbarui status')
     }
@@ -285,7 +412,8 @@ const finishCooking = async (recipe) => {
     const response = await updateCookingStatus(recipe.recipe_id, 'ready')
     if (response.success) {
       message.success('Status berhasil diperbarui: Selesai')
-      // Update will come from Firebase listener
+      // Reload data from API to get updated status
+      await loadData()
     } else {
       message.error(response.message || 'Gagal memperbarui status')
     }
@@ -305,28 +433,39 @@ const setupFirebaseListener = () => {
   const dateStr = selectedDate.value.toISOString().split('T')[0]
   const cookingRef = dbRef(database, `/kds/cooking/${dateStr}`)
   
+  console.log('[KDS Cooking] Setting up Firebase listener for path:', `/kds/cooking/${dateStr}`)
+  
   firebaseListener = onValue(
     cookingRef,
     (snapshot) => {
       isConnected.value = true
       const data = snapshot.val()
       
+      console.log('[KDS Cooking] Firebase data received:', data)
+      
       if (data) {
         // Update recipes with Firebase data
         const firebaseRecipes = Object.values(data)
+        
+        console.log('[KDS Cooking] Firebase recipes:', firebaseRecipes)
         
         // Merge with existing recipes to preserve ingredients and instructions
         recipes.value = recipes.value.map(recipe => {
           const firebaseRecipe = firebaseRecipes.find(fr => fr.recipe_id === recipe.recipe_id)
           if (firebaseRecipe) {
+            console.log('[KDS Cooking] Updating recipe', recipe.recipe_id, 'with status:', firebaseRecipe.status)
             return {
               ...recipe,
               status: firebaseRecipe.status,
-              start_time: firebaseRecipe.start_time
+              start_time: firebaseRecipe.start_time,
+              // Update school allocations with portion size data if present
+              school_allocations: firebaseRecipe.school_allocations || recipe.school_allocations
             }
           }
           return recipe
         })
+        
+        console.log('[KDS Cooking] Updated recipes:', recipes.value)
       }
     },
     (error) => {
@@ -371,18 +510,79 @@ onUnmounted(() => {
 
 <style scoped>
 .kds-cooking-view {
-  padding: 24px;
   background-color: #f0f2f5;
   min-height: 100vh;
 }
 
+.kds-header {
+  background: white;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.header-left {
+  flex: 1;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #262626;
+  line-height: 1.4;
+}
+
+.header-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: #8c8c8c;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.connection-tag {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+
 .content-wrapper {
-  margin-top: 16px;
+  max-width: 1600px;
+  margin: 24px auto;
+  padding: 0 24px;
 }
 
 .recipe-card {
   height: 100%;
   transition: all 0.3s ease;
+}
+
+:deep(.ant-card-head) {
+  padding: 16px 24px;
+}
+
+:deep(.ant-card-head-title) {
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.5;
+  padding-right: 8px;
+}
+
+:deep(.ant-card-body) {
+  padding-top: 16px;
+  padding-bottom: 16px;
 }
 
 .recipe-card.status-pending {
@@ -428,10 +628,224 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.portions-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.portions-total {
+  font-size: 14px;
+}
+
+.portions-breakdown {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.portion-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.portion-badge-small {
+  background-color: #fff7e6;
+  color: #fa8c16;
+  border: 1px solid #ffd591;
+}
+
+.portion-badge-large {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  border: 1px solid #91d5ff;
+}
+
+:deep(.ant-collapse) {
+  background: transparent;
+  border: none;
+}
+
+:deep(.ant-collapse-item) {
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  margin-bottom: 0;
+}
+
+:deep(.ant-collapse-header) {
+  padding: 12px 16px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+:deep(.ant-collapse-content) {
+  border-top: 1px solid #f0f0f0;
+}
+
+:deep(.ant-collapse-content-box) {
+  padding: 12px 16px;
+}
+
+.raw-materials-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.raw-material-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+}
+
+.raw-material-name {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.raw-material-quantity {
+  font-size: 13px;
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.school-allocation-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.school-name-text {
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.portion-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.portion-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.portion-item.portion-small {
+  background-color: #fff7e6;
+  border: 1px solid #ffd591;
+}
+
+.portion-item.portion-large {
+  background-color: #e6f7ff;
+  border: 1px solid #91d5ff;
+}
+
+.portion-tag {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-width: 2px;
+}
+
+.portion-tag-small {
+  border-color: #fa8c16;
+  box-shadow: 0 2px 4px rgba(250, 140, 22, 0.2);
+}
+
+.portion-tag-large {
+  border-color: #1890ff;
+  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+}
+
+.portion-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background-color: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.portion-icon-small {
+  background-color: rgba(255, 255, 255, 0.5);
+  border-color: #fa8c16;
+}
+
+.portion-icon-large {
+  background-color: rgba(255, 255, 255, 0.5);
+  border-color: #1890ff;
+}
+
+:deep(.ant-badge) {
+  margin-right: 8px;
+}
+
+:deep(.ant-badge-count) {
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 28px;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.portion-label {
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 13px;
+}
+
+.portion-value {
+  color: #1890ff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.portion-total {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+  color: rgba(0, 0, 0, 0.85);
+  font-size: 14px;
+}
+
 .no-allocations {
   padding: 12px;
   text-align: center;
   color: rgba(0, 0, 0, 0.45);
   font-style: italic;
+}
+
+.recipe-photo {
+  width: 100%;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.recipe-photo img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
 }
 </style>

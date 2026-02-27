@@ -1,12 +1,18 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/erp-sppg/backend/internal/models"
 	"github.com/erp-sppg/backend/internal/services"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -28,7 +34,7 @@ func NewRecipeHandler(db *gorm.DB) *RecipeHandler {
 type CreateRecipeRequest struct {
 	Name              string                    `json:"name" binding:"required"`
 	Category          string                    `json:"category"`
-	ServingSize       int                       `json:"serving_size" binding:"required,gt=0"`
+	PhotoURL          string                    `json:"photo_url"`
 	Instructions      string                    `json:"instructions"`
 	IsActive          bool                      `json:"is_active"`
 	Items             []RecipeItemRequest       `json:"items" binding:"required,min=1"`
@@ -66,7 +72,7 @@ func (h *RecipeHandler) CreateRecipe(c *gin.Context) {
 	recipe := &models.Recipe{
 		Name:         req.Name,
 		Category:     req.Category,
-		ServingSize:  req.ServingSize,
+		PhotoURL:     req.PhotoURL,
 		Instructions: req.Instructions,
 		IsActive:     req.IsActive,
 	}
@@ -212,7 +218,7 @@ func (h *RecipeHandler) UpdateRecipe(c *gin.Context) {
 	recipe := &models.Recipe{
 		Name:         req.Name,
 		Category:     req.Category,
-		ServingSize:  req.ServingSize,
+		PhotoURL:     req.PhotoURL,
 		Instructions: req.Instructions,
 		IsActive:     req.IsActive,
 	}
@@ -327,28 +333,16 @@ func (h *RecipeHandler) GetRecipeNutrition(c *gin.Context) {
 		return
 	}
 
-	// Calculate per-portion nutrition
-	caloriesPerPortion := recipe.TotalCalories / float64(recipe.ServingSize)
-	proteinPerPortion := recipe.TotalProtein / float64(recipe.ServingSize)
-	carbsPerPortion := recipe.TotalCarbs / float64(recipe.ServingSize)
-	fatPerPortion := recipe.TotalFat / float64(recipe.ServingSize)
-
+	// Return nutrition per menu (no longer per portion since serving_size is removed)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"nutrition": gin.H{
-			"total": gin.H{
+			"per_menu": gin.H{
 				"calories": recipe.TotalCalories,
 				"protein":  recipe.TotalProtein,
 				"carbs":    recipe.TotalCarbs,
 				"fat":      recipe.TotalFat,
 			},
-			"per_portion": gin.H{
-				"calories": caloriesPerPortion,
-				"protein":  proteinPerPortion,
-				"carbs":    carbsPerPortion,
-				"fat":      fatPerPortion,
-			},
-			"serving_size": recipe.ServingSize,
 		},
 	})
 }
@@ -487,5 +481,120 @@ func (h *RecipeHandler) GenerateIngredientCode(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"code":    code,
+	})
+}
+
+// UploadRecipePhoto handles recipe photo upload
+func (h *RecipeHandler) UploadRecipePhoto(c *gin.Context) {
+	// Get file from form
+	file, err := c.FormFile("photo")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "NO_FILE",
+			"message":    "File tidak ditemukan",
+		})
+		return
+	}
+
+	// Validate file size (max 2MB)
+	if file.Size > 2*1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "FILE_TOO_LARGE",
+			"message":    "Ukuran file maksimal 2MB",
+		})
+		return
+	}
+
+	// Validate file type
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := map[string]bool{
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+	}
+	if !allowedExts[ext] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_FILE_TYPE",
+			"message":    "Format file harus JPG, JPEG, atau PNG",
+		})
+		return
+	}
+
+	// Create uploads directory if not exists
+	uploadDir := "./uploads/recipes"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Gagal membuat direktori upload",
+		})
+		return
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("%s_%d%s", uuid.New().String(), time.Now().Unix(), ext)
+	filepath := filepath.Join(uploadDir, filename)
+
+	// Save file
+	if err := c.SaveUploadedFile(file, filepath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Gagal menyimpan file",
+		})
+		return
+	}
+
+	// Return URL
+	photoURL := fmt.Sprintf("/uploads/recipes/%s", filename)
+	c.JSON(http.StatusOK, gin.H{
+		"success":   true,
+		"message":   "File berhasil diupload",
+		"photo_url": photoURL,
+	})
+}
+
+// DeleteRecipePhoto deletes a recipe photo file
+func (h *RecipeHandler) DeleteRecipePhoto(c *gin.Context) {
+	photoURL := c.Query("photo_url")
+	if photoURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "MISSING_PHOTO_URL",
+			"message":    "URL foto tidak ditemukan",
+		})
+		return
+	}
+
+	// Extract filename from URL
+	parts := strings.Split(photoURL, "/")
+	if len(parts) < 3 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_URL",
+			"message":    "URL foto tidak valid",
+		})
+		return
+	}
+
+	filename := parts[len(parts)-1]
+	filepath := filepath.Join("./uploads/recipes", filename)
+
+	// Delete file
+	if err := os.Remove(filepath); err != nil {
+		// File might not exist, but that's okay
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "File berhasil dihapus atau tidak ditemukan",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "File berhasil dihapus",
 	})
 }

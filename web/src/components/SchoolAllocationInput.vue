@@ -2,21 +2,6 @@
   <div class="school-allocation-input">
     <div class="allocation-header">
       <h4>Alokasi Sekolah</h4>
-      <div class="allocation-summary" :class="summaryClass">
-        <span class="summary-text">
-          Dialokasikan: {{ totalAllocated }} / {{ totalPortions }} porsi
-        </span>
-        <a-tag v-if="isValid" color="success">
-          <CheckCircleOutlined /> Valid
-        </a-tag>
-        <a-tag v-else color="warning">
-          <ExclamationCircleOutlined /> Belum Valid
-        </a-tag>
-      </div>
-    </div>
-
-    <div v-if="errorMessage" class="error-message">
-      <a-alert :message="errorMessage" type="error" show-icon closable />
     </div>
 
     <div class="schools-list">
@@ -27,31 +12,100 @@
       >
         <div class="school-info">
           <span class="school-name">{{ school.name }}</span>
-          <span class="school-meta">{{ school.student_count || 0 }} siswa</span>
+          <a-tag :color="getSchoolCategoryColor(school.category)" size="small">
+            {{ school.category }}
+          </a-tag>
+          <span class="school-meta">
+            <template v-if="school.category === 'SD'">
+              Kelas 1-3: {{ school.student_count_grade_1_3 || 0 }} siswa | 
+              Kelas 4-6: {{ school.student_count_grade_4_6 || 0 }} siswa
+            </template>
+            <template v-else>
+              {{ school.student_count || 0 }} siswa
+            </template>
+          </span>
         </div>
         <div class="school-input">
-          <a-input-number
-            v-model:value="allocations[school.id]"
-            :min="0"
-            :max="totalPortions"
-            placeholder="0"
-            @change="handleAllocationChange"
-            style="width: 120px"
-          />
+          <!-- SD schools: show both small and large portion fields -->
+          <template v-if="school.category === 'SD'">
+            <div class="portion-input-group">
+              <div class="portion-field">
+                <label class="portion-label">Kecil (Kelas 1-3)</label>
+                <a-input-number
+                  v-model:value="allocations[school.id].portions_small"
+                  :min="0"
+                  placeholder="0"
+                  @change="handleAllocationChange"
+                  style="width: 100px"
+                />
+              </div>
+              <div class="portion-field">
+                <label class="portion-label">Besar (Kelas 4-6)</label>
+                <a-input-number
+                  v-model:value="allocations[school.id].portions_large"
+                  :min="0"
+                  placeholder="0"
+                  @change="handleAllocationChange"
+                  style="width: 100px"
+                />
+              </div>
+            </div>
+          </template>
+          <!-- SMP/SMA schools: show only large portion field -->
+          <template v-else>
+            <div class="portion-input-group">
+              <div class="portion-field">
+                <label class="portion-label">Besar</label>
+                <a-input-number
+                  v-model:value="allocations[school.id].portions_large"
+                  :min="0"
+                  placeholder="0"
+                  @change="handleAllocationChange"
+                  style="width: 100px"
+                />
+              </div>
+            </div>
+          </template>
           <span class="unit-label">porsi</span>
         </div>
       </div>
     </div>
 
-    <div v-if="!isValid && totalAllocated > 0" class="validation-hint">
-      <a-alert :message="validationHint" type="info" show-icon />
+    <!-- Portion Size Statistics -->
+    <div v-if="totalAllocated > 0" class="statistics-section">
+      <a-divider style="margin: 16px 0 12px 0">Statistik Alokasi</a-divider>
+      <div class="statistics-grid">
+        <div class="stat-item">
+          <span class="stat-label">Total Porsi Kecil</span>
+          <span class="stat-value">{{ totalSmallPortions }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Porsi Besar</span>
+          <span class="stat-value">{{ totalLargePortions }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Persentase Kecil</span>
+          <span class="stat-value">{{ smallPortionPercentage }}%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Persentase Besar</span>
+          <span class="stat-value">{{ largePortionPercentage }}%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Sekolah SD</span>
+          <span class="stat-value">{{ sdSchoolCount }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Sekolah SMP/SMA</span>
+          <span class="stat-value">{{ smpSmaSchoolCount }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
 
 const props = defineProps({
   schools: {
@@ -76,97 +130,158 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'validation-change'])
 
 // Initialize allocations from modelValue
-const allocations = ref({ ...props.modelValue })
+// Structure: { school_id: { portions_small: 0, portions_large: 0 } }
+const allocations = ref({})
+const isInternalUpdate = ref(false)
 
-// Watch for external changes to modelValue (including reset to empty object)
-watch(() => props.modelValue, (newValue) => {
-  // If modelValue is empty object, reset all allocations to 0
-  if (Object.keys(newValue).length === 0) {
-    const resetAllocations = {}
-    props.schools.forEach(school => {
-      resetAllocations[school.id] = 0
-    })
-    allocations.value = resetAllocations
-  } else {
-    allocations.value = { ...newValue }
+// Helper function to get school category color
+const getSchoolCategoryColor = (category) => {
+  switch (category) {
+    case 'SD':
+      return 'blue'
+    case 'SMP':
+      return 'green'
+    case 'SMA':
+      return 'purple'
+    default:
+      return 'default'
   }
-}, { deep: true })
+}
 
-// Watch for changes to schools to initialize allocations
-watch(() => props.schools, (newSchools) => {
-  if (newSchools && newSchools.length > 0) {
-    // Only initialize if allocations is empty or doesn't have all schools
-    const needsInit = Object.keys(allocations.value).length === 0
-    
-    if (needsInit) {
-      // Initialize all schools with 0
-      const newAllocations = {}
-      newSchools.forEach(school => {
-        newAllocations[school.id] = 0
-      })
-      allocations.value = newAllocations
-    } else {
-      // Just add missing schools
-      newSchools.forEach(school => {
-        if (!(school.id in allocations.value)) {
-          allocations.value[school.id] = 0
-        }
-      })
+// Initialize allocations structure
+const initializeAllocations = () => {
+  const newAllocations = {}
+  props.schools.forEach(school => {
+    newAllocations[school.id] = {
+      portions_small: 0,
+      portions_large: 0
     }
+  })
+  return newAllocations
+}
+
+// Initialize immediately with schools data
+if (props.schools && props.schools.length > 0) {
+  if (props.modelValue && Object.keys(props.modelValue).length > 0) {
+    // Load from modelValue if provided (for edit mode)
+    const loadedAllocations = {}
+    props.schools.forEach(school => {
+      if (props.modelValue[school.id]) {
+        loadedAllocations[school.id] = {
+          portions_small: props.modelValue[school.id].portions_small || 0,
+          portions_large: props.modelValue[school.id].portions_large || 0
+        }
+      } else {
+        loadedAllocations[school.id] = {
+          portions_small: 0,
+          portions_large: 0
+        }
+      }
+    })
+    allocations.value = loadedAllocations
+  } else {
+    // Initialize with zeros (for new mode)
+    allocations.value = initializeAllocations()
   }
-}, { immediate: true })
+}
+
+// Watch modelValue ONLY for external changes (not from our own emit)
+watch(() => props.modelValue, (newValue) => {
+  // Skip if this is our own update
+  if (isInternalUpdate.value) {
+    isInternalUpdate.value = false
+    return
+  }
+  
+  // Only update if modelValue is explicitly reset to empty (when opening new modal)
+  if (newValue && Object.keys(newValue).length === 0 && Object.keys(allocations.value).length > 0) {
+    allocations.value = initializeAllocations()
+  }
+}, { deep: false }) // Use shallow watch to avoid triggering on nested changes
 
 const totalAllocated = computed(() => {
-  return Object.values(allocations.value).reduce((sum, val) => sum + (val || 0), 0)
+  let total = 0
+  Object.values(allocations.value).forEach(alloc => {
+    total += (alloc.portions_small || 0) + (alloc.portions_large || 0)
+  })
+  return total
 })
 
 const isValid = computed(() => {
-  if (props.totalPortions === 0) return false
-  if (totalAllocated.value === 0) return false
-  return totalAllocated.value === props.totalPortions
+  // Always valid - user can allocate any amount
+  return totalAllocated.value > 0
 })
 
-const summaryClass = computed(() => ({
-  'summary-valid': isValid.value,
-  'summary-invalid': !isValid.value && totalAllocated.value > 0,
-  'summary-empty': totalAllocated.value === 0
-}))
-
-const errorMessage = computed(() => {
-  if (totalAllocated.value === 0 && props.totalPortions > 0) {
-    return 'Harap alokasikan porsi ke minimal satu sekolah'
-  }
-  if (totalAllocated.value > props.totalPortions) {
-    const excess = totalAllocated.value - props.totalPortions
-    return `Alokasi melebihi total porsi sebanyak ${excess} porsi`
-  }
-  return null
+// Statistics computed properties
+const totalSmallPortions = computed(() => {
+  let total = 0
+  Object.values(allocations.value).forEach(alloc => {
+    total += alloc.portions_small || 0
+  })
+  return total
 })
 
-const validationHint = computed(() => {
-  if (totalAllocated.value < props.totalPortions) {
-    const remaining = props.totalPortions - totalAllocated.value
-    return `Masih perlu mengalokasikan ${remaining} porsi lagi`
-  }
-  return ''
+const totalLargePortions = computed(() => {
+  let total = 0
+  Object.values(allocations.value).forEach(alloc => {
+    total += alloc.portions_large || 0
+  })
+  return total
+})
+
+const smallPortionPercentage = computed(() => {
+  if (totalAllocated.value === 0) return 0
+  return ((totalSmallPortions.value / totalAllocated.value) * 100).toFixed(1)
+})
+
+const largePortionPercentage = computed(() => {
+  if (totalAllocated.value === 0) return 0
+  return ((totalLargePortions.value / totalAllocated.value) * 100).toFixed(1)
+})
+
+const sdSchoolCount = computed(() => {
+  let count = 0
+  props.schools.forEach(school => {
+    const alloc = allocations.value[school.id]
+    if (school.category === 'SD' && alloc && (alloc.portions_small > 0 || alloc.portions_large > 0)) {
+      count++
+    }
+  })
+  return count
+})
+
+const smpSmaSchoolCount = computed(() => {
+  let count = 0
+  props.schools.forEach(school => {
+    const alloc = allocations.value[school.id]
+    if ((school.category === 'SMP' || school.category === 'SMA') && alloc && alloc.portions_large > 0) {
+      count++
+    }
+  })
+  return count
 })
 
 const handleAllocationChange = () => {
+  console.log('handleAllocationChange called')
+  console.log('allocations:', allocations.value)
+  console.log('totalAllocated:', totalAllocated.value)
+  console.log('isValid:', isValid.value)
+  
+  // Set flag to indicate this is an internal update
+  isInternalUpdate.value = true
+  
   // Emit the updated allocations
   emit('update:modelValue', { ...allocations.value })
   
-  // Emit validation status
+  // Emit validation status - always valid if there are allocations
   emit('validation-change', {
     isValid: isValid.value,
     totalAllocated: totalAllocated.value,
-    totalPortions: props.totalPortions
+    totalPortions: totalAllocated.value // Set totalPortions same as totalAllocated
   })
+  
+  console.log('Emitted validation-change with totalAllocated:', totalAllocated.value)
 }
-
-// Initialize validation on mount
-watch(() => props.totalPortions, () => {
-  handleAllocationChange()
-}, { immediate: true })
 </script>
 
 <style scoped>
@@ -251,6 +366,7 @@ watch(() => props.totalPortions, () => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
 }
 
 .school-name {
@@ -270,12 +386,67 @@ watch(() => props.totalPortions, () => {
   gap: 8px;
 }
 
+.portion-input-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.portion-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.portion-label {
+  font-size: 11px;
+  color: #8c8c8c;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .unit-label {
   font-size: 13px;
   color: #8c8c8c;
+  margin-left: 4px;
 }
 
 .validation-hint {
   margin-top: 12px;
+}
+
+.statistics-section {
+  margin-top: 16px;
+}
+
+.statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #8c8c8c;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1890ff;
 }
 </style>
