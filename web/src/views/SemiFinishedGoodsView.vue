@@ -309,9 +309,16 @@ const showCreateModal = () => {
   formModalVisible.value = true
 }
 
-const showEditModal = (record) => {
-  editingRecord.value = record
-  formModalVisible.value = true
+const showEditModal = async (record) => {
+  try {
+    // Get full details including recipe and ingredients
+    const response = await semiFinishedService.getSemiFinishedGoods(record.id)
+    editingRecord.value = response.data.data
+    formModalVisible.value = true
+  } catch (error) {
+    message.error('Gagal memuat detail komponen')
+    console.error('Error loading semi-finished goods:', error)
+  }
 }
 
 const showProduceModal = async (record) => {
