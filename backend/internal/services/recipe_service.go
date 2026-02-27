@@ -89,7 +89,8 @@ func (s *RecipeService) CreateRecipe(recipe *models.Recipe, items []models.Recip
 // GetRecipeByID retrieves a recipe by ID with semi-finished goods items
 func (s *RecipeService) GetRecipeByID(id uint) (*models.Recipe, error) {
 	var recipe models.Recipe
-	err := s.db.Preload("RecipeItems.SemiFinishedGoods").
+	err := s.db.Preload("RecipeItems.SemiFinishedGoods.Recipe.Ingredients.Ingredient").
+		Preload("RecipeItems.SemiFinishedGoods").
 		Preload("Creator").
 		First(&recipe, id).Error
 	
@@ -106,7 +107,9 @@ func (s *RecipeService) GetRecipeByID(id uint) (*models.Recipe, error) {
 // GetAllRecipes retrieves all active recipes
 func (s *RecipeService) GetAllRecipes(activeOnly bool) ([]models.Recipe, error) {
 	var recipes []models.Recipe
-	query := s.db.Preload("RecipeItems.SemiFinishedGoods").Preload("Creator")
+	query := s.db.Preload("RecipeItems.SemiFinishedGoods.Recipe.Ingredients.Ingredient").
+		Preload("RecipeItems.SemiFinishedGoods").
+		Preload("Creator")
 	
 	if activeOnly {
 		query = query.Where("is_active = ?", true)
@@ -324,7 +327,9 @@ func (s *RecipeService) ValidateNutrition(recipe *models.Recipe) error {
 // SearchRecipes searches recipes by name or category
 func (s *RecipeService) SearchRecipes(query string, category string, activeOnly bool) ([]models.Recipe, error) {
 	var recipes []models.Recipe
-	db := s.db.Preload("RecipeItems.SemiFinishedGoods").Preload("Creator")
+	db := s.db.Preload("RecipeItems.SemiFinishedGoods.Recipe.Ingredients.Ingredient").
+		Preload("RecipeItems.SemiFinishedGoods").
+		Preload("Creator")
 
 	if activeOnly {
 		db = db.Where("is_active = ?", true)
