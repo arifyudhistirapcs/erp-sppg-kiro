@@ -113,13 +113,18 @@
             <div class="card-section">
               <div class="section-title">Bahan Baku</div>
               <div class="ingredient-list">
-                <div
-                  v-for="item in recipe.recipe_items"
-                  :key="'ing-' + item.id"
-                  class="ingredient-item"
-                >
-                  <span class="ingredient-name">{{ item.semi_finished_goods?.name }}</span>
-                  <span class="ingredient-quantity">{{ item.quantity }} gr</span>
+                <template v-for="item in recipe.recipe_items" :key="'ing-' + item.id">
+                  <div
+                    v-for="ingredient in item.semi_finished_goods?.recipe?.ingredients || []"
+                    :key="'raw-' + ingredient.id"
+                    class="ingredient-item"
+                  >
+                    <span class="ingredient-name">{{ ingredient.ingredient?.name || 'Unknown' }}</span>
+                    <span class="ingredient-quantity">{{ ingredient.quantity }} {{ ingredient.ingredient?.unit || 'gr' }}</span>
+                  </div>
+                </template>
+                <div v-if="!hasIngredients(recipe)" class="ingredient-item">
+                  <span class="ingredient-name" style="color: #8c8c8c;">Tidak ada bahan baku</span>
                 </div>
               </div>
             </div>
@@ -237,6 +242,14 @@ const getComponentTagColor = (category) => {
     lauk_berkuah: 'green'
   }
   return colors[category] || 'default'
+}
+
+const hasIngredients = (recipe) => {
+  if (!recipe.recipe_items) return false
+  return recipe.recipe_items.some(item => 
+    item.semi_finished_goods?.recipe?.ingredients && 
+    item.semi_finished_goods.recipe.ingredients.length > 0
+  )
 }
 
 const getCategoryColor = (category) => {
