@@ -64,6 +64,9 @@
               <span class="text-muted">{{ record.description || '-' }}</span>
             </div>
           </template>
+          <template v-else-if="column.key === 'category'">
+            {{ getCategoryLabel(record.category) }}
+          </template>
           <template v-else-if="column.key === 'nutrition'">
             <div class="nutrition-info">
               <a-tag color="red">{{ record.calories_per_100g?.toFixed(1) }} kkal</a-tag>
@@ -384,6 +387,20 @@ const getStockStatusColor = (record) => {
 const formatDate = (date) => {
   if (!date) return '-'
   return new Date(date).toLocaleString('id-ID')
+}
+
+const getCategoryLabel = (category) => {
+  const labels = {
+    protein_hewani: 'Protein Hewani',
+    sumber_lemak: 'Sumber Lemak',
+    lainnya: 'Lainnya',
+    sayur: 'Sayur',
+    karbohidrat: 'Karbohidrat',
+    buah: 'Buah',
+    susu: 'Susu',
+    protein_nabati: 'Protein Nabati'
+  }
+  return labels[category] || category || '-'
 }
 
 onMounted(() => {
