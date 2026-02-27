@@ -24,11 +24,18 @@ func NewSemiFinishedHandler(db *gorm.DB) *SemiFinishedHandler {
 
 // CreateSemiFinishedGoodsRequest represents create semi-finished goods request
 type CreateSemiFinishedGoodsRequest struct {
-	Name         string                                 `json:"name" binding:"required"`
-	Unit         string                                 `json:"unit" binding:"required"`
-	Description  string                                 `json:"description"`
-	Recipe       SemiFinishedRecipeRequest              `json:"recipe" binding:"required"`
-	Ingredients  []SemiFinishedRecipeIngredientRequest  `json:"ingredients" binding:"required,min=1"`
+	Name                    string                                 `json:"name" binding:"required"`
+	Unit                    string                                 `json:"unit" binding:"required"`
+	Category                string                                 `json:"category"`
+	Description             string                                 `json:"description"`
+	CaloriesPer100g         float64                                `json:"calories_per_100g"`
+	ProteinPer100g          float64                                `json:"protein_per_100g"`
+	CarbsPer100g            float64                                `json:"carbs_per_100g"`
+	FatPer100g              float64                                `json:"fat_per_100g"`
+	QuantityPerPortionSmall float64                                `json:"quantity_per_portion_small"`
+	QuantityPerPortionLarge float64                                `json:"quantity_per_portion_large"`
+	Recipe                  SemiFinishedRecipeRequest              `json:"recipe" binding:"required"`
+	Ingredients             []SemiFinishedRecipeIngredientRequest  `json:"ingredients" binding:"required,min=1"`
 }
 
 // SemiFinishedRecipeRequest represents recipe request
@@ -119,9 +126,16 @@ func (h *SemiFinishedHandler) CreateSemiFinishedGoods(c *gin.Context) {
 
 	// Create goods model
 	goods := &models.SemiFinishedGoods{
-		Name:        req.Name,
-		Unit:        req.Unit,
-		Description: req.Description,
+		Name:                    req.Name,
+		Unit:                    req.Unit,
+		Category:                req.Category,
+		Description:             req.Description,
+		CaloriesPer100g:         req.CaloriesPer100g,
+		ProteinPer100g:          req.ProteinPer100g,
+		CarbsPer100g:            req.CarbsPer100g,
+		FatPer100g:              req.FatPer100g,
+		QuantityPerPortionSmall: req.QuantityPerPortionSmall,
+		QuantityPerPortionLarge: req.QuantityPerPortionLarge,
 	}
 
 	// Create recipe model
@@ -185,9 +199,16 @@ func (h *SemiFinishedHandler) UpdateSemiFinishedGoods(c *gin.Context) {
 
 	// Create update models
 	goods := &models.SemiFinishedGoods{
-		Name:        req.Name,
-		Unit:        req.Unit,
-		Description: req.Description,
+		Name:                    req.Name,
+		Unit:                    req.Unit,
+		Category:                req.Category,
+		Description:             req.Description,
+		CaloriesPer100g:         req.CaloriesPer100g,
+		ProteinPer100g:          req.ProteinPer100g,
+		CarbsPer100g:            req.CarbsPer100g,
+		FatPer100g:              req.FatPer100g,
+		QuantityPerPortionSmall: req.QuantityPerPortionSmall,
+		QuantityPerPortionLarge: req.QuantityPerPortionLarge,
 	}
 
 	recipe := &models.SemiFinishedRecipe{
