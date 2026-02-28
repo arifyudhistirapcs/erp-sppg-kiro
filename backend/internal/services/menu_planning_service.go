@@ -993,7 +993,8 @@ func (s *MenuPlanningService) GetSchoolAllocationsWithPortionSizes(menuItemID ui
 }
 
 // GenerateDeliveryRecords creates delivery records from menu item school allocations
-func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, defaultDriverID uint) error {
+// Driver is not assigned at this stage - driver will be assigned later when packing is complete (stage 4)
+func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, createdByUserID uint) error {
 	// Fetch menu item with allocations
 	var menuItem models.MenuItem
 	if err := s.db.Preload("SchoolAllocations.School").
@@ -1038,11 +1039,11 @@ func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, defaultDr
 				return fmt.Errorf("failed to check existing delivery record: %w", err)
 			}
 
-			// Create new delivery record
+			// Create new delivery record WITHOUT driver (driver assigned later at stage 4)
 			deliveryRecord := models.DeliveryRecord{
 				DeliveryDate:  menuItem.Date,
 				SchoolID:      schoolID,
-				DriverID:      defaultDriverID,
+				DriverID:      0, // No driver assigned yet - will be assigned when packing complete
 				MenuItemID:    menuItemID,
 				Portions:      totalPortions,
 				CurrentStatus: "order_disiapkan",
@@ -1061,7 +1062,7 @@ func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, defaultDr
 				ToStatus:         "order_disiapkan",
 				Stage:            1,
 				TransitionedAt:   time.Now(),
-				TransitionedBy:   defaultDriverID, // Use driver as default user
+				TransitionedBy:   createdByUserID, // User who created/approved the menu plan
 				Notes:            "Order created from menu planning",
 			}
 
@@ -1075,7 +1076,7 @@ func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, defaultDr
 }
 
 // GenerateDeliveryRecordsForDate creates delivery records for all menu items on a specific date
-func (s *MenuPlanningService) GenerateDeliveryRecordsForDate(date time.Time, defaultDriverID uint) (int, error) {
+func (s *MenuPlanningService) GenerateDeliveryRecordsForDate(date time.Time, createdByUserID uint) (int, error) {
 	// Normalize date to start of day
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 
@@ -1095,7 +1096,7 @@ func (s *MenuPlanningService) GenerateDeliveryRecordsForDate(date time.Time, def
 	// Generate delivery records for each menu item
 	recordsCreated := 0
 	for _, menuItem := range menuItems {
-		if err := s.GenerateDeliveryRecords(menuItem.ID, defaultDriverID); err != nil {
+		if err := s.GenerateDeliveryRecords(menuItem.ID, createdByUserID); err != nil {
 			// Log error but continue with other menu items
 			fmt.Printf("Warning: Failed to generate delivery records for menu item %d: %v\n", menuItem.ID, err)
 			continue

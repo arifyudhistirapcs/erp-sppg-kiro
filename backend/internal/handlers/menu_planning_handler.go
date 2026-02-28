@@ -990,8 +990,7 @@ func (h *MenuPlanningHandler) DeleteMenuItem(c *gin.Context) {
 
 // GenerateDeliveryRecordsRequest represents request to generate delivery records
 type GenerateDeliveryRecordsRequest struct {
-	Date            string `json:"date" binding:"required"` // YYYY-MM-DD format
-	DefaultDriverID uint   `json:"default_driver_id" binding:"required"`
+	Date string `json:"date" binding:"required"` // YYYY-MM-DD format
 }
 
 // GenerateDeliveryRecords generates delivery records from menu planning allocations
@@ -1016,8 +1015,11 @@ func (h *MenuPlanningHandler) GenerateDeliveryRecords(c *gin.Context) {
 		return
 	}
 
+	// Get user ID from context
+	userID, _ := c.Get("user_id")
+
 	// Generate delivery records
-	recordsCreated, err := h.menuPlanningService.GenerateDeliveryRecordsForDate(date, req.DefaultDriverID)
+	recordsCreated, err := h.menuPlanningService.GenerateDeliveryRecordsForDate(date, userID.(uint))
 	if err != nil {
 		log.Printf("Error generating delivery records: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
