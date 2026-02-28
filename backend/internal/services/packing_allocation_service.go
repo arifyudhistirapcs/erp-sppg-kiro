@@ -385,11 +385,13 @@ func (s *PackingAllocationService) UpdatePackingStatus(ctx context.Context, scho
 			var notes string
 			
 			if status == "packing" {
-				monitoringStatus = "siap_dipacking"
+				// Stage 3: order_dikemas (packing in progress)
+				monitoringStatus = "order_dikemas"
 				notes = "Packing started for school"
 			} else if status == "ready" {
-				monitoringStatus = "selesai_dipacking"
-				notes = "Packing completed for school"
+				// Stage 4: order_siap_diambil (packing completed, ready for pickup)
+				monitoringStatus = "order_siap_diambil"
+				notes = "Packing completed, ready for driver pickup"
 			}
 			
 			// Update all delivery records for this school

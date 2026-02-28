@@ -310,7 +310,7 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 	// Trigger monitoring system updates for each school allocation
 	if s.monitoringService != nil {
 		if status == "cooking" {
-			// Create delivery records and update status to "sedang_dimasak"
+			// Create delivery records and update status to "order_dimasak" (stage 2)
 			for _, alloc := range menuItem.SchoolAllocations {
 				// Check if delivery record already exists for this school allocation
 				var existingRecord models.DeliveryRecord
@@ -320,17 +320,16 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 					First(&existingRecord).Error
 				
 				if err == gorm.ErrRecordNotFound {
-					// Create new delivery record
-					// Note: We need a default driver ID. For now, we'll use 0 and it should be assigned later
-					// In a real system, driver assignment would happen before cooking starts
+					// Create new delivery record with stage 2 (order_dimasak)
 					deliveryRecord := models.DeliveryRecord{
 						DeliveryDate:  menuItem.Date,
 						SchoolID:      alloc.SchoolID,
-						DriverID:      0, // To be assigned later
+						DriverID:      0, // Driver assigned later at stage 4 (packing complete)
 						MenuItemID:    menuItem.ID,
 						Portions:      alloc.Portions,
-						CurrentStatus: "sedang_dimasak",
-						OmprengCount:  0, // To be calculated based on portions
+						CurrentStatus: "order_dimasak",
+						CurrentStage:  2,
+						OmprengCount:  alloc.Portions, // Assume 1 ompreng per portion
 						CreatedAt:     time.Now(),
 						UpdatedAt:     time.Now(),
 					}
@@ -341,14 +340,15 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 						continue
 					}
 					
-					// Create initial status transition
+					// Create initial status transition for stage 2
 					transition := models.StatusTransition{
 						DeliveryRecordID: deliveryRecord.ID,
 						FromStatus:       "",
-						ToStatus:         "sedang_dimasak",
+						ToStatus:         "order_dimasak",
+						Stage:            2,
 						TransitionedAt:   time.Now(),
 						TransitionedBy:   userID,
-						Notes:            "Cooking started",
+						Notes:            "Cooking started from KDS",
 					}
 					
 					if err := s.db.WithContext(ctx).Create(&transition).Error; err != nil {
@@ -356,15 +356,15 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 						fmt.Printf("Warning: failed to create status transition for delivery record %d: %v\n", deliveryRecord.ID, err)
 					}
 				} else if err == nil {
-					// Update existing delivery record status
-					if err := s.monitoringService.UpdateDeliveryStatus(existingRecord.ID, "sedang_dimasak", userID, "Cooking started"); err != nil {
+					// Update existing delivery record status to stage 2
+					if err := s.monitoringService.UpdateDeliveryStatus(existingRecord.ID, "order_dimasak", userID, "Cooking started from KDS"); err != nil {
 						// Log error but don't block cooking workflow
 						fmt.Printf("Warning: failed to update delivery status for record %d: %v\n", existingRecord.ID, err)
 					}
 				}
 			}
 		} else if status == "ready" {
-			// Update delivery records to "selesai_dimasak"
+			// Update delivery records to "order_dikemas" (stage 3)
 			for _, alloc := range menuItem.SchoolAllocations {
 				var deliveryRecord models.DeliveryRecord
 				err := s.db.WithContext(ctx).
@@ -373,7 +373,7 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 					First(&deliveryRecord).Error
 				
 				if err == nil {
-					if err := s.monitoringService.UpdateDeliveryStatus(deliveryRecord.ID, "selesai_dimasak", userID, "Cooking completed"); err != nil {
+					if err := s.monitoringService.UpdateDeliveryStatus(deliveryRecord.ID, "order_dikemas", userID, "Cooking completed, ready for packing"); err != nil {
 						// Log error but don't block cooking workflow
 						fmt.Printf("Warning: failed to update delivery status for record %d: %v\n", deliveryRecord.ID, err)
 					}
