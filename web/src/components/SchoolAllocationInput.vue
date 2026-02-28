@@ -66,18 +66,29 @@
           </template>
           <!-- SMP/SMA schools: show only large portion field -->
           <template v-else>
-            <div class="portion-input-group">
-              <div class="portion-field">
-                <label class="portion-label">Besar</label>
-                <a-input-number
-                  v-model:value="allocations[school.id].portions_large"
-                  :min="0"
-                  placeholder="0"
-                  @change="handleAllocationChange"
-                  style="width: 100px"
-                />
+            <div class="portion-inputs-wrapper">
+              <div class="portion-input-row">
+                <div class="portion-field">
+                  <label class="portion-label">Besar</label>
+                  <a-input-number
+                    v-model:value="allocations[school.id].portions_large"
+                    :min="0"
+                    placeholder="0"
+                    :disabled="autoFillEnabled[school.id]"
+                    @change="handleAllocationChange"
+                    style="width: 120px"
+                  />
+                </div>
+                <span class="unit-label">porsi</span>
               </div>
-              <span class="unit-label">porsi</span>
+              <div class="auto-fill-row">
+                <a-checkbox
+                  v-model:checked="autoFillEnabled[school.id]"
+                  @change="handleAutoFillChange(school)"
+                >
+                  <span class="checkbox-text">Samakan seperti jumlah siswa</span>
+                </a-checkbox>
+              </div>
             </div>
           </template>
         </div>
@@ -303,8 +314,13 @@ const handleAllocationChange = () => {
 const handleAutoFillChange = (school) => {
   if (autoFillEnabled.value[school.id]) {
     // Auto-fill enabled: set portions to match student counts
-    allocations.value[school.id].portions_small = school.student_count_grade_1_3 || 0
-    allocations.value[school.id].portions_large = school.student_count_grade_4_6 || 0
+    if (school.category === 'SD') {
+      allocations.value[school.id].portions_small = school.student_count_grade_1_3 || 0
+      allocations.value[school.id].portions_large = school.student_count_grade_4_6 || 0
+    } else {
+      // SMP/SMA: only large portions
+      allocations.value[school.id].portions_large = school.student_count || 0
+    }
   } else {
     // Auto-fill disabled: reset to 0
     allocations.value[school.id].portions_small = 0
