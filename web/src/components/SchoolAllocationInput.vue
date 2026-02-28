@@ -28,35 +28,38 @@
         <div class="school-input">
           <!-- SD schools: show both small and large portion fields -->
           <template v-if="school.category === 'SD'">
-            <div class="portion-input-group">
-              <div class="portion-field">
-                <label class="portion-label">Kecil (Kelas 1-3)</label>
-                <a-input-number
-                  v-model:value="allocations[school.id].portions_small"
-                  :min="0"
-                  placeholder="0"
-                  :disabled="autoFillEnabled[school.id]"
-                  @change="handleAllocationChange"
-                  style="width: 100px"
-                />
+            <div class="portion-inputs-wrapper">
+              <div class="portion-input-row">
+                <div class="portion-field">
+                  <label class="portion-label">Kecil (Kelas 1-3)</label>
+                  <a-input-number
+                    v-model:value="allocations[school.id].portions_small"
+                    :min="0"
+                    placeholder="0"
+                    :disabled="autoFillEnabled[school.id]"
+                    @change="handleAllocationChange"
+                    style="width: 120px"
+                  />
+                </div>
+                <div class="portion-field">
+                  <label class="portion-label">Besar (Kelas 4-6)</label>
+                  <a-input-number
+                    v-model:value="allocations[school.id].portions_large"
+                    :min="0"
+                    placeholder="0"
+                    :disabled="autoFillEnabled[school.id]"
+                    @change="handleAllocationChange"
+                    style="width: 120px"
+                  />
+                </div>
+                <span class="unit-label">porsi</span>
               </div>
-              <div class="portion-field">
-                <label class="portion-label">Besar (Kelas 4-6)</label>
-                <a-input-number
-                  v-model:value="allocations[school.id].portions_large"
-                  :min="0"
-                  placeholder="0"
-                  :disabled="autoFillEnabled[school.id]"
-                  @change="handleAllocationChange"
-                  style="width: 100px"
-                />
-              </div>
-              <div class="auto-fill-checkbox">
+              <div class="auto-fill-row">
                 <a-checkbox
                   v-model:checked="autoFillEnabled[school.id]"
                   @change="handleAutoFillChange(school)"
                 >
-                  Samakan seperti jumlah siswa
+                  <span class="checkbox-text">Samakan seperti jumlah siswa</span>
                 </a-checkbox>
               </div>
             </div>
@@ -74,9 +77,9 @@
                   style="width: 100px"
                 />
               </div>
+              <span class="unit-label">porsi</span>
             </div>
           </template>
-          <span class="unit-label">porsi</span>
         </div>
       </div>
     </div>
@@ -375,9 +378,9 @@ const handleAutoFillChange = (school) => {
 
 .school-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
   background: white;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
@@ -391,9 +394,9 @@ const handleAutoFillChange = (school) => {
 
 .school-info {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .school-name {
@@ -409,8 +412,31 @@ const handleAutoFillChange = (school) => {
 
 .school-input {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+}
+
+.portion-inputs-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.portion-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.auto-fill-row {
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+}
+
+.checkbox-text {
+  font-size: 13px;
+  color: #595959;
 }
 
 .portion-input-group {
