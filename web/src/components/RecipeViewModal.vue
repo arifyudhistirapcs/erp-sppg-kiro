@@ -68,33 +68,6 @@
               </div>
             </a-col>
           </a-row>
-          <a-divider style="margin: 12px 0" />
-          <a-row :gutter="16">
-            <a-col :span="6">
-              <div class="nutrition-item per-portion">
-                <div class="nutrition-value">{{ caloriesPerPortion }}</div>
-                <div class="nutrition-label">kkal/porsi</div>
-              </div>
-            </a-col>
-            <a-col :span="6">
-              <div class="nutrition-item per-portion">
-                <div class="nutrition-value">{{ proteinPerPortion }}g</div>
-                <div class="nutrition-label">Protein/porsi</div>
-              </div>
-            </a-col>
-            <a-col :span="6">
-              <div class="nutrition-item per-portion">
-                <div class="nutrition-value">{{ carbsPerPortion }}g</div>
-                <div class="nutrition-label">Karbo/porsi</div>
-              </div>
-            </a-col>
-            <a-col :span="6">
-              <div class="nutrition-item per-portion">
-                <div class="nutrition-value">{{ fatPerPortion }}g</div>
-                <div class="nutrition-label">Lemak/porsi</div>
-              </div>
-            </a-col>
-          </a-row>
         </a-card>
 
         <!-- Instructions -->
@@ -103,7 +76,7 @@
         </a-card>
 
         <!-- Recipe Items -->
-        <a-card size="small" title="Komponen Resep">
+        <a-card size="small" title="Komponen Resep" class="mb-4">
           <a-table
             :data-source="recipeItems"
             :pagination="false"
@@ -120,6 +93,27 @@
               </template>
             </a-table-column>
           </a-table>
+        </a-card>
+
+        <!-- Ingredients -->
+        <a-card size="small" title="Bahan Baku" class="mb-4">
+          <a-table
+            :data-source="ingredientsList"
+            :pagination="false"
+            size="small"
+            row-key="key"
+          >
+            <a-table-column title="No" width="50" align="center">
+              <template #default="{ index }">{{ index + 1 }}</template>
+            </a-table-column>
+            <a-table-column title="Nama Bahan" data-index="name" />
+            <a-table-column title="Kuantitas" width="150" align="right">
+              <template #default="{ record }">
+                {{ record.quantity }} {{ record.unit }}
+              </template>
+            </a-table-column>
+          </a-table>
+          <a-empty v-if="ingredientsList.length === 0" description="Tidak ada bahan baku" :image="null" style="margin: 16px 0;" />
         </a-card>
 
         <!-- Actions -->
@@ -188,6 +182,30 @@ const recipeItems = computed(() => {
     semi_finished_goods_name: item.semi_finished_goods?.name || '-',
     unit: item.semi_finished_goods?.unit || ''
   }))
+})
+
+// Extract ingredients from all components
+const ingredientsList = computed(() => {
+  if (!props.recipe || !props.recipe.recipe_items) return []
+  
+  const ingredients = []
+  let index = 0
+  
+  props.recipe.recipe_items.forEach(item => {
+    const sfgRecipe = item.semi_finished_goods?.recipe
+    if (sfgRecipe && sfgRecipe.ingredients) {
+      sfgRecipe.ingredients.forEach(ingredient => {
+        ingredients.push({
+          key: `ing-${index++}`,
+          name: ingredient.ingredient?.name || 'Unknown',
+          quantity: ingredient.quantity,
+          unit: ingredient.ingredient?.unit || 'gram'
+        })
+      })
+    }
+  })
+  
+  return ingredients
 })
 
 const getCategoryLabel = (category) => {
