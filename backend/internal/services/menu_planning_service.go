@@ -991,3 +991,114 @@ func (s *MenuPlanningService) GetSchoolAllocationsWithPortionSizes(menuItemID ui
 
 	return result, nil
 }
+
+// GenerateDeliveryRecords creates delivery records from menu item school allocations
+func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, defaultDriverID uint) error {
+	// Fetch menu item with allocations
+	var menuItem models.MenuItem
+	if err := s.db.Preload("SchoolAllocations.School").
+		Preload("Recipe").
+		First(&menuItem, menuItemID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("menu item not found")
+		}
+		return fmt.Errorf("failed to fetch menu item: %w", err)
+	}
+
+	// Check if allocations exist
+	if len(menuItem.SchoolAllocations) == 0 {
+		return fmt.Errorf("no school allocations found for this menu item")
+	}
+
+	// Start transaction
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Create delivery record for each school allocation
+		for _, allocation := range menuItem.SchoolAllocations {
+			// Calculate total portions (small + large)
+			totalPortions := allocation.PortionsSmall + allocation.PortionsLarge
+
+			// Skip if no portions allocated
+			if totalPortions == 0 {
+				continue
+			}
+
+			// Check if delivery record already exists
+			var existingRecord models.DeliveryRecord
+			err := tx.Where("delivery_date = ? AND school_id = ? AND menu_item_id = ?",
+				menuItem.Date, allocation.SchoolID, menuItemID).
+				First(&existingRecord).Error
+
+			if err == nil {
+				// Record already exists, skip
+				continue
+			} else if err != gorm.ErrRecordNotFound {
+				return fmt.Errorf("failed to check existing delivery record: %w", err)
+			}
+
+			// Create new delivery record
+			deliveryRecord := models.DeliveryRecord{
+				DeliveryDate:  menuItem.Date,
+				SchoolID:      allocation.SchoolID,
+				DriverID:      defaultDriverID,
+				MenuItemID:    menuItemID,
+				Portions:      totalPortions,
+				CurrentStatus: "order_disiapkan",
+				CurrentStage:  1,
+				OmprengCount:  totalPortions, // Assume 1 ompreng per portion
+			}
+
+			if err := tx.Create(&deliveryRecord).Error; err != nil {
+				return fmt.Errorf("failed to create delivery record: %w", err)
+			}
+
+			// Create initial status transition
+			transition := models.StatusTransition{
+				DeliveryRecordID: deliveryRecord.ID,
+				FromStatus:       "",
+				ToStatus:         "order_disiapkan",
+				Stage:            1,
+				TransitionedAt:   time.Now(),
+				TransitionedBy:   defaultDriverID, // Use driver as default user
+				Notes:            "Order created from menu planning",
+			}
+
+			if err := tx.Create(&transition).Error; err != nil {
+				return fmt.Errorf("failed to create status transition: %w", err)
+			}
+		}
+
+		return nil
+	})
+}
+
+// GenerateDeliveryRecordsForDate creates delivery records for all menu items on a specific date
+func (s *MenuPlanningService) GenerateDeliveryRecordsForDate(date time.Time, defaultDriverID uint) (int, error) {
+	// Normalize date to start of day
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+
+	// Fetch all menu items for this date with allocations
+	var menuItems []models.MenuItem
+	if err := s.db.Preload("SchoolAllocations.School").
+		Preload("Recipe").
+		Where("date = ?", startOfDay).
+		Find(&menuItems).Error; err != nil {
+		return 0, fmt.Errorf("failed to fetch menu items: %w", err)
+	}
+
+	if len(menuItems) == 0 {
+		return 0, fmt.Errorf("no menu items found for date %s", date.Format("2006-01-02"))
+	}
+
+	// Generate delivery records for each menu item
+	recordsCreated := 0
+	for _, menuItem := range menuItems {
+		if err := s.GenerateDeliveryRecords(menuItem.ID, defaultDriverID); err != nil {
+			// Log error but continue with other menu items
+			fmt.Printf("Warning: Failed to generate delivery records for menu item %d: %v\n", menuItem.ID, err)
+			continue
+		}
+		recordsCreated += len(menuItem.SchoolAllocations)
+	}
+
+	return recordsCreated, nil
+}

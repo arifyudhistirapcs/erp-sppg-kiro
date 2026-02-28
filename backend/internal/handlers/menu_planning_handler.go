@@ -987,3 +987,53 @@ func (h *MenuPlanningHandler) DeleteMenuItem(c *gin.Context) {
 		"message": "Menu berhasil dihapus",
 	})
 }
+
+// GenerateDeliveryRecordsRequest represents request to generate delivery records
+type GenerateDeliveryRecordsRequest struct {
+	Date            string `json:"date" binding:"required"` // YYYY-MM-DD format
+	DefaultDriverID uint   `json:"default_driver_id" binding:"required"`
+}
+
+// GenerateDeliveryRecords generates delivery records from menu planning allocations
+func (h *MenuPlanningHandler) GenerateDeliveryRecords(c *gin.Context) {
+	var req GenerateDeliveryRecordsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Data tidak valid",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// Parse date
+	date, err := time.Parse("2006-01-02", req.Date)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Format tanggal tidak valid (gunakan YYYY-MM-DD)",
+		})
+		return
+	}
+
+	// Generate delivery records
+	recordsCreated, err := h.menuPlanningService.GenerateDeliveryRecordsForDate(date, req.DefaultDriverID)
+	if err != nil {
+		log.Printf("Error generating delivery records: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "Gagal membuat delivery records",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Delivery records berhasil dibuat",
+		"data": gin.H{
+			"records_created": recordsCreated,
+			"date":            req.Date,
+		},
+	})
+}

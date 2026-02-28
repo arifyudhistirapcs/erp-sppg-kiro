@@ -140,6 +140,7 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				menuPlans.GET("/:id/items/:item_id", menuPlanningHandler.GetMenuItem)
 				menuPlans.PUT("/:id/items/:item_id", menuPlanningHandler.UpdateMenuItem)
 				menuPlans.DELETE("/:id/items/:item_id", menuPlanningHandler.DeleteMenuItem)
+				menuPlans.POST("/generate-delivery-records", menuPlanningHandler.GenerateDeliveryRecords)
 			}
 
 			// Monitoring routes (logistics monitoring process)
