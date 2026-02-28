@@ -1012,11 +1012,14 @@ func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, defaultDr
 
 	// Start transaction
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Create delivery record for each school allocation
+		// Group allocations by school to calculate total portions per school
+		schoolPortions := make(map[uint]int)
 		for _, allocation := range menuItem.SchoolAllocations {
-			// Calculate total portions (small + large)
-			totalPortions := allocation.PortionsSmall + allocation.PortionsLarge
+			schoolPortions[allocation.SchoolID] += allocation.Portions
+		}
 
+		// Create delivery record for each school
+		for schoolID, totalPortions := range schoolPortions {
 			// Skip if no portions allocated
 			if totalPortions == 0 {
 				continue
@@ -1025,7 +1028,7 @@ func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, defaultDr
 			// Check if delivery record already exists
 			var existingRecord models.DeliveryRecord
 			err := tx.Where("delivery_date = ? AND school_id = ? AND menu_item_id = ?",
-				menuItem.Date, allocation.SchoolID, menuItemID).
+				menuItem.Date, schoolID, menuItemID).
 				First(&existingRecord).Error
 
 			if err == nil {
@@ -1038,7 +1041,7 @@ func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, defaultDr
 			// Create new delivery record
 			deliveryRecord := models.DeliveryRecord{
 				DeliveryDate:  menuItem.Date,
-				SchoolID:      allocation.SchoolID,
+				SchoolID:      schoolID,
 				DriverID:      defaultDriverID,
 				MenuItemID:    menuItemID,
 				Portions:      totalPortions,
