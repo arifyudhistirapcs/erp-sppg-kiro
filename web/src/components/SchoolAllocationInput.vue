@@ -35,6 +35,7 @@
                   v-model:value="allocations[school.id].portions_small"
                   :min="0"
                   placeholder="0"
+                  :disabled="autoFillEnabled[school.id]"
                   @change="handleAllocationChange"
                   style="width: 100px"
                 />
@@ -45,9 +46,18 @@
                   v-model:value="allocations[school.id].portions_large"
                   :min="0"
                   placeholder="0"
+                  :disabled="autoFillEnabled[school.id]"
                   @change="handleAllocationChange"
                   style="width: 100px"
                 />
+              </div>
+              <div class="auto-fill-checkbox">
+                <a-checkbox
+                  v-model:checked="autoFillEnabled[school.id]"
+                  @change="handleAutoFillChange(school)"
+                >
+                  Samakan seperti jumlah siswa
+                </a-checkbox>
               </div>
             </div>
           </template>
@@ -132,6 +142,7 @@ const emit = defineEmits(['update:modelValue', 'validation-change'])
 // Initialize allocations from modelValue
 // Structure: { school_id: { portions_small: 0, portions_large: 0 } }
 const allocations = ref({})
+const autoFillEnabled = ref({})
 const isInternalUpdate = ref(false)
 
 // Helper function to get school category color
@@ -151,12 +162,15 @@ const getSchoolCategoryColor = (category) => {
 // Initialize allocations structure
 const initializeAllocations = () => {
   const newAllocations = {}
+  const newAutoFill = {}
   props.schools.forEach(school => {
     newAllocations[school.id] = {
       portions_small: 0,
       portions_large: 0
     }
+    newAutoFill[school.id] = false
   })
+  autoFillEnabled.value = newAutoFill
   return newAllocations
 }
 
@@ -282,6 +296,19 @@ const handleAllocationChange = () => {
   
   console.log('Emitted validation-change with totalAllocated:', totalAllocated.value)
 }
+
+const handleAutoFillChange = (school) => {
+  if (autoFillEnabled.value[school.id]) {
+    // Auto-fill enabled: set portions to match student counts
+    allocations.value[school.id].portions_small = school.student_count_grade_1_3 || 0
+    allocations.value[school.id].portions_large = school.student_count_grade_4_6 || 0
+  } else {
+    // Auto-fill disabled: reset to 0
+    allocations.value[school.id].portions_small = 0
+    allocations.value[school.id].portions_large = 0
+  }
+  handleAllocationChange()
+}
 </script>
 
 <style scoped>
@@ -389,7 +416,12 @@ const handleAllocationChange = () => {
 .portion-input-group {
   display: flex;
   gap: 12px;
-  align-items: center;
+  align-items: flex-end;
+}
+
+.auto-fill-checkbox {
+  margin-bottom: 4px;
+  white-space: nowrap;
 }
 
 .portion-field {
