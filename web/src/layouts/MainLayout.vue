@@ -180,11 +180,11 @@ const pageTitle = computed(() => {
     '/suppliers': 'Manajemen Supplier',
     '/purchase-orders': 'Purchase Order',
     '/goods-receipts': 'Penerimaan Barang',
-    '/inventory': 'Inventori',
+    '/inventory': 'Manajemen Bahan Baku',
     '/schools': 'Data Sekolah',
-    '/delivery-tasks': 'Tugas Pengiriman',
+    '/delivery-tasks': 'Tugas Pengiriman & Pengambilan',
     '/ompreng-tracking': 'Pelacakan Ompreng',
-    '/activity-tracker': 'Aktivitas Pelacakan',
+    '/logistics/monitoring': 'Monitoring Aktivitas',
     '/employees': 'Data Karyawan',
     '/attendance-report': 'Laporan Absensi',
     '/wifi-config': 'Konfigurasi Wi-Fi',
@@ -204,20 +204,37 @@ const getMenuItems = () => {
   
   const allMenuItems = [
     {
-      key: 'dashboard',
+      key: '/dashboard/kepala-sppg',
       icon: () => h(DashboardOutlined),
       label: 'Dashboard',
-      roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan'],
+      roles: ['kepala_sppg']
+    },
+    {
+      key: '/logistics/monitoring',
+      icon: () => h(ClockCircleOutlined),
+      label: 'Monitoring Aktivitas',
+      roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan']
+    },
+    {
+      key: 'kds',
+      icon: () => h(DesktopOutlined),
+      label: 'Display',
+      roles: ['kepala_sppg', 'ahli_gizi', 'chef', 'packing', 'kebersihan'],
       children: [
         {
-          key: '/dashboard/kepala-sppg',
-          label: 'Dashboard Kepala SPPG',
-          roles: ['kepala_sppg']
+          key: '/kds/cooking',
+          label: 'Dapur',
+          roles: ['kepala_sppg', 'ahli_gizi', 'chef']
         },
         {
-          key: '/dashboard/kepala-yayasan',
-          label: 'Dashboard Kepala Yayasan',
-          roles: ['kepala_yayasan']
+          key: '/kds/packing',
+          label: 'Pengemasan',
+          roles: ['kepala_sppg', 'ahli_gizi', 'chef', 'packing']
+        },
+        {
+          key: '/kds/cleaning',
+          label: 'Kebersihan',
+          roles: ['kepala_sppg', 'kebersihan']
         }
       ]
     },
@@ -250,29 +267,6 @@ const getMenuItems = () => {
       ]
     },
     {
-      key: 'kds',
-      icon: () => h(DesktopOutlined),
-      label: 'Monitoring Display',
-      roles: ['kepala_sppg', 'ahli_gizi', 'chef', 'packing', 'kebersihan'],
-      children: [
-        {
-          key: '/kds/cooking',
-          label: 'Dapur',
-          roles: ['kepala_sppg', 'ahli_gizi', 'chef']
-        },
-        {
-          key: '/kds/packing',
-          label: 'Pengemasan',
-          roles: ['kepala_sppg', 'ahli_gizi', 'chef', 'packing']
-        },
-        {
-          key: '/kds/cleaning',
-          label: 'Kebersihan',
-          roles: ['kepala_sppg', 'kebersihan']
-        }
-      ]
-    },
-    {
       key: 'supply-chain',
       icon: () => h(ShoppingCartOutlined),
       label: 'Supply Chain',
@@ -295,7 +289,7 @@ const getMenuItems = () => {
         },
         {
           key: '/inventory',
-          label: 'Inventori',
+          label: 'Manajemen Bahan Baku',
           roles: ['kepala_sppg', 'pengadaan', 'akuntan']
         }
       ]
@@ -313,26 +307,10 @@ const getMenuItems = () => {
         },
         {
           key: '/delivery-tasks',
-          label: 'Tugas Pengiriman',
+          label: 'Tugas Pengiriman & Pengambilan',
           roles: ['kepala_sppg', 'pengadaan']
-        },
-        {
-          key: '/ompreng-tracking',
-          label: 'Pelacakan Ompreng',
-          roles: ['kepala_sppg', 'pengadaan']
-        },
-        {
-          key: '/logistics/monitoring',
-          label: 'Monitoring Pengiriman',
-          roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan']
         }
       ]
-    },
-    {
-      key: '/activity-tracker',
-      icon: () => h(ClockCircleOutlined),
-      label: 'Aktivitas Pelacakan',
-      roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan']
     },
     {
       key: 'hrm',

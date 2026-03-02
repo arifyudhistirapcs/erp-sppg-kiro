@@ -51,7 +51,7 @@ const props = defineProps({
   }
 })
 
-// Define all 15 lifecycle stages
+// Define all 16 lifecycle stages
 const stages = [
   {
     status: 'sedang_dimasak',
@@ -94,29 +94,29 @@ const stages = [
     description: 'Menu telah diterima oleh pihak sekolah'
   },
   {
-    status: 'driver_ditugaskan_mengambil_ompreng',
-    title: 'Driver Ditugaskan',
-    description: 'Driver ditugaskan untuk mengambil ompreng'
+    status: 'driver_menuju_lokasi_pengambilan',
+    title: 'Driver Menuju Lokasi Pengambilan',
+    description: 'Driver menuju lokasi untuk mengambil ompreng'
   },
   {
-    status: 'driver_menuju_sekolah',
-    title: 'Driver Menuju Sekolah',
-    description: 'Driver menuju sekolah untuk mengambil ompreng'
+    status: 'driver_tiba_di_lokasi_pengambilan',
+    title: 'Driver Tiba di Lokasi',
+    description: 'Driver telah sampai di lokasi untuk pengambilan'
   },
   {
-    status: 'driver_sampai_di_sekolah',
-    title: 'Driver Sampai',
-    description: 'Driver telah sampai di sekolah untuk pengambilan'
+    status: 'driver_kembali_ke_sppg',
+    title: 'Driver Kembali ke SPPG',
+    description: 'Driver dalam perjalanan kembali ke SPPG'
   },
   {
-    status: 'ompreng_telah_diambil',
-    title: 'Ompreng Diambil',
-    description: 'Ompreng telah diambil dari sekolah'
+    status: 'driver_tiba_di_sppg',
+    title: 'Driver Tiba di SPPG',
+    description: 'Driver telah tiba di SPPG dengan ompreng'
   },
   {
-    status: 'ompreng_sampai_di_sppg',
-    title: 'Ompreng Sampai SPPG',
-    description: 'Ompreng telah sampai di SPPG'
+    status: 'ompreng_siap_dicuci',
+    title: 'Ompreng Siap Dicuci',
+    description: 'Ompreng siap untuk proses pencucian'
   },
   {
     status: 'ompreng_proses_pencucian',
@@ -139,7 +139,7 @@ const currentStatusIndex = computed(() => {
 const isCompleted = (status) => {
   const stageIndex = stages.findIndex(stage => stage.status === status)
   // Mark stage as completed if it's before current stage
-  // OR if it's the last stage (index 14) and current stage has reached it
+  // OR if it's the last stage (index 14 for 15 stages) and current stage has reached it
   return stageIndex < currentStatusIndex.value || (stageIndex === 14 && currentStatusIndex.value >= 14)
 }
 
@@ -165,10 +165,11 @@ const getStageTimestamp = (status) => {
   return activity?.transitioned_at
 }
 
-// Format timestamp to local timezone (Asia/Jakarta)
+// Format timestamp without timezone conversion (display as-is from backend)
 const formatTimestamp = (timestamp) => {
   if (!timestamp) return ''
-  return dayjs(timestamp).tz('Asia/Jakarta').format('DD MMM YYYY, HH:mm') + ' WIB'
+  // Parse as UTC and display without timezone conversion
+  return dayjs.utc(timestamp).format('DD MMM YYYY, HH:mm') + ' WIB'
 }
 </script>
 

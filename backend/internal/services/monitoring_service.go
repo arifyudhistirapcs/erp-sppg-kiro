@@ -267,11 +267,11 @@ func (s *MonitoringService) GetActivityLog(recordID uint) ([]models.StatusTransi
 	var transitions []models.StatusTransition
 
 	// Query status_transitions for the delivery record
-	// Order by transitioned_at chronologically (ASC)
+	// Order by transitioned_at in descending order (newest first)
 	// Preload User association for transitioned_by
 	err := s.db.
 		Where("delivery_record_id = ?", recordID).
-		Order("transitioned_at ASC").
+		Order("transitioned_at DESC").
 		Preload("User").
 		Find(&transitions).Error
 

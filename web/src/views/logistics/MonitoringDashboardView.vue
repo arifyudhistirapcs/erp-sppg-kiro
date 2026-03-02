@@ -1,8 +1,8 @@
 <template>
   <div class="monitoring-dashboard-view">
     <a-page-header
-      title="Monitoring Pengiriman"
-      sub-title="Pantau status pengiriman menu dan ompreng"
+      title="Monitoring Aktivitas"
+      sub-title="Pantau status aktivitas menu dan ompreng"
     >
       <template #extra>
         <a-space>
@@ -21,12 +21,12 @@
     </a-page-header>
 
     <div class="content-wrapper">
-      <!-- Summary Statistics Cards -->
-      <a-row :gutter="[16, 16]" style="margin-bottom: 24px">
+      <!-- Summary Statistics Cards - Hidden -->
+      <!-- <a-row :gutter="[16, 16]" style="margin-bottom: 24px">
         <a-col :xs="24" :sm="12" :md="6">
           <a-card>
             <a-statistic
-              title="Total Pengiriman"
+              title="Total Aktivitas"
               :value="summary.total_deliveries"
               :loading="loadingSummary"
             >
@@ -77,7 +77,7 @@
             </a-statistic>
           </a-card>
         </a-col>
-      </a-row>
+      </a-row> -->
 
       <!-- Filters -->
       <a-card style="margin-bottom: 16px">
@@ -144,7 +144,7 @@
       </a-card>
 
       <!-- Delivery Records Table -->
-      <a-card title="Daftar Pengiriman">
+      <a-card title="Daftar Aktivitas">
         <a-table
           :columns="columns"
           :data-source="filteredRecords"
@@ -220,7 +220,7 @@ const pagination = reactive({
   pageSize: 10,
   total: 0,
   showSizeChanger: true,
-  showTotal: (total) => `Total ${total} pengiriman`
+  showTotal: (total) => `Total ${total} aktivitas`
 })
 
 // Table columns
@@ -305,11 +305,11 @@ const fetchDeliveryRecords = async () => {
       deliveryRecords.value = response.data || []
       extractFiltersData()
     } else {
-      message.error(response.message || 'Gagal memuat data pengiriman')
+      message.error(response.message || 'Gagal memuat data aktivitas')
     }
   } catch (error) {
     console.error('Error fetching delivery records:', error)
-    message.error(error.response?.data?.message || 'Gagal memuat data pengiriman')
+    message.error(error.response?.data?.message || 'Gagal memuat data aktivitas')
   } finally {
     loading.value = false
   }
@@ -383,10 +383,13 @@ const getStatusBadgeType = (status) => {
     'sudah_sampai_sekolah': 'success',
     'sudah_diterima_pihak_sekolah': 'success',
     'driver_ditugaskan_mengambil_ompreng': 'processing',
-    'driver_menuju_sekolah': 'processing',
-    'driver_sampai_di_sekolah': 'success',
+    'driver_menuju_lokasi_pengambilan': 'processing',
+    'driver_tiba_di_lokasi_pengambilan': 'success',
     'ompreng_telah_diambil': 'success',
+    'driver_kembali_ke_sppg': 'processing',
     'ompreng_sampai_di_sppg': 'success',
+    'driver_tiba_di_sppg': 'success',
+    'ompreng_siap_dicuci': 'default',
     'ompreng_proses_pencucian': 'processing',
     'ompreng_selesai_dicuci': 'success'
   }
@@ -404,10 +407,13 @@ const getStatusText = (status) => {
     'sudah_sampai_sekolah': 'Sudah Sampai Sekolah',
     'sudah_diterima_pihak_sekolah': 'Sudah Diterima',
     'driver_ditugaskan_mengambil_ompreng': 'Driver Ditugaskan',
-    'driver_menuju_sekolah': 'Driver Menuju Sekolah',
-    'driver_sampai_di_sekolah': 'Driver Sampai',
+    'driver_menuju_lokasi_pengambilan': 'Driver Menuju Lokasi Pengambilan',
+    'driver_tiba_di_lokasi_pengambilan': 'Driver Tiba di Lokasi',
     'ompreng_telah_diambil': 'Ompreng Diambil',
+    'driver_kembali_ke_sppg': 'Driver Kembali ke SPPG',
     'ompreng_sampai_di_sppg': 'Ompreng Sampai SPPG',
+    'driver_tiba_di_sppg': 'Driver Tiba di SPPG',
+    'ompreng_siap_dicuci': 'Ompreng Siap Dicuci',
     'ompreng_proses_pencucian': 'Ompreng Dicuci',
     'ompreng_selesai_dicuci': 'Ompreng Selesai Dicuci'
   }
