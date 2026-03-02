@@ -1043,7 +1043,7 @@ func (s *MenuPlanningService) GenerateDeliveryRecords(menuItemID uint, createdBy
 			deliveryRecord := models.DeliveryRecord{
 				DeliveryDate:  menuItem.Date,
 				SchoolID:      schoolID,
-				DriverID:      0, // No driver assigned yet - will be assigned when packing complete
+				DriverID:      nil, // No driver assigned yet - will be assigned when packing complete
 				MenuItemID:    menuItemID,
 				Portions:      totalPortions,
 				CurrentStatus: "order_disiapkan",

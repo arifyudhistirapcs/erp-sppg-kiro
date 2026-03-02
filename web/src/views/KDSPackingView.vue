@@ -162,6 +162,18 @@
                               Total: {{ item.total_portions }}
                             </a-tag>
                           </div>
+                          <div v-if="item.items && item.items.length > 0" class="menu-components">
+                            <a-collapse :bordered="false" size="small" style="background: transparent; margin-top: 8px;">
+                              <a-collapse-panel key="1" header="Komponen Menu">
+                                <div class="components-list">
+                                  <div v-for="(component, idx) in item.items" :key="idx" class="component-item">
+                                    <span class="component-name">{{ component.name }}</span>
+                                    <span class="component-quantity">{{ component.quantity.toFixed(2) }} {{ component.unit }}</span>
+                                  </div>
+                                </div>
+                              </a-collapse-panel>
+                            </a-collapse>
+                          </div>
                         </template>
                       </a-list-item-meta>
                     </a-list-item>
@@ -662,5 +674,62 @@ onUnmounted(() => {
 .portion-tag {
   margin: 0;
   font-size: 12px;
+}
+
+.menu-components {
+  margin-top: 8px;
+}
+
+:deep(.ant-collapse) {
+  background: transparent;
+  border: none;
+}
+
+:deep(.ant-collapse-item) {
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  margin-bottom: 0;
+}
+
+:deep(.ant-collapse-header) {
+  padding: 8px 12px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+  font-size: 12px;
+}
+
+:deep(.ant-collapse-content) {
+  border-top: 1px solid #f0f0f0;
+}
+
+:deep(.ant-collapse-content-box) {
+  padding: 8px 12px;
+}
+
+.components-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.component-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+}
+
+.component-name {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.component-quantity {
+  font-size: 12px;
+  color: #1890ff;
+  font-weight: 600;
 }
 </style>

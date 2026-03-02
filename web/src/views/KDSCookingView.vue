@@ -46,6 +46,16 @@
         </template>
       </a-alert>
 
+      <a-alert
+        v-if="!loading && allRecipesCompleted"
+        type="success"
+        message="Semua Menu Siap Dikemas!"
+        description="Semua menu telah selesai dimasak dan siap untuk dikemas."
+        show-icon
+        closable
+        style="margin-bottom: 16px"
+      />
+
       <a-spin :spinning="loading" tip="Memuat data...">
         <a-empty v-if="!loading && recipes.length === 0" :description="emptyMessage" />
         
@@ -114,7 +124,16 @@
                         <template #title>
                           <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span>{{ item.name }}</span>
-                            <span style="color: #1890ff; font-weight: 600;">{{ item.quantity }} {{ item.unit }}</span>
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                              <span style="color: #1890ff; font-weight: 600;">{{ item.quantity }} {{ item.unit }}</span>
+                              <span v-if="item.current_stock !== undefined" :style="{ 
+                                color: item.current_stock >= item.quantity ? '#52c41a' : '#ff4d4f', 
+                                fontSize: '12px',
+                                fontWeight: '500'
+                              }">
+                                Stok: {{ item.current_stock }} {{ item.unit }}
+                              </span>
+                            </div>
                           </div>
                         </template>
                         <template #description v-if="item.raw_materials && item.raw_materials.length > 0">
@@ -123,7 +142,16 @@
                               <div class="raw-materials-list">
                                 <div v-for="(raw, idx) in item.raw_materials" :key="idx" class="raw-material-item">
                                   <span class="raw-material-name">{{ raw.name }}</span>
-                                  <span class="raw-material-quantity">{{ raw.quantity.toFixed(2) }} {{ raw.unit }}</span>
+                                  <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                                    <span class="raw-material-quantity">{{ raw.quantity.toFixed(2) }} {{ raw.unit }}</span>
+                                    <span v-if="raw.current_stock !== undefined" :style="{ 
+                                      color: raw.current_stock >= raw.quantity ? '#52c41a' : '#ff4d4f', 
+                                      fontSize: '11px',
+                                      fontWeight: '500'
+                                    }">
+                                      Stok: {{ raw.current_stock.toFixed(2) }} {{ raw.unit }}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </a-collapse-panel>
@@ -269,6 +297,12 @@ const isConnected = ref(true)
 const selectedDate = ref(new Date())
 const error = ref(null)
 let firebaseListener = null
+
+// Check if all recipes are completed
+const allRecipesCompleted = computed(() => {
+  if (recipes.value.length === 0) return false
+  return recipes.value.every(recipe => recipe.status === 'ready')
+})
 
 // Compute empty message based on selected date
 const emptyMessage = computed(() => {

@@ -37,6 +37,11 @@ const semiFinishedService = {
   // Get semi-finished goods inventory
   getSemiFinishedInventory() {
     return api.get('/semi-finished/inventory')
+  },
+
+  // Get ingredient stock by ID
+  getIngredientStock(ingredientId) {
+    return api.get(`/inventory/${ingredientId}`)
   }
 }
 

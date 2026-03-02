@@ -66,8 +66,8 @@ func (s *CleaningService) GetPendingOmpreng(dateStr string) ([]models.OmprengCle
 	var cleanings []models.OmprengCleaning
 
 	// Build query with optional date filter
-	query := s.db.Preload("DeliveryRecord.School").
-		Where("cleaning_status = ?", "pending")
+	// Show all cleaning records (pending, in_progress, and completed)
+	query := s.db.Preload("DeliveryRecord.School")
 
 	// Add date filter if provided
 	if dateStr != "" {
@@ -85,10 +85,10 @@ func (s *CleaningService) GetPendingOmpreng(dateStr string) ([]models.OmprengCle
 		return nil, err
 	}
 
-	// Also check for delivery records with status "ompreng_sampai_di_sppg"
+	// Also check for delivery records with stage 13 (driver_tiba_di_sppg)
 	// that don't have a cleaning record yet
 	deliveryQuery := s.db.Preload("School").
-		Where("current_status = ?", "ompreng_sampai_di_sppg")
+		Where("current_stage = ?", 13) // Stage 13 = driver_tiba_di_sppg
 
 	// Add date filter for delivery records
 	if dateStr != "" {
@@ -111,13 +111,22 @@ func (s *CleaningService) GetPendingOmpreng(dateStr string) ([]models.OmprengCle
 		err := s.db.Where("delivery_record_id = ?", record.ID).First(&existingCleaning).Error
 
 		if err == gorm.ErrRecordNotFound {
-			// Create new cleaning record
+			// Create new cleaning record in database
 			cleaning := models.OmprengCleaning{
 				DeliveryRecordID: record.ID,
 				OmprengCount:     record.OmprengCount,
 				CleaningStatus:   "pending",
-				DeliveryRecord:   record,
 			}
+			
+			// Save to database
+			if err := s.db.Create(&cleaning).Error; err != nil {
+				log.Printf("Error creating cleaning record for delivery_record_id %d: %v", record.ID, err)
+				continue
+			}
+			
+			// Preload the delivery record and school
+			s.db.Preload("DeliveryRecord.School").First(&cleaning, cleaning.ID)
+			
 			cleanings = append(cleanings, cleaning)
 		}
 	}
@@ -151,7 +160,7 @@ func (s *CleaningService) StartCleaning(cleaningID uint, userID uint) error {
 	// Update cleaning record and delivery record in a transaction
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// Update ompreng_cleaning status to "in_progress"
-		now := time.Now()
+		now := getJakartaTime()
 		updates := map[string]interface{}{
 			"cleaning_status": "in_progress",
 			"started_at":      now,
@@ -162,18 +171,23 @@ func (s *CleaningService) StartCleaning(cleaningID uint, userID uint) error {
 			return err
 		}
 
-		// Update corresponding delivery record status to "ompreng_proses_pencucian"
+		// Update corresponding delivery record status and stage
+		// Stage 15 = ompreng_proses_pencucian (cleaning in progress)
 		if err := tx.Model(&models.DeliveryRecord{}).
 			Where("id = ?", cleaning.DeliveryRecordID).
-			Update("current_status", "ompreng_proses_pencucian").Error; err != nil {
+			Updates(map[string]interface{}{
+				"current_status": "ompreng_proses_pencucian",
+				"current_stage":  15,
+			}).Error; err != nil {
 			return err
 		}
 
 		// Create status transition record
 		transition := models.StatusTransition{
 			DeliveryRecordID: cleaning.DeliveryRecordID,
-			FromStatus:       "ompreng_sampai_di_sppg",
+			FromStatus:       "driver_tiba_di_sppg",
 			ToStatus:         "ompreng_proses_pencucian",
+			Stage:            15,
 			TransitionedAt:   now,
 			TransitionedBy:   userID,
 			Notes:            "Cleaning started",
@@ -192,7 +206,7 @@ func (s *CleaningService) StartCleaning(cleaningID uint, userID uint) error {
 
 	// Update the cleaning record with new values for Firebase sync
 	cleaning.CleaningStatus = "in_progress"
-	now := time.Now()
+	now := getJakartaTime()
 	cleaning.StartedAt = &now
 	cleaning.CleanedBy = &userID
 
@@ -234,7 +248,7 @@ func (s *CleaningService) CompleteCleaning(cleaningID uint, userID uint) error {
 	// Update cleaning record and delivery record in a transaction
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// Update ompreng_cleaning status to "completed"
-		now := time.Now()
+		now := getJakartaTime()
 		updates := map[string]interface{}{
 			"cleaning_status": "completed",
 			"completed_at":    now,
@@ -244,10 +258,14 @@ func (s *CleaningService) CompleteCleaning(cleaningID uint, userID uint) error {
 			return err
 		}
 
-		// Update corresponding delivery record status to "ompreng_selesai_dicuci"
+		// Update corresponding delivery record status and stage
+		// Stage 16 = ompreng_selesai_dicuci (cleaning completed)
 		if err := tx.Model(&models.DeliveryRecord{}).
 			Where("id = ?", cleaning.DeliveryRecordID).
-			Update("current_status", "ompreng_selesai_dicuci").Error; err != nil {
+			Updates(map[string]interface{}{
+				"current_status": "ompreng_selesai_dicuci",
+				"current_stage":  16,
+			}).Error; err != nil {
 			return err
 		}
 
@@ -256,6 +274,7 @@ func (s *CleaningService) CompleteCleaning(cleaningID uint, userID uint) error {
 			DeliveryRecordID: cleaning.DeliveryRecordID,
 			FromStatus:       "ompreng_proses_pencucian",
 			ToStatus:         "ompreng_selesai_dicuci",
+			Stage:            16,
 			TransitionedAt:   now,
 			TransitionedBy:   userID,
 			Notes:            "Cleaning completed",
@@ -274,7 +293,7 @@ func (s *CleaningService) CompleteCleaning(cleaningID uint, userID uint) error {
 
 	// Update the cleaning record with new values for Firebase sync
 	cleaning.CleaningStatus = "completed"
-	now := time.Now()
+	now := getJakartaTime()
 	cleaning.CompletedAt = &now
 
 	// Sync to Firebase asynchronously with retry mechanism

@@ -138,7 +138,9 @@ const currentStatusIndex = computed(() => {
 // Check if a stage is completed
 const isCompleted = (status) => {
   const stageIndex = stages.findIndex(stage => stage.status === status)
-  return stageIndex < currentStatusIndex.value
+  // Mark stage as completed if it's before current stage
+  // OR if it's the last stage (index 14) and current stage has reached it
+  return stageIndex < currentStatusIndex.value || (stageIndex === 14 && currentStatusIndex.value >= 14)
 }
 
 // Check if a stage is in progress

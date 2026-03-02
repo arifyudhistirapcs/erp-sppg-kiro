@@ -4,14 +4,14 @@ import "fmt"
 
 // statusTransitionRules defines the allowed status transitions for the logistics monitoring process.
 // Each key represents a current status, and the value is a slice of allowed next statuses.
-// The lifecycle consists of 15 stages:
-//   - Delivery stages (1-8): cooking through school receipt
-//   - Collection stages (9-13): driver assignment through SPPG arrival
-//   - Cleaning stages (14-15): cleaning process through completion
+// The lifecycle consists of 16 stages:
+//   - Delivery stages (1-9): cooking through school receipt
+//   - Pickup stages (10-13): driver pickup assignment through SPPG arrival
+//   - Cleaning stages (14-16): cleaning process through completion
 //
 // Requirements: 14.1, 14.2
 var statusTransitionRules = map[string][]string{
-	// Delivery stages (1-8)
+	// Delivery stages (1-9)
 	"sedang_dimasak":               {"selesai_dimasak"},
 	"selesai_dimasak":              {"siap_dipacking"},
 	"siap_dipacking":               {"selesai_dipacking"},
@@ -19,16 +19,23 @@ var statusTransitionRules = map[string][]string{
 	"siap_dikirim":                 {"diperjalanan"},
 	"diperjalanan":                 {"sudah_sampai_sekolah"},
 	"sudah_sampai_sekolah":         {"sudah_diterima_pihak_sekolah"},
-	"sudah_diterima_pihak_sekolah": {"driver_ditugaskan_mengambil_ompreng"},
+	"sudah_diterima_pihak_sekolah": {"driver_ditugaskan_mengambil_ompreng", "driver_menuju_lokasi_pengambilan"},
 
-	// Collection stages (9-13)
+	// Old collection stages (9-13) - kept for backward compatibility
 	"driver_ditugaskan_mengambil_ompreng": {"driver_menuju_sekolah"},
 	"driver_menuju_sekolah":               {"driver_sampai_di_sekolah"},
 	"driver_sampai_di_sekolah":            {"ompreng_telah_diambil"},
 	"ompreng_telah_diambil":               {"ompreng_sampai_di_sppg"},
 	"ompreng_sampai_di_sppg":              {"ompreng_proses_pencucian"},
 
-	// Cleaning stages (14-15)
+	// New pickup task stages (10-13)
+	"driver_menuju_lokasi_pengambilan":  {"driver_tiba_di_lokasi_pengambilan"},
+	"driver_tiba_di_lokasi_pengambilan": {"driver_kembali_ke_sppg"},
+	"driver_kembali_ke_sppg":            {"driver_tiba_di_sppg", "driver_tiba_di_lokasi_pengambilan"}, // Can go to next school or SPPG
+	"driver_tiba_di_sppg":               {"ompreng_siap_dicuci"},
+
+	// Cleaning stages (14-16)
+	"ompreng_siap_dicuci":      {"ompreng_proses_pencucian"},
 	"ompreng_proses_pencucian": {"ompreng_selesai_dicuci"},
 	"ompreng_selesai_dicuci":   {}, // Final state - no further transitions allowed
 }
@@ -104,14 +111,14 @@ const (
 
 // getStageGroup determines which stage group a status belongs to.
 // Returns:
-//   - StageGroupDelivery for stages 1-8 (cooking through school receipt)
-//   - StageGroupCollection for stages 9-13 (driver assignment through SPPG arrival)
-//   - StageGroupCleaning for stages 14-15 (cleaning process through completion)
+//   - StageGroupDelivery for stages 1-9 (cooking through school receipt)
+//   - StageGroupCollection for stages 10-13 (driver pickup through SPPG arrival)
+//   - StageGroupCleaning for stages 14-16 (cleaning process through completion)
 //   - StageGroupUnknown for invalid statuses
 //
 // Requirements: 14.3, 14.4
 func getStageGroup(status string) StageGroup {
-	// Delivery stages (1-8)
+	// Delivery stages (1-9)
 	deliveryStages := []string{
 		"sedang_dimasak",
 		"selesai_dimasak",
@@ -123,17 +130,24 @@ func getStageGroup(status string) StageGroup {
 		"sudah_diterima_pihak_sekolah",
 	}
 
-	// Collection stages (9-13)
+	// Collection/Pickup stages (10-13)
 	collectionStages := []string{
+		// Old collection stages - kept for backward compatibility
 		"driver_ditugaskan_mengambil_ompreng",
 		"driver_menuju_sekolah",
 		"driver_sampai_di_sekolah",
 		"ompreng_telah_diambil",
 		"ompreng_sampai_di_sppg",
+		// New pickup task stages
+		"driver_menuju_lokasi_pengambilan",
+		"driver_tiba_di_lokasi_pengambilan",
+		"driver_kembali_ke_sppg",
+		"driver_tiba_di_sppg",
 	}
 
-	// Cleaning stages (14-15)
+	// Cleaning stages (14-16)
 	cleaningStages := []string{
+		"ompreng_siap_dicuci",
 		"ompreng_proses_pencucian",
 		"ompreng_selesai_dicuci",
 	}

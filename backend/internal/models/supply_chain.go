@@ -102,3 +102,36 @@ type InventoryMovement struct {
 	Ingredient   Ingredient `gorm:"foreignKey:IngredientID" json:"ingredient,omitempty"`
 	Creator      User       `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
 }
+
+// StokOpnameForm represents a physical inventory count form
+type StokOpnameForm struct {
+	ID              uint              `gorm:"primaryKey" json:"id"`
+	FormNumber      string            `gorm:"uniqueIndex;size:50;not null" json:"form_number" validate:"required"`
+	CreatedBy       uint              `gorm:"not null;index" json:"created_by"`
+	CreatedAt       time.Time         `gorm:"index;not null" json:"created_at"`
+	Status          string            `gorm:"size:20;not null;index" json:"status" validate:"required,oneof=pending approved rejected"` // pending, approved, rejected
+	Notes           string            `gorm:"type:text" json:"notes"`
+	ApprovedBy      *uint             `gorm:"index" json:"approved_by"`
+	ApprovedAt      *time.Time        `json:"approved_at"`
+	RejectionReason string            `gorm:"type:text" json:"rejection_reason"`
+	IsProcessed     bool              `gorm:"default:false;index" json:"is_processed"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+	Creator         User              `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+	Approver        *User             `gorm:"foreignKey:ApprovedBy" json:"approver,omitempty"`
+	Items           []StokOpnameItem  `gorm:"foreignKey:FormID" json:"items,omitempty"`
+}
+
+// StokOpnameItem represents a line item in a stok opname form
+type StokOpnameItem struct {
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	FormID        uint           `gorm:"index;not null" json:"form_id"`
+	IngredientID  uint           `gorm:"index;not null" json:"ingredient_id"`
+	SystemStock   float64        `gorm:"not null" json:"system_stock"`
+	PhysicalCount float64        `gorm:"not null" json:"physical_count" validate:"required,gte=0"`
+	Difference    float64        `gorm:"not null" json:"difference"` // physical_count - system_stock
+	ItemNotes     string         `gorm:"type:text" json:"item_notes"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	Form          StokOpnameForm `gorm:"foreignKey:FormID" json:"form,omitempty"`
+	Ingredient    Ingredient     `gorm:"foreignKey:IngredientID" json:"ingredient,omitempty"`
+}

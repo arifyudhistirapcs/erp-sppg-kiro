@@ -33,6 +33,16 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// Add Stok Opname indexes and constraints
+	if err := AddStokOpnameIndexes(db); err != nil {
+		return err
+	}
+
+	// Add Semi-Finished Movement indexes
+	if err := AddSemiFinishedMovementIndexes(db); err != nil {
+		return err
+	}
+
 	// Create indexes for frequently queried columns
 	if err := createIndexes(db); err != nil {
 		return err
@@ -318,6 +328,145 @@ func AddIngredientCategoryColumn(db *gorm.DB) error {
 	}
 	
 	log.Println("Ingredient category column added successfully")
+	
+	return nil
+}
+
+// AddStokOpnameIndexes adds indexes and constraints for stok_opname tables
+func AddStokOpnameIndexes(db *gorm.DB) error {
+	log.Println("Adding Stok Opname indexes and constraints...")
+	
+	// Create unique index on form_number
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_stok_opname_forms_form_number ON stok_opname_forms(form_number)").Error; err != nil {
+		log.Printf("Warning: Failed to create unique index on form_number: %v", err)
+	}
+	
+	// Create index on created_by
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_stok_opname_forms_created_by ON stok_opname_forms(created_by)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on created_by: %v", err)
+	}
+	
+	// Create index on created_at
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_stok_opname_forms_created_at ON stok_opname_forms(created_at)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on created_at: %v", err)
+	}
+	
+	// Create index on status
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_stok_opname_forms_status ON stok_opname_forms(status)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on status: %v", err)
+	}
+	
+	// Create index on approved_by
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_stok_opname_forms_approved_by ON stok_opname_forms(approved_by)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on approved_by: %v", err)
+	}
+	
+	// Create index on is_processed
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_stok_opname_forms_is_processed ON stok_opname_forms(is_processed)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on is_processed: %v", err)
+	}
+	
+	// Create index on form_id for stok_opname_items
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_stok_opname_items_form_id ON stok_opname_items(form_id)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on form_id: %v", err)
+	}
+	
+	// Create index on ingredient_id for stok_opname_items
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_stok_opname_items_ingredient_id ON stok_opname_items(ingredient_id)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on ingredient_id: %v", err)
+	}
+	
+	// Create composite unique index on (form_id, ingredient_id) to prevent duplicate ingredients in same form
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_stok_opname_items_form_ingredient ON stok_opname_items(form_id, ingredient_id)").Error; err != nil {
+		log.Printf("Warning: Failed to create composite unique index on (form_id, ingredient_id): %v", err)
+	}
+	
+	// Add foreign key constraints for stok_opname_forms
+	if err := db.Exec("ALTER TABLE stok_opname_forms DROP CONSTRAINT IF EXISTS fk_stok_opname_forms_created_by").Error; err != nil {
+		log.Printf("Warning: Failed to drop existing foreign key constraint fk_stok_opname_forms_created_by: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE stok_opname_forms ADD CONSTRAINT fk_stok_opname_forms_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT").Error; err != nil {
+		log.Printf("Warning: Failed to create foreign key constraint fk_stok_opname_forms_created_by: %v", err)
+	}
+	
+	if err := db.Exec("ALTER TABLE stok_opname_forms DROP CONSTRAINT IF EXISTS fk_stok_opname_forms_approved_by").Error; err != nil {
+		log.Printf("Warning: Failed to drop existing foreign key constraint fk_stok_opname_forms_approved_by: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE stok_opname_forms ADD CONSTRAINT fk_stok_opname_forms_approved_by FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE RESTRICT").Error; err != nil {
+		log.Printf("Warning: Failed to create foreign key constraint fk_stok_opname_forms_approved_by: %v", err)
+	}
+	
+	// Add foreign key constraints for stok_opname_items
+	if err := db.Exec("ALTER TABLE stok_opname_items DROP CONSTRAINT IF EXISTS fk_stok_opname_items_form").Error; err != nil {
+		log.Printf("Warning: Failed to drop existing foreign key constraint fk_stok_opname_items_form: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE stok_opname_items ADD CONSTRAINT fk_stok_opname_items_form FOREIGN KEY (form_id) REFERENCES stok_opname_forms(id) ON DELETE CASCADE").Error; err != nil {
+		log.Printf("Warning: Failed to create foreign key constraint fk_stok_opname_items_form: %v", err)
+	}
+	
+	if err := db.Exec("ALTER TABLE stok_opname_items DROP CONSTRAINT IF EXISTS fk_stok_opname_items_ingredient").Error; err != nil {
+		log.Printf("Warning: Failed to drop existing foreign key constraint fk_stok_opname_items_ingredient: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE stok_opname_items ADD CONSTRAINT fk_stok_opname_items_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE RESTRICT").Error; err != nil {
+		log.Printf("Warning: Failed to create foreign key constraint fk_stok_opname_items_ingredient: %v", err)
+	}
+	
+	log.Println("Stok Opname indexes and constraints added successfully")
+	
+	return nil
+}
+
+// AddSemiFinishedMovementIndexes adds indexes for semi_finished_movements table
+func AddSemiFinishedMovementIndexes(db *gorm.DB) error {
+	log.Println("Adding Semi-Finished Movement indexes...")
+	
+	// Create index on semi_finished_goods_id
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_semi_finished_movements_goods_id ON semi_finished_movements(semi_finished_goods_id)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on semi_finished_goods_id: %v", err)
+	}
+	
+	// Create index on movement_type
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_semi_finished_movements_type ON semi_finished_movements(movement_type)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on movement_type: %v", err)
+	}
+	
+	// Create index on movement_date
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_semi_finished_movements_date ON semi_finished_movements(movement_date)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on movement_date: %v", err)
+	}
+	
+	// Create index on created_by
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_semi_finished_movements_created_by ON semi_finished_movements(created_by)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on created_by: %v", err)
+	}
+	
+	// Create index on reference
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_semi_finished_movements_reference ON semi_finished_movements(reference)").Error; err != nil {
+		log.Printf("Warning: Failed to create index on reference: %v", err)
+	}
+	
+	// Create composite index on (semi_finished_goods_id, movement_date) for common queries
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_semi_finished_movements_goods_date ON semi_finished_movements(semi_finished_goods_id, movement_date DESC)").Error; err != nil {
+		log.Printf("Warning: Failed to create composite index on (semi_finished_goods_id, movement_date): %v", err)
+	}
+	
+	// Add foreign key constraint for semi_finished_goods_id
+	if err := db.Exec("ALTER TABLE semi_finished_movements DROP CONSTRAINT IF EXISTS fk_semi_finished_movements_goods").Error; err != nil {
+		log.Printf("Warning: Failed to drop existing foreign key constraint fk_semi_finished_movements_goods: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE semi_finished_movements ADD CONSTRAINT fk_semi_finished_movements_goods FOREIGN KEY (semi_finished_goods_id) REFERENCES semi_finished_goods(id) ON DELETE RESTRICT").Error; err != nil {
+		log.Printf("Warning: Failed to create foreign key constraint fk_semi_finished_movements_goods: %v", err)
+	}
+	
+	// Add foreign key constraint for created_by
+	if err := db.Exec("ALTER TABLE semi_finished_movements DROP CONSTRAINT IF EXISTS fk_semi_finished_movements_creator").Error; err != nil {
+		log.Printf("Warning: Failed to drop existing foreign key constraint fk_semi_finished_movements_creator: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE semi_finished_movements ADD CONSTRAINT fk_semi_finished_movements_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT").Error; err != nil {
+		log.Printf("Warning: Failed to create foreign key constraint fk_semi_finished_movements_creator: %v", err)
+	}
+	
+	log.Println("Semi-Finished Movement indexes added successfully")
 	
 	return nil
 }

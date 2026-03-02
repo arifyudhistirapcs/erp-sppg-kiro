@@ -621,11 +621,14 @@ const handleSupplierChange = () => {
 }
 
 const filterSupplier = (input, option) => {
-  return option.children[0].children.toLowerCase().includes(input.toLowerCase())
+  const supplier = activeSuppliers.value.find(s => s.id === option.value)
+  return supplier?.name.toLowerCase().includes(input.toLowerCase())
 }
 
 const filterIngredient = (input, option) => {
-  return option.children[0].children.toLowerCase().includes(input.toLowerCase())
+  const ingredient = ingredients.value.find(i => i.id === option.value)
+  if (!ingredient) return false
+  return ingredient.name.toLowerCase().includes(input.toLowerCase())
 }
 
 const disabledDate = (current) => {

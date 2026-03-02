@@ -62,7 +62,7 @@ func TestMonitoringService_RetryMechanism(t *testing.T) {
 	record := models.DeliveryRecord{
 		DeliveryDate:  time.Now(),
 		SchoolID:      school.ID,
-		DriverID:      user.ID,
+		DriverID:      &user.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      100,
 		CurrentStatus: "sedang_dimasak",
@@ -147,7 +147,7 @@ func TestCleaningService_RetryMechanism(t *testing.T) {
 	deliveryRecord := models.DeliveryRecord{
 		DeliveryDate:  time.Now(),
 		SchoolID:      school.ID,
-		DriverID:      user.ID,
+		DriverID:      &user.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      100,
 		CurrentStatus: "ompreng_sampai_di_sppg",

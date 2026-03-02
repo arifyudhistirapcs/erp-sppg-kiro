@@ -162,6 +162,36 @@ const router = createRouter({
           }
         },
         {
+          path: 'inventory/stok-opname/create',
+          name: 'stok-opname-create',
+          component: () => import('@/components/StokOpnameForm.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'pengadaan'],
+            title: 'Buat Stok Opname'
+          }
+        },
+        {
+          path: 'inventory/stok-opname/:id/edit',
+          name: 'stok-opname-edit',
+          component: () => import('@/components/StokOpnameForm.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'pengadaan'],
+            title: 'Edit Stok Opname'
+          }
+        },
+        {
+          path: 'inventory/stok-opname/:id',
+          name: 'stok-opname-detail',
+          component: () => import('@/components/StokOpnameDetail.vue'),
+          meta: { 
+            requiresAuth: true,
+            roles: ['kepala_sppg', 'pengadaan', 'akuntan'],
+            title: 'Detail Stok Opname'
+          }
+        },
+        {
           path: 'schools',
           name: 'schools',
           component: () => import('@/views/SchoolListView.vue'),

@@ -31,18 +31,19 @@ type School struct {
 
 // DeliveryTask represents a delivery assignment for a driver
 type DeliveryTask struct {
-	ID         uint               `gorm:"primaryKey" json:"id"`
-	TaskDate   time.Time          `gorm:"index;not null" json:"task_date"`
-	DriverID   uint               `gorm:"index;not null" json:"driver_id"`
-	SchoolID   uint               `gorm:"index;not null" json:"school_id"`
-	Portions   int                `gorm:"not null" json:"portions" validate:"required,gt=0"`
-	Status     string             `gorm:"size:20;not null;index" json:"status" validate:"required,oneof=pending in_progress completed cancelled"` // pending, in_progress, completed, cancelled
-	RouteOrder int                `gorm:"not null" json:"route_order"`
-	CreatedAt  time.Time          `json:"created_at"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Driver     User               `gorm:"foreignKey:DriverID" json:"driver,omitempty"`
-	School     School             `gorm:"foreignKey:SchoolID" json:"school,omitempty"`
-	MenuItems  []DeliveryMenuItem `gorm:"foreignKey:DeliveryTaskID" json:"menu_items,omitempty"`
+	ID           uint               `gorm:"primaryKey" json:"id"`
+	TaskDate     time.Time          `gorm:"index;not null" json:"task_date"`
+	DriverID     uint               `gorm:"index;not null" json:"driver_id"`
+	SchoolID     uint               `gorm:"index;not null" json:"school_id"`
+	Portions     int                `gorm:"not null" json:"portions" validate:"required,gt=0"`
+	Status       string             `gorm:"size:20;not null;index" json:"status" validate:"required,oneof=pending in_progress arrived received cancelled"` // pending, in_progress, arrived, received, cancelled
+	CurrentStage int                `gorm:"not null;default:1;index" json:"current_stage"`                                                                    // Stage number for delivery
+	RouteOrder   int                `gorm:"not null" json:"route_order"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
+	Driver       User               `gorm:"foreignKey:DriverID" json:"driver,omitempty"`
+	School       School             `gorm:"foreignKey:SchoolID" json:"school,omitempty"`
+	MenuItems    []DeliveryMenuItem `gorm:"foreignKey:DeliveryTaskID" json:"menu_items,omitempty"`
 }
 
 // DeliveryMenuItem represents menu items included in a delivery
@@ -99,12 +100,16 @@ type DeliveryRecord struct {
 	ID            uint      `gorm:"primaryKey" json:"id"`
 	DeliveryDate  time.Time `gorm:"index;not null" json:"delivery_date"`
 	SchoolID      uint      `gorm:"index;not null" json:"school_id"`
-	DriverID      uint      `gorm:"index;not null" json:"driver_id"`
+	DriverID      *uint     `gorm:"index" json:"driver_id"` // Nullable - driver assigned at stage 4
 	MenuItemID    uint      `gorm:"index;not null" json:"menu_item_id"`
 	Portions      int       `gorm:"not null" json:"portions"`
+	PortionsSmall int       `gorm:"not null;default:0" json:"portions_small"` // Small portions for SD students
+	PortionsLarge int       `gorm:"not null;default:0" json:"portions_large"` // Large portions
 	CurrentStatus string    `gorm:"size:50;not null;index" json:"current_status"`
 	CurrentStage  int       `gorm:"not null;default:1;index" json:"current_stage"` // Stage number 1-16
 	OmprengCount  int       `gorm:"not null" json:"ompreng_count"`
+	PickupTaskID  *uint     `gorm:"index" json:"pickup_task_id"`                   // Nullable - assigned when pickup task created
+	RouteOrder    int       `gorm:"default:0" json:"route_order"`                  // Order in pickup route (0 if not in pickup task)
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	School        School    `gorm:"foreignKey:SchoolID" json:"school,omitempty"`
@@ -141,6 +146,18 @@ type OmprengCleaning struct {
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeliveryRecord   DeliveryRecord `gorm:"foreignKey:DeliveryRecordID" json:"delivery_record,omitempty"`
 	Cleaner          User           `gorm:"foreignKey:CleanedBy" json:"cleaner,omitempty"`
+}
+
+// PickupTask represents a pickup assignment for a driver to collect ompreng from one or more schools
+type PickupTask struct {
+	ID              uint             `gorm:"primaryKey" json:"id"`
+	TaskDate        time.Time        `gorm:"index;not null" json:"task_date"`
+	DriverID        uint             `gorm:"index;not null" json:"driver_id"`
+	Status          string           `gorm:"size:20;not null;index" json:"status"` // active, completed, cancelled
+	CreatedAt       time.Time        `json:"created_at"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+	Driver          User             `gorm:"foreignKey:DriverID" json:"driver,omitempty"`
+	DeliveryRecords []DeliveryRecord `gorm:"foreignKey:PickupTaskID" json:"delivery_records,omitempty"`
 }
 
 // DailySummary represents summary statistics for deliveries on a specific date

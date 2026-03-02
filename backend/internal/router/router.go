@@ -217,10 +217,44 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 			}
 			{
 				inventory.GET("", supplyChainHandler.GetInventory)
+				inventory.GET("/:ingredient_id", supplyChainHandler.GetInventoryByIngredient)
 				inventory.GET("/alerts", supplyChainHandler.GetInventoryAlerts)
 				inventory.GET("/movements", supplyChainHandler.GetInventoryMovements)
 				inventory.POST("/initialize", supplyChainHandler.InitializeInventory)
 			inventory.POST("/initialize/:ingredient_id", supplyChainHandler.InitializeInventoryItem)
+			}
+
+			// Stok Opname routes
+			// Requirements: 2.1, 6.1
+			notificationService, err := services.NewNotificationService(db, firebaseApp)
+			if err != nil {
+				panic("Failed to initialize Notification service: " + err.Error())
+			}
+			inventoryService := services.NewInventoryService(db)
+			stokOpnameHandler := handlers.NewStokOpnameHandler(db, inventoryService, notificationService)
+			stokOpname := protected.Group("/stok-opname")
+			{
+				// Form management endpoints
+				stokOpname.POST("/forms", stokOpnameHandler.CreateForm)
+				stokOpname.GET("/forms", stokOpnameHandler.GetAllForms)
+				stokOpname.GET("/forms/:id", stokOpnameHandler.GetForm)
+				stokOpname.PUT("/forms/:id/notes", stokOpnameHandler.UpdateFormNotes)
+				stokOpname.DELETE("/forms/:id", stokOpnameHandler.DeleteForm)
+
+				// Item management endpoints
+				stokOpname.POST("/forms/:id/items", stokOpnameHandler.AddItem)
+				stokOpname.PUT("/items/:id", stokOpnameHandler.UpdateItem)
+				stokOpname.DELETE("/items/:id", stokOpnameHandler.RemoveItem)
+
+				// Workflow endpoints
+				stokOpname.POST("/forms/:id/submit", stokOpnameHandler.SubmitForApproval)
+				
+				// Approval/rejection endpoints (Kepala_SPPG only)
+				stokOpname.POST("/forms/:id/approve", middleware.RequireRole("kepala_sppg"), stokOpnameHandler.ApproveForm)
+				stokOpname.POST("/forms/:id/reject", middleware.RequireRole("kepala_sppg"), stokOpnameHandler.RejectForm)
+
+				// Export endpoint
+				stokOpname.GET("/forms/:id/export", stokOpnameHandler.ExportForm)
 			}
 
 			// Logistics routes
@@ -243,11 +277,32 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 			{
 				deliveryTasks.GET("", logisticsHandler.GetAllDeliveryTasks)
 				deliveryTasks.POST("", logisticsHandler.CreateDeliveryTask)
+				deliveryTasks.GET("/ready-orders", logisticsHandler.GetReadyOrders)
+				deliveryTasks.GET("/available-drivers", logisticsHandler.GetAvailableDrivers)
 				deliveryTasks.GET("/driver/:driver_id/today", logisticsHandler.GetDriverTasksToday)
 				deliveryTasks.GET("/:id", logisticsHandler.GetDeliveryTask)
 				deliveryTasks.PUT("/:id", logisticsHandler.UpdateDeliveryTask)
 				deliveryTasks.PUT("/:id/status", logisticsHandler.UpdateDeliveryTaskStatus)
 				deliveryTasks.DELETE("/:id", logisticsHandler.DeleteDeliveryTask)
+			}
+
+			// Activity Tracker Service (shared by pickup tasks and activity tracker routes)
+			activityTrackerService := services.NewActivityTrackerService(db)
+
+			// Pickup Task routes
+			pickupTaskService := services.NewPickupTaskService(db, activityTrackerService)
+			pickupTaskHandler := handlers.NewPickupTaskHandler(pickupTaskService)
+			pickupTasks := protected.Group("/pickup-tasks")
+			pickupTasks.Use(middleware.RequireRole("kepala_sppg", "kepala_yayasan", "asisten_lapangan", "driver"))
+			{
+				pickupTasks.GET("/eligible-orders", pickupTaskHandler.GetEligibleOrders)
+				pickupTasks.GET("/available-drivers", pickupTaskHandler.GetAvailableDrivers)
+				pickupTasks.GET("", pickupTaskHandler.GetAllPickupTasks)
+				pickupTasks.POST("", pickupTaskHandler.CreatePickupTask)
+				pickupTasks.GET("/:id", pickupTaskHandler.GetPickupTask)
+				pickupTasks.PUT("/:id/status", pickupTaskHandler.UpdatePickupTaskStatus)
+				pickupTasks.PUT("/:id/delivery-records/:delivery_record_id/stage", pickupTaskHandler.UpdateDeliveryRecordStage)
+				pickupTasks.DELETE("/:id", pickupTaskHandler.CancelPickupTask)
 			}
 
 			// e-POD routes
@@ -368,6 +423,7 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 				dashboard.GET("/kpi", dashboardHandler.GetKPIs)
 				dashboard.POST("/sync", dashboardHandler.SyncDashboardToFirebase)
 				dashboard.POST("/export", dashboardHandler.ExportDashboard)
+				dashboard.POST("/clear-firebase", dashboardHandler.ClearFirebaseKDSData)
 			}
 
 			// Notification routes
@@ -421,7 +477,6 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 			}
 
 			// Activity Tracker routes (standalone module)
-			activityTrackerService := services.NewActivityTrackerService(db)
 			activityTrackerHandler := handlers.NewActivityTrackerHandler(activityTrackerService)
 			activityTracker := protected.Group("/activity-tracker")
 			// Allow kepala_sppg and management roles
@@ -429,6 +484,7 @@ func Setup(db *gorm.DB, firebaseApp *firebase.App, cfg *config.Config, cacheServ
 			{
 				activityTracker.GET("/orders", activityTrackerHandler.GetOrdersByDate)
 				activityTracker.GET("/orders/:id", activityTrackerHandler.GetOrderDetails)
+				activityTracker.GET("/orders/:id/activity", activityTrackerHandler.GetActivityLog)
 				activityTracker.PUT("/orders/:id/status", activityTrackerHandler.UpdateOrderStatus)
 				activityTracker.POST("/orders/:id/stages/:stage/media", activityTrackerHandler.AttachStageMedia)
 			}

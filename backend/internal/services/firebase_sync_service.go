@@ -120,3 +120,25 @@ func (s *FirebaseSyncService) HandleConflict(ctx context.Context, path string, s
 	// Server data always wins in conflict resolution
 	return s.PushUpdateWithTimestamp(ctx, path, serverData)
 }
+
+// ClearKDSData clears all KDS-related data from Firebase
+func (s *FirebaseSyncService) ClearKDSData(ctx context.Context) error {
+	// List of paths to clear
+	paths := []string{
+		"/kds/cooking",
+		"/kds/packing",
+		"/delivery_tasks",
+		"/delivery_records",
+		"/monitoring",
+		"/activity_tracker",
+	}
+
+	for _, path := range paths {
+		if err := s.DeletePath(ctx, path); err != nil {
+			// Log error but continue with other paths
+			fmt.Printf("Peringatan: gagal menghapus Firebase path %s: %v\n", path, err)
+		}
+	}
+
+	return nil
+}

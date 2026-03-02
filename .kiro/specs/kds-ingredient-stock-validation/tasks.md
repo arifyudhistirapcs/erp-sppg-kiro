@@ -1,0 +1,130 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Stock Validation Before Cooking
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: Scope the property to concrete failing cases - status update to "cooking" with insufficient stock
+  - Test that UpdateRecipeStatus allows cooking to start even when stock is insufficient (from Fault Condition in design)
+  - Test that stock is NOT deducted after status changes to "cooking" (demonstrates deductInventory is disabled)
+  - Test with mixed portion sizes (small/large) to verify calculation is not performed correctly
+  - The test assertions should match the Expected Behavior Properties from design:
+    - Stock validation SHOULD be performed before allowing status change
+    - Detailed error message SHOULD be returned when stock is insufficient
+    - Stock deduction SHOULD happen automatically when validation passes
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found:
+    - Status changes to "cooking" despite insufficient stock
+    - Stock levels remain unchanged after cooking starts
+    - No error messages about insufficient stock
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 2.1, 2.2, 2.3_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Non-Cooking Status Updates and UI Interactions
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs:
+    - Status updates to "ready" complete successfully without stock validation
+    - Status updates to "pending" complete successfully without stock validation
+    - GET requests to retrieve cooking menu return correct data
+    - Firebase sync operations work correctly for all status updates
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements:
+    - For all status updates where status != "cooking", no stock validation is performed
+    - For all status updates where status != "cooking", no stock deduction is performed
+    - For all GET operations, menu display and data retrieval work identically
+    - For all Firebase sync operations, status updates propagate correctly
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4_
+
+- [x] 3. Fix for KDS ingredient stock validation
+
+  - [x] 3.1 Uncomment and activate stock validation in UpdateRecipeStatus
+    - Navigate to `backend/internal/services/kds_service.go` line 311-319
+    - Remove comment markers `/*` and `*/` around the stock validation block
+    - Ensure the condition `if status == "cooking"` properly calls deductInventory
+    - Improve error message to be more informative in Indonesian
+    - _Bug_Condition: isBugCondition(input) where input.status == "cooking" AND hasRecipeItems(input.recipeID) AND NOT stockValidationPerformed() AND NOT stockDeductionPerformed()_
+    - _Expected_Behavior: stockValidationPerformed(result) AND (stockDeductionPerformed(result) OR errorReturned(result))_
+    - _Preservation: Non-cooking status updates remain unchanged_
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.2 Fix deductInventory method to calculate portion size correctly
+    - Navigate to `backend/internal/services/kds_service.go` line 528 (deductInventory method)
+    - Replace usage of deprecated `ri.Quantity` field
+    - Fetch MenuItemSchoolAllocation data to get actual portion allocations
+    - Calculate total needed using formula: `totalNeeded = (smallPortions × quantity_per_portion_small) + (largePortions × quantity_per_portion_large)`
+    - Handle mixed portion sizes for SD schools correctly
+    - _Bug_Condition: Portion size calculation not performed correctly_
+    - _Expected_Behavior: Accurate stock calculation based on actual portion allocations_
+    - _Preservation: Calculation logic only affects cooking status updates_
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.3 Add pre-validation check before transaction
+    - Add validation logic at the start of deductInventory method
+    - Check all recipe items for sufficient stock BEFORE starting transaction
+    - Collect all items with insufficient stock in a list
+    - Return detailed error with format: "Stok tidak mencukupi untuk: [item1] (butuh X, tersedia Y), [item2] (butuh X, tersedia Y)"
+    - Use error code `INSUFFICIENT_STOCK` for HTTP 400 response
+    - _Bug_Condition: No pre-check validation, errors detected mid-transaction_
+    - _Expected_Behavior: Complete validation before transaction, detailed error messages_
+    - _Preservation: Error handling only affects cooking status updates_
+    - _Requirements: 2.1, 2.2_
+
+  - [x] 3.4 Improve error handling and messages
+    - Add error code constants: `INSUFFICIENT_STOCK`, `INVENTORY_NOT_FOUND`, `TRANSACTION_FAILED`, `INVALID_RECIPE`
+    - Format error messages in Indonesian with detailed stock information
+    - Handle edge case: empty recipe (no recipe items) with `INVALID_RECIPE` error
+    - Handle edge case: missing inventory record with `INVENTORY_NOT_FOUND` error
+    - Ensure transaction rollback on any error
+    - _Bug_Condition: Poor error messages, incomplete error handling_
+    - _Expected_Behavior: Clear, actionable error messages in Indonesian_
+    - _Preservation: Error handling improvements only affect cooking status updates_
+    - _Requirements: 2.1, 2.2_
+
+  - [x] 3.5 Add logging for debugging and audit trail
+    - Add log entry before stock validation attempt
+    - Add log entry for each stock deduction
+    - Add log entry for errors with full context (recipe_id, user_id, stock levels)
+    - Use structured logging with appropriate log levels (Info, Error)
+    - _Bug_Condition: No visibility into stock validation process_
+    - _Expected_Behavior: Complete audit trail for debugging and monitoring_
+    - _Preservation: Logging is additive, does not change behavior_
+    - _Requirements: 2.3_
+
+  - [x] 3.6 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Stock Validation and Deduction Working
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied:
+      - Stock validation is performed before allowing status change to "cooking"
+      - Detailed error message is returned when stock is insufficient
+      - Stock deduction happens automatically when validation passes
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.7 Verify preservation tests still pass
+    - **Property 2: Preservation** - Non-Cooking Operations Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix:
+      - Status updates to "ready" and "pending" work identically
+      - GET operations return same data
+      - Firebase sync operations work correctly
+      - No stock validation/deduction for non-cooking status updates
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all exploration tests - should PASS (bug is fixed)
+  - Run all preservation tests - should PASS (no regressions)
+  - Run any existing unit tests for kds_service.go
+  - Run integration tests if available
+  - Verify error messages are in Indonesian and user-friendly
+  - Verify logging output is structured and informative
+  - Ask the user if questions arise or if manual testing is needed

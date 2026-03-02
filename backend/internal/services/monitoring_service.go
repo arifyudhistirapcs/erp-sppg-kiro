@@ -49,6 +49,46 @@ func NewMonitoringService(database *gorm.DB, firebaseApp *firebase.App) (*Monito
 	return service, nil
 }
 
+// getJakartaTime returns current time in Asia/Jakarta timezone
+func getJakartaTime() time.Time {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		// Fallback to UTC+7 if timezone data not available
+		loc = time.FixedZone("WIB", 7*60*60)
+	}
+	return time.Now().In(loc)
+}
+
+// getStageNumberFromStatus maps status to stage number
+func getStageNumberFromStatus(status string) int {
+	statusToStage := map[string]int{
+		"order_disiapkan":                    1,
+		"sedang_dimasak":                     2,
+		"selesai_dimasak":                    3,
+		"siap_dipacking":                     4,
+		"selesai_dipacking":                  5,
+		"siap_dikirim":                       6,
+		"diperjalanan":                       7,
+		"sudah_sampai_sekolah":               8,
+		"sudah_diterima_pihak_sekolah":       9,
+		"driver_menuju_lokasi_pengambilan":   10,
+		"driver_tiba_di_lokasi_pengambilan":  11,
+		"driver_kembali_ke_sppg":             12,
+		"driver_tiba_di_sppg":                13,
+		"ompreng_siap_dicuci":                14,
+		"ompreng_proses_pencucian":           15,
+		"ompreng_selesai_dicuci":             16,
+	}
+	
+	if stage, exists := statusToStage[status]; exists {
+		return stage
+	}
+	
+	// Default to stage 1 if status not found
+	log.Printf("Warning: Unknown status '%s', defaulting to stage 1", status)
+	return 1
+}
+
 // GetDeliveryRecords retrieves delivery records for a specific date with optional filters
 func (s *MonitoringService) GetDeliveryRecords(date time.Time, filters map[string]interface{}) ([]models.DeliveryRecord, error) {
 	var records []models.DeliveryRecord
@@ -106,7 +146,7 @@ func (s *MonitoringService) GetDeliveryRecordDetail(recordID uint) (*models.Deli
 // 1. Retrieves the current delivery record
 // 2. Validates the status transition using ValidateStatusTransition
 // 3. Validates the stage sequence using ValidateStageSequence
-// 4. Updates the delivery record's current_status in a database transaction
+// 4. Updates the delivery record's current_status and current_stage in a database transaction
 // 5. Creates a StatusTransition record with timestamp and user attribution
 // 6. Triggers Firebase sync asynchronously (non-blocking)
 //
@@ -142,10 +182,16 @@ func (s *MonitoringService) UpdateDeliveryStatus(recordID uint, newStatus string
 		return err
 	}
 
+	// Map status to stage number
+	stageNumber := getStageNumberFromStatus(newStatus)
+
 	// Step 4 & 5: Update delivery record and create status transition in a transaction
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		// Update delivery record's current_status
-		if err := tx.Model(&record).Update("current_status", newStatus).Error; err != nil {
+		// Update delivery record's current_status and current_stage
+		if err := tx.Model(&record).Updates(map[string]interface{}{
+			"current_status": newStatus,
+			"current_stage":  stageNumber,
+		}).Error; err != nil {
 			return err
 		}
 
@@ -154,7 +200,8 @@ func (s *MonitoringService) UpdateDeliveryStatus(recordID uint, newStatus string
 			DeliveryRecordID: recordID,
 			FromStatus:       currentStatus,
 			ToStatus:         newStatus,
-			TransitionedAt:   time.Now(),
+			Stage:            stageNumber,
+			TransitionedAt:   getJakartaTime(),
 			TransitionedBy:   userID,
 			Notes:            notes,
 		}
@@ -170,9 +217,20 @@ func (s *MonitoringService) UpdateDeliveryStatus(recordID uint, newStatus string
 		return err
 	}
 
-	// Step 6: Trigger Firebase sync asynchronously (non-blocking)
+	// Step 6: Check for automatic pickup task completion
+	// If the delivery record just transitioned to stage 13 and is part of a pickup task,
+	// check if all other delivery records in the same pickup task are also at stage 13
+	if stageNumber == 13 && record.PickupTaskID != nil {
+		if err := s.checkAndCompletePickupTask(*record.PickupTaskID); err != nil {
+			// Log error but don't fail the status update
+			log.Printf("Failed to auto-complete pickup task %d: %v", *record.PickupTaskID, err)
+		}
+	}
+
+	// Step 7: Trigger Firebase sync asynchronously (non-blocking)
 	// Update the record's current status for Firebase sync
 	record.CurrentStatus = newStatus
+	record.CurrentStage = stageNumber
 
 	// Only spawn goroutine if Firebase is configured
 	if s.dbClient != nil {
@@ -456,4 +514,54 @@ func (s *MonitoringService) queueForRetry(recordID uint, attempt int) {
 	default:
 		log.Printf("WARNING: Retry queue full, dropping retry for delivery record %d", recordID)
 	}
+}
+
+// checkAndCompletePickupTask checks if all delivery records in a pickup task are at stage 13
+// and automatically updates the pickup task status to 'completed' if so.
+// This method is called after a delivery record transitions to stage 13.
+//
+// Parameters:
+//   - pickupTaskID: The ID of the pickup task to check
+//
+// Returns:
+//   - error: Error if query fails or update fails
+//
+// Requirements: 4.6
+func (s *MonitoringService) checkAndCompletePickupTask(pickupTaskID uint) error {
+	// Query all delivery records for this pickup task
+	var deliveryRecords []models.DeliveryRecord
+	if err := s.db.Where("pickup_task_id = ?", pickupTaskID).Find(&deliveryRecords).Error; err != nil {
+		return fmt.Errorf("failed to fetch delivery records for pickup task %d: %w", pickupTaskID, err)
+	}
+
+	// Check if all delivery records are at stage 13
+	allAtStage13 := true
+	for _, record := range deliveryRecords {
+		if record.CurrentStage != 13 {
+			allAtStage13 = false
+			break
+		}
+	}
+
+	// If all records are at stage 13, update pickup task status to 'completed'
+	if allAtStage13 {
+		var pickupTask models.PickupTask
+		if err := s.db.First(&pickupTask, pickupTaskID).Error; err != nil {
+			return fmt.Errorf("failed to fetch pickup task %d: %w", pickupTaskID, err)
+		}
+
+		// Only update if not already completed (idempotent)
+		if pickupTask.Status != "completed" {
+			if err := s.db.Model(&pickupTask).Updates(map[string]interface{}{
+				"status":     "completed",
+				"updated_at": time.Now(),
+			}).Error; err != nil {
+				return fmt.Errorf("failed to update pickup task %d to completed: %w", pickupTaskID, err)
+			}
+
+			log.Printf("Pickup task %d automatically completed - all delivery records at stage 13", pickupTaskID)
+		}
+	}
+
+	return nil
 }

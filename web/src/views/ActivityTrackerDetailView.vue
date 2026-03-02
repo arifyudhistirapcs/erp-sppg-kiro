@@ -100,6 +100,15 @@ const fetchOrderDetails = async (isRetry = false) => {
     if (response.data.success) {
       order.value = response.data.data;
       retryCount.value = 0;
+      
+      // Debug: Log timeline data
+      console.log('=== Order Timeline Data ===');
+      console.log('Full order:', order.value);
+      console.log('Timeline stages:', order.value.timeline);
+      if (order.value.timeline && order.value.timeline.length > 0) {
+        console.log('First stage with completed_at:', order.value.timeline.find(s => s.completed_at));
+      }
+      console.log('===========================');
     }
   } catch (error) {
     console.error('Error fetching order details:', error);

@@ -224,28 +224,99 @@ func (s *DeliveryTaskService) UpdateDeliveryTaskStatus(id uint, status string) e
 	validStatuses := map[string]bool{
 		"pending":     true,
 		"in_progress": true,
-		"completed":   true,
+		"arrived":     true, // Changed from "completed" to "arrived"
+		"received":    true, // New status for Stage 9
 		"cancelled":   true,
 	}
 	if !validStatuses[status] {
 		return errors.New("status tidak valid")
 	}
 
-	result := s.db.Model(&models.DeliveryTask{}).
-		Where("id = ?", id).
-		Updates(map[string]interface{}{
-			"status":     status,
-			"updated_at": time.Now(),
-		})
-
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return ErrDeliveryTaskNotFound
+	// Get delivery task to find related delivery records
+	var task models.DeliveryTask
+	if err := s.db.First(&task, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrDeliveryTaskNotFound
+		}
+		return err
 	}
 
-	return nil
+	// Map delivery task status to delivery record status and stage
+	statusMapping := map[string]struct {
+		Status string
+		Stage  int
+		Notes  string
+	}{
+		"pending":     {"siap_dikirim", 1, "Menunggu pengiriman"},
+		"in_progress": {"diperjalanan", 2, "Driver dalam perjalanan ke sekolah"},
+		"arrived":     {"sudah_sampai_sekolah", 3, "Driver sudah sampai di sekolah"},
+		"received":    {"sudah_diterima_pihak_sekolah", 9, "Pesanan sudah diterima oleh pihak sekolah"},
+		"cancelled":   {"", 0, "Tugas pengiriman dibatalkan"},
+	}
+
+	mapping, exists := statusMapping[status]
+	if !exists {
+		return errors.New("status mapping tidak ditemukan")
+	}
+
+	// Update in transaction
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Update delivery task status and current_stage
+		if err := tx.Model(&models.DeliveryTask{}).
+			Where("id = ?", id).
+			Updates(map[string]interface{}{
+				"status":        status,
+				"current_stage": mapping.Stage,
+				"updated_at":    time.Now(),
+			}).Error; err != nil {
+			return err
+		}
+
+		// Skip delivery record update if cancelled
+		if status == "cancelled" {
+			return nil
+		}
+
+		// Find all delivery records for this task (by school_id, driver_id, and date)
+		var deliveryRecords []models.DeliveryRecord
+		if err := tx.Where("school_id = ? AND driver_id = ? AND DATE(delivery_date) = DATE(?)",
+			task.SchoolID, task.DriverID, task.TaskDate).
+			Find(&deliveryRecords).Error; err != nil {
+			return err
+		}
+
+		// Update each delivery record
+		for _, record := range deliveryRecords {
+			oldStatus := record.CurrentStatus
+
+			// Update delivery record status and stage
+			if err := tx.Model(&models.DeliveryRecord{}).
+				Where("id = ?", record.ID).
+				Updates(map[string]interface{}{
+					"current_status": mapping.Status,
+					"current_stage":  mapping.Stage,
+					"updated_at":     time.Now(),
+				}).Error; err != nil {
+				return err
+			}
+
+			// Create status transition record
+			transition := models.StatusTransition{
+				DeliveryRecordID: record.ID,
+				FromStatus:       oldStatus,
+				ToStatus:         mapping.Status,
+				Stage:            mapping.Stage,
+				TransitionedAt:   time.Now(),
+				TransitionedBy:   task.DriverID,
+				Notes:            mapping.Notes,
+			}
+			if err := tx.Create(&transition).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // AssignDriverToTask assigns a driver to a delivery task
@@ -327,4 +398,290 @@ func (s *DeliveryTaskService) DeleteDeliveryTask(id uint) error {
 
 		return nil
 	})
+}
+
+
+// ReadyOrderResponse represents a delivery record that is ready for delivery
+type ReadyOrderResponse struct {
+	ID             uint   `json:"id"`
+	SchoolID       uint   `json:"school_id"`
+	SchoolName     string `json:"school_name"`
+	MenuItemID     uint   `json:"menu_item_id"`
+	MenuItemName   string `json:"menu_item_name"`
+	Portions       int    `json:"portions"`
+	PortionsSmall  int    `json:"portions_small"`
+	PortionsLarge  int    `json:"portions_large"`
+	CurrentStatus  string `json:"current_status"`
+	DeliveryDate   string `json:"delivery_date"`
+}
+
+// GetReadyOrders retrieves delivery records that are ready for delivery (status = selesai_dipacking)
+func (s *DeliveryTaskService) GetReadyOrders(date time.Time) ([]ReadyOrderResponse, error) {
+	var orders []ReadyOrderResponse
+	
+	// Query delivery records with status "selesai_dipacking" (packing completed, ready for delivery)
+	// This status is set when packing is completed in KDS Packing
+	// Only show orders that don't have a driver assigned yet (driver_id IS NULL)
+	err := s.db.Table("delivery_records").
+		Select(`
+			delivery_records.id,
+			delivery_records.school_id,
+			schools.name as school_name,
+			delivery_records.menu_item_id,
+			recipes.name as menu_item_name,
+			delivery_records.portions,
+			delivery_records.portions_small,
+			delivery_records.portions_large,
+			delivery_records.current_status,
+			delivery_records.delivery_date
+		`).
+		Joins("JOIN schools ON delivery_records.school_id = schools.id").
+		Joins("JOIN menu_items ON delivery_records.menu_item_id = menu_items.id").
+		Joins("JOIN recipes ON menu_items.recipe_id = recipes.id").
+		Where("DATE(delivery_records.delivery_date) = DATE(?)", date).
+		Where("delivery_records.current_status = ?", "selesai_dipacking").
+		Where("delivery_records.driver_id IS NULL").
+		Scan(&orders).Error
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	return orders, nil
+}
+
+// AvailableDriverResponse represents a driver that is available for delivery
+type AvailableDriverResponse struct {
+	ID       uint   `json:"id"`
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+}
+
+// GetAvailableDrivers retrieves drivers that are not assigned on the given date
+func (s *DeliveryTaskService) GetAvailableDrivers(date time.Time) ([]AvailableDriverResponse, error) {
+	var drivers []AvailableDriverResponse
+	
+	// Get all active drivers with role 'driver'
+	// Filter out those who already have delivery tasks on the specified date
+	query := `
+		SELECT u.id, u.full_name, u.email, u.phone_number as phone
+		FROM users u
+		WHERE u.role = ?
+		AND u.is_active = ?
+		AND u.id NOT IN (
+			SELECT DISTINCT driver_id 
+			FROM delivery_tasks 
+			WHERE DATE(task_date) = DATE(?)
+			AND driver_id IS NOT NULL
+		)
+		ORDER BY u.full_name
+	`
+	
+	err := s.db.Raw(query, "driver", true, date).Scan(&drivers).Error
+	if err != nil {
+		return nil, err
+	}
+	
+	return drivers, nil
+}
+
+// DeliveryRecordWithRoute represents a delivery record with route order for batch creation
+type DeliveryRecordWithRoute struct {
+	DeliveryRecordID uint
+	RouteOrder       int
+}
+
+// CreateDeliveryTasksFromRecords creates multiple delivery tasks from delivery records with route ordering
+func (s *DeliveryTaskService) CreateDeliveryTasksFromRecords(taskDate time.Time, driverID uint, records []DeliveryRecordWithRoute) ([]*models.DeliveryTask, error) {
+	// Validate driver
+	var driver models.User
+	err := s.db.First(&driver, driverID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidDriver
+		}
+		return nil, err
+	}
+	if driver.Role != "driver" {
+		return nil, errors.New("pengguna bukan driver")
+	}
+
+	var tasks []*models.DeliveryTask
+
+	// Create tasks in a transaction
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		for _, record := range records {
+			// Get delivery record
+			var deliveryRecord models.DeliveryRecord
+			if err := tx.First(&deliveryRecord, record.DeliveryRecordID).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return errors.New("delivery record tidak ditemukan")
+				}
+				return err
+			}
+
+			// Update delivery record with driver_id and move to Stage 6 (siap_dikirim)
+			updates := map[string]interface{}{
+				"driver_id":      driverID,
+				"current_status": "siap_dikirim",
+				"current_stage":  6,
+				"updated_at":     time.Now(),
+			}
+			if err := tx.Model(&deliveryRecord).Updates(updates).Error; err != nil {
+				return errors.New("gagal mengupdate delivery record")
+			}
+
+			// Create status transition record for Stage 6
+			transition := models.StatusTransition{
+				DeliveryRecordID: deliveryRecord.ID,
+				FromStatus:       deliveryRecord.CurrentStatus,
+				ToStatus:         "siap_dikirim",
+				Stage:            6,
+				TransitionedAt:   time.Now(),
+				TransitionedBy:   driverID,
+				Notes:            "Driver ditugaskan untuk pengiriman",
+			}
+			if err := tx.Create(&transition).Error; err != nil {
+				return errors.New("gagal membuat status transition")
+			}
+
+			// Create delivery task
+			task := &models.DeliveryTask{
+				TaskDate:   taskDate,
+				DriverID:   driverID,
+				SchoolID:   deliveryRecord.SchoolID,
+				Portions:   deliveryRecord.Portions,
+				RouteOrder: record.RouteOrder,
+				Status:     "pending",
+			}
+
+			// Create delivery task
+			if err := tx.Create(task).Error; err != nil {
+				return err
+			}
+
+			// Get menu item for this delivery record
+			var menuItem models.MenuItem
+			if err := tx.First(&menuItem, deliveryRecord.MenuItemID).Error; err == nil {
+				menuItems := []models.DeliveryMenuItem{
+					{
+						DeliveryTaskID: task.ID,
+						RecipeID:       menuItem.RecipeID,
+						Portions:       deliveryRecord.Portions,
+					},
+				}
+				if err := tx.Create(&menuItems).Error; err != nil {
+					return err
+				}
+			}
+
+			tasks = append(tasks, task)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+// CreateDeliveryTaskFromRecord creates a delivery task from a delivery record
+func (s *DeliveryTaskService) CreateDeliveryTaskFromRecord(taskDate time.Time, driverID uint, deliveryRecordID uint) (*models.DeliveryTask, error) {
+	// Get delivery record
+	var deliveryRecord models.DeliveryRecord
+	if err := s.db.First(&deliveryRecord, deliveryRecordID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("delivery record tidak ditemukan")
+		}
+		return nil, err
+	}
+
+	// Validate driver
+	var driver models.User
+	err := s.db.First(&driver, driverID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidDriver
+		}
+		return nil, err
+	}
+	if driver.Role != "driver" {
+		return nil, errors.New("pengguna bukan driver")
+	}
+
+	// Create delivery task
+	task := &models.DeliveryTask{
+		TaskDate:   taskDate,
+		DriverID:   driverID,
+		SchoolID:   deliveryRecord.SchoolID,
+		Portions:   deliveryRecord.Portions,
+		RouteOrder: 1, // Default route order
+		Status:     "pending",
+	}
+
+	// Get menu item for this delivery record
+	var menuItem models.MenuItem
+	var menuItems []models.DeliveryMenuItem
+	if err := s.db.First(&menuItem, deliveryRecord.MenuItemID).Error; err == nil {
+		menuItems = []models.DeliveryMenuItem{
+			{
+				RecipeID: menuItem.RecipeID,
+				Portions: deliveryRecord.Portions,
+			},
+		}
+	}
+
+	// Create delivery task and update delivery record in a transaction
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// Update delivery record with driver_id and move to Stage 6 (siap_dikirim)
+		updates := map[string]interface{}{
+			"driver_id":      driverID,
+			"current_status": "siap_dikirim",
+			"current_stage":  6,
+			"updated_at":     time.Now(),
+		}
+		if err := tx.Model(&deliveryRecord).Updates(updates).Error; err != nil {
+			return errors.New("gagal mengupdate delivery record")
+		}
+
+		// Create status transition record for Stage 6
+		transition := models.StatusTransition{
+			DeliveryRecordID: deliveryRecord.ID,
+			FromStatus:       deliveryRecord.CurrentStatus,
+			ToStatus:         "siap_dikirim",
+			Stage:            6,
+			TransitionedAt:   time.Now(),
+			TransitionedBy:   driverID,
+			Notes:            "Driver ditugaskan untuk pengiriman",
+		}
+		if err := tx.Create(&transition).Error; err != nil {
+			return errors.New("gagal membuat status transition")
+		}
+
+		// Create delivery task
+		if err := tx.Create(task).Error; err != nil {
+			return err
+		}
+
+		// Create menu items
+		for i := range menuItems {
+			menuItems[i].DeliveryTaskID = task.ID
+		}
+		if len(menuItems) > 0 {
+			if err := tx.Create(&menuItems).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return task, nil
 }

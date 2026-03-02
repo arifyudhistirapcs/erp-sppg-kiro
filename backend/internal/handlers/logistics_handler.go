@@ -297,12 +297,22 @@ func (h *LogisticsHandler) DeleteSchool(c *gin.Context) {
 
 // CreateDeliveryTaskRequest represents create delivery task request
 type CreateDeliveryTaskRequest struct {
-	TaskDate   string                    `json:"task_date" binding:"required"`
-	DriverID   uint                      `json:"driver_id" binding:"required"`
-	SchoolID   uint                      `json:"school_id" binding:"required"`
-	Portions   int                       `json:"portions" binding:"required,gt=0"`
+	TaskDate         string                    `json:"task_date" binding:"required"`
+	DeliveryTime     string                    `json:"delivery_time"`
+	DeliveryRecordID uint                      `json:"delivery_record_id"` // Single record (legacy)
+	DeliveryRecords  []DeliveryRecordRequest   `json:"delivery_records"`   // Multiple records (new)
+	DriverID         uint                      `json:"driver_id" binding:"required"`
+	// Legacy fields for backward compatibility
+	SchoolID   uint                      `json:"school_id"`
+	Portions   int                       `json:"portions"`
 	RouteOrder int                       `json:"route_order"`
-	MenuItems  []DeliveryMenuItemRequest `json:"menu_items" binding:"required,min=1"`
+	MenuItems  []DeliveryMenuItemRequest `json:"menu_items"`
+}
+
+// DeliveryRecordRequest represents a delivery record with route order
+type DeliveryRecordRequest struct {
+	DeliveryRecordID uint `json:"delivery_record_id" binding:"required"`
+	RouteOrder       int  `json:"route_order" binding:"required"`
 }
 
 // DeliveryMenuItemRequest represents delivery menu item request
@@ -335,6 +345,56 @@ func (h *LogisticsHandler) CreateDeliveryTask(c *gin.Context) {
 		return
 	}
 
+	// New format: using delivery_records array (multiple schools)
+	if len(req.DeliveryRecords) > 0 {
+		// Convert handler request to service format
+		var serviceRecords []services.DeliveryRecordWithRoute
+		for _, r := range req.DeliveryRecords {
+			serviceRecords = append(serviceRecords, services.DeliveryRecordWithRoute{
+				DeliveryRecordID: r.DeliveryRecordID,
+				RouteOrder:       r.RouteOrder,
+			})
+		}
+		
+		tasks, err := h.deliveryTaskService.CreateDeliveryTasksFromRecords(taskDate, req.DriverID, serviceRecords)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success":    false,
+				"error_code": "CREATE_TASK_ERROR",
+				"message":    err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"success":        true,
+			"message":        "Tugas pengiriman berhasil dibuat",
+			"delivery_tasks": tasks,
+		})
+		return
+	}
+
+	// Single record format: using delivery_record_id
+	if req.DeliveryRecordID != 0 {
+		task, err := h.deliveryTaskService.CreateDeliveryTaskFromRecord(taskDate, req.DriverID, req.DeliveryRecordID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success":    false,
+				"error_code": "CREATE_TASK_ERROR",
+				"message":    err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"success":       true,
+			"message":       "Tugas pengiriman berhasil dibuat",
+			"delivery_task": task,
+		})
+		return
+	}
+
+	// Legacy format: using school_id, portions, menu_items
 	task := &models.DeliveryTask{
 		TaskDate:   taskDate,
 		DriverID:   req.DriverID,
@@ -470,7 +530,7 @@ func (h *LogisticsHandler) GetDriverTasksToday(c *gin.Context) {
 
 // UpdateDeliveryTaskStatusRequest represents update status request
 type UpdateDeliveryTaskStatusRequest struct {
-	Status string `json:"status" binding:"required,oneof=pending in_progress completed cancelled"`
+	Status string `json:"status" binding:"required,oneof=pending in_progress arrived received cancelled"`
 }
 
 // UpdateDeliveryTaskStatus updates the status of a delivery task
@@ -639,6 +699,82 @@ func (h *LogisticsHandler) DeleteDeliveryTask(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Tugas pengiriman berhasil dihapus",
+	})
+}
+
+// GetReadyOrders retrieves delivery records that are ready for delivery (status = siap_dikirim)
+func (h *LogisticsHandler) GetReadyOrders(c *gin.Context) {
+	dateStr := c.Query("date")
+	if dateStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "MISSING_DATE",
+			"message":    "Parameter tanggal wajib diisi",
+		})
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_DATE",
+			"message":    "Format tanggal tidak valid (gunakan YYYY-MM-DD)",
+		})
+		return
+	}
+
+	orders, err := h.deliveryTaskService.GetReadyOrders(date)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan pada server",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"orders":  orders,
+	})
+}
+
+// GetAvailableDrivers retrieves drivers that are not assigned on the given date
+func (h *LogisticsHandler) GetAvailableDrivers(c *gin.Context) {
+	dateStr := c.Query("date")
+	if dateStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "MISSING_DATE",
+			"message":    "Parameter tanggal wajib diisi",
+		})
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"error_code": "INVALID_DATE",
+			"message":    "Format tanggal tidak valid (gunakan YYYY-MM-DD)",
+		})
+		return
+	}
+
+	drivers, err := h.deliveryTaskService.GetAvailableDrivers(date)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan pada server",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"drivers": drivers,
 	})
 }
 

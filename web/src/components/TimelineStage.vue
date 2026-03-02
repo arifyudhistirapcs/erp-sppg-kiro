@@ -62,6 +62,7 @@
 <script setup>
 import { ref, defineProps } from 'vue';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import 'dayjs/locale/id';
 import {
   CheckCircleFilled,
@@ -70,6 +71,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue';
 
+dayjs.extend(utc);
 dayjs.locale('id');
 
 defineProps({
@@ -109,19 +111,61 @@ const getIndicatorClass = () => {
 const formatTimeRange = (startTime, endTime) => {
   if (!startTime || !endTime) return '';
   
-  const start = dayjs(startTime);
-  const end = dayjs(endTime);
+  // Debug: log raw values
+  console.log('=== formatTimeRange Debug ===');
+  console.log('startTime:', startTime);
+  console.log('endTime:', endTime);
+  console.log('typeof startTime:', typeof startTime);
   
-  const startDay = start.format('dddd');
+  // Extract date and time directly from ISO string
+  // Format: "2026-03-02T21:26:04.483536+07:00"
+  // We want: "Minggu, 02 Mar 2026, 21:26 - 21:32 WIB"
+  
+  // Extract date parts using regex
+  const startMatch = startTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  const endMatch = endTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  
+  console.log('startMatch:', startMatch);
+  console.log('endMatch:', endMatch);
+  
+  if (!startMatch || !endMatch) return '';
+  
+  const [, startYear, startMonth, startDay, startHour, startMin] = startMatch;
+  const [, endYear, endMonth, endDay, endHour, endMin] = endMatch;
+  
+  console.log('Extracted:', { startYear, startMonth, startDay, startHour, startMin });
+  
+  // Create date string for dayjs (without timezone)
+  const startDateStr = `${startYear}-${startMonth}-${startDay} ${startHour}:${startMin}`;
+  const endDateStr = `${endYear}-${endMonth}-${endDay} ${endHour}:${endMin}`;
+  
+  console.log('startDateStr:', startDateStr);
+  console.log('endDateStr:', endDateStr);
+  
+  // Parse with dayjs
+  const start = dayjs(startDateStr, 'YYYY-MM-DD HH:mm');
+  const end = dayjs(endDateStr, 'YYYY-MM-DD HH:mm');
+  
+  console.log('Parsed start:', start.format('YYYY-MM-DD HH:mm'));
+  console.log('Parsed end:', end.format('YYYY-MM-DD HH:mm'));
+  
+  // Format the values
+  const startDayName = start.format('dddd');
+  const startDate24 = start.format('DD MMM YYYY');
   const startTime24 = start.format('HH:mm');
-  const endDay = end.format('dddd');
+  const endDayName = end.format('dddd');
+  const endDate24 = end.format('DD MMM YYYY');
   const endTime24 = end.format('HH:mm');
   
-  if (start.isSame(end, 'day')) {
-    return `${startDay}, ${startTime24} - ${endDay}, ${endTime24}`;
+  console.log('Final formatted:', startDate24);
+  console.log('===========================');
+  
+  // Check if same day
+  if (startDate24 === endDate24) {
+    return `${startDayName}, ${startDate24}, ${startTime24} - ${endTime24} WIB`;
   }
   
-  return `${startDay}, ${startTime24} - ${endDay}, ${endTime24}`;
+  return `${startDayName}, ${startDate24}, ${startTime24} - ${endDayName}, ${endDate24}, ${endTime24} WIB`;
 };
 
 const openMedia = () => {

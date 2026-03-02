@@ -1,0 +1,81 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Display All Packed Orders
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: Scope the property to concrete failing cases - delivery records with status "selesai_dipacking" and non-NULL driver_id
+  - Test that GetReadyOrders returns all delivery records with status "selesai_dipacking" regardless of driver_id value
+  - Create test scenarios:
+    - Delivery record with status "selesai_dipacking" and driver_id = 1 (should be returned but won't be on unfixed code)
+    - Delivery record with status "selesai_dipacking" and driver_id = NULL (should be returned and will be on unfixed code)
+    - Multiple delivery records with mixed driver_id values (only NULL ones will be returned on unfixed code)
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found: GetReadyOrders returns empty array or incomplete results when delivery records have non-NULL driver_id
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 2.1, 2.3, 2.5_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Empty Data Handling
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs:
+    - Dates with no delivery records at all (should return empty array)
+    - Delivery records with status other than "selesai_dipacking" (should not be returned)
+    - Inactive drivers with is_active = false (should not be returned)
+  - Write property-based tests capturing observed behavior patterns:
+    - For any date with NO delivery records with status "selesai_dipacking", GetReadyOrders returns empty array
+    - For any delivery records with status != "selesai_dipacking", those records are NOT included in results
+    - For any drivers with is_active = false, those drivers are NOT included in GetAvailableDrivers results
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3_
+
+- [x] 3. Fix for delivery task form empty data bug
+
+  - [x] 3.1 Implement the fix in GetReadyOrders
+    - Open file: `backend/internal/services/delivery_task_service.go`
+    - Locate the GetReadyOrders function (around line 348)
+    - Remove the line: `Where("delivery_records.driver_id IS NULL")`
+    - Keep the existing conditions:
+      - `Where("DATE(delivery_records.delivery_date) = DATE(?)", date)`
+      - `Where("delivery_records.current_status = ?", "selesai_dipacking")`
+    - This allows all delivery records with status "selesai_dipacking" to be returned regardless of driver_id value
+    - _Bug_Condition: isBugCondition(input) where input.date is valid AND delivery records exist with status "selesai_dipacking" AND active drivers exist BUT GetReadyOrders returns empty array_
+    - _Expected_Behavior: For any date where delivery records exist with status "selesai_dipacking", GetReadyOrders SHALL return all such records regardless of whether driver_id is NULL or populated_
+    - _Preservation: For any date with NO delivery records with status "selesai_dipacking" OR NO active drivers, the fixed code SHALL produce exactly the same behavior as the original code_
+    - _Requirements: 2.1, 2.3, 2.5, 3.1, 3.2, 3.3_
+
+  - [x] 3.2 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Display All Packed Orders
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify that GetReadyOrders now returns all delivery records with status "selesai_dipacking" regardless of driver_id value
+    - _Requirements: 2.1, 2.3, 2.5_
+
+  - [x] 3.3 Verify preservation tests still pass
+    - **Property 2: Preservation** - Empty Data Handling
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix:
+      - Empty date scenarios still return empty arrays
+      - Non-"selesai_dipacking" records still excluded
+      - Inactive drivers still excluded
+    - Verify that warning messages "Tidak ada order yang siap kirim" and "Tidak ada driver yang tersedia" still display correctly when data is truly empty
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all tests (exploration + preservation) to verify complete fix
+  - Verify form behavior manually with test data:
+    - Create delivery records with status "selesai_dipacking" and various driver_id values
+    - Select date in form and verify all packed orders appear in dropdown
+    - Verify drivers appear in driver dropdown
+    - Verify task creation still works correctly
+  - Ensure all tests pass, ask the user if questions arise

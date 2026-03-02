@@ -227,7 +227,9 @@ func (s *SemiFinishedService) ProduceSemiFinishedGoods(goodsID uint, quantity fl
 		}
 
 		// Calculate required ingredients
-		scaleFactor := quantity / goods.Recipe.YieldAmount
+		// quantity represents the number of batches to produce
+		// Each batch yields goods.Recipe.YieldAmount
+		scaleFactor := quantity
 
 		// Check and deduct raw ingredients inventory
 		for _, recipeIng := range goods.Recipe.Ingredients {
@@ -268,6 +270,9 @@ func (s *SemiFinishedService) ProduceSemiFinishedGoods(goodsID uint, quantity fl
 		}
 
 		// Add to semi-finished inventory
+		// Calculate the actual produced quantity in the goods' unit
+		producedQuantity := quantity * goods.Recipe.YieldAmount
+		
 		var sfInventory models.SemiFinishedInventory
 		err := tx.Where("semi_finished_goods_id = ?", goodsID).First(&sfInventory).Error
 		if err != nil {
@@ -275,7 +280,7 @@ func (s *SemiFinishedService) ProduceSemiFinishedGoods(goodsID uint, quantity fl
 				// Create new inventory record
 				sfInventory = models.SemiFinishedInventory{
 					SemiFinishedGoodsID: goodsID,
-					Quantity:            quantity,
+					Quantity:            producedQuantity,
 					MinThreshold:        10,
 					LastUpdated:         time.Now(),
 				}
@@ -288,7 +293,7 @@ func (s *SemiFinishedService) ProduceSemiFinishedGoods(goodsID uint, quantity fl
 		} else {
 			// Update existing inventory
 			if err := tx.Model(&models.SemiFinishedInventory{}).Where("id = ?", sfInventory.ID).Updates(map[string]interface{}{
-				"quantity":     sfInventory.Quantity + quantity,
+				"quantity":     sfInventory.Quantity + producedQuantity,
 				"last_updated": time.Now(),
 			}).Error; err != nil {
 				return err
@@ -296,14 +301,14 @@ func (s *SemiFinishedService) ProduceSemiFinishedGoods(goodsID uint, quantity fl
 		}
 
 		// Also update StockQuantity in SemiFinishedGoods for quick access
-		if err := tx.Model(&models.SemiFinishedGoods{}).Where("id = ?", goodsID).Update("stock_quantity", gorm.Expr("stock_quantity + ?", quantity)).Error; err != nil {
+		if err := tx.Model(&models.SemiFinishedGoods{}).Where("id = ?", goodsID).Update("stock_quantity", gorm.Expr("stock_quantity + ?", producedQuantity)).Error; err != nil {
 			return err
 		}
 
 		// Create production log
 		log := models.SemiFinishedProductionLog{
 			SemiFinishedGoodsID: goodsID,
-			Quantity:            quantity,
+			Quantity:            producedQuantity,
 			ProductionDate:      time.Now(),
 			CreatedBy:           userID,
 			Notes:               notes,

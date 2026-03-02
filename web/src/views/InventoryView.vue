@@ -260,6 +260,11 @@
             </a-table>
           </a-space>
         </a-tab-pane>
+
+        <!-- Stok Opname Tab -->
+        <a-tab-pane key="stok-opname" tab="Stok Opname">
+          <StokOpnameList />
+        </a-tab-pane>
       </a-tabs>
     </a-card>
 
@@ -380,6 +385,7 @@ import {
 } from '@ant-design/icons-vue'
 import inventoryService from '@/services/inventoryService'
 import recipeService from '@/services/recipeService'
+import StokOpnameList from '@/components/StokOpnameList.vue'
 
 const router = useRouter()
 const activeTab = ref('inventory')

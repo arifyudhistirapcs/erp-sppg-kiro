@@ -86,3 +86,19 @@ type SemiFinishedProductionLog struct {
 	SemiFinishedGoods   SemiFinishedGoods `gorm:"foreignKey:SemiFinishedGoodsID" json:"semi_finished_goods,omitempty"`
 	Creator             User              `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
 }
+
+// SemiFinishedMovement tracks all semi-finished goods inventory changes
+type SemiFinishedMovement struct {
+	ID                  uint              `gorm:"primaryKey" json:"id"`
+	SemiFinishedGoodsID uint              `gorm:"index;not null" json:"semi_finished_goods_id"`
+	MovementType        string            `gorm:"size:20;not null;index" json:"movement_type" validate:"required,oneof=in out adjustment"` // in, out, adjustment
+	Quantity            float64           `gorm:"not null" json:"quantity"`
+	Reference           string            `gorm:"size:100;index" json:"reference"` // recipe ID, production log ID, etc.
+	MovementDate        time.Time         `gorm:"index;not null" json:"movement_date"`
+	CreatedBy           uint              `gorm:"not null;index" json:"created_by"`
+	Notes               string            `gorm:"type:text" json:"notes"`
+	
+	// Relationships
+	SemiFinishedGoods   SemiFinishedGoods `gorm:"foreignKey:SemiFinishedGoodsID" json:"semi_finished_goods,omitempty"`
+	Creator             User              `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+}

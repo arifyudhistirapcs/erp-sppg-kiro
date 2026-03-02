@@ -293,3 +293,40 @@ func (h *ActivityTrackerHandler) AttachStageMedia(c *gin.Context) {
 		},
 	})
 }
+
+// GetActivityLog retrieves the activity log (status transition history) for an order
+// GET /api/activity-tracker/orders/:id/activity
+func (h *ActivityTrackerHandler) GetActivityLog(c *gin.Context) {
+	// Parse order ID
+	orderIDStr := c.Param("id")
+	orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "invalid order ID",
+		})
+		return
+	}
+	
+	// Call service to get activity log
+	activityLog, err := h.service.GetActivityLog(c.Request.Context(), uint(orderID))
+	if err != nil {
+		if err.Error() == "order not found" {
+			c.JSON(http.StatusNotFound, gin.H{
+				"success": false,
+				"error":   "order not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "failed to fetch activity log",
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    activityLog,
+	})
+}

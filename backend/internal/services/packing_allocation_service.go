@@ -51,11 +51,13 @@ type SchoolAllocation struct {
 
 // MenuItemSummary represents a menu item summary for packing
 type MenuItemSummary struct {
-	RecipeID      uint   `json:"recipe_id"`
-	RecipeName    string `json:"recipe_name"`
-	PortionsSmall int    `json:"portions_small"`
-	PortionsLarge int    `json:"portions_large"`
-	TotalPortions int    `json:"total_portions"`
+	RecipeID      uint                     `json:"recipe_id"`
+	RecipeName    string                   `json:"recipe_name"`
+	PhotoURL      string                   `json:"photo_url"`
+	PortionsSmall int                      `json:"portions_small"`
+	PortionsLarge int                      `json:"portions_large"`
+	TotalPortions int                      `json:"total_portions"`
+	Items         []SemiFinishedQuantity   `json:"items"` // Semi-finished goods components
 }
 
 // CalculatePackingAllocations calculates portion distribution per school for the specified date
@@ -205,6 +207,8 @@ func (s *PackingAllocationService) GetPackingAllocations(ctx context.Context, da
 		Preload("School").
 		Preload("MenuItem").
 		Preload("MenuItem.Recipe").
+		Preload("MenuItem.Recipe.RecipeItems").
+		Preload("MenuItem.Recipe.RecipeItems.SemiFinishedGoods").
 		Joins("JOIN menu_items ON menu_item_school_allocations.menu_item_id = menu_items.id").
 		Where("DATE(menu_items.date) = DATE(?)", startOfDay).
 		Find(&menuAllocations).Error
@@ -230,8 +234,12 @@ func (s *PackingAllocationService) GetPackingAllocations(ctx context.Context, da
 	// Group by school
 	schoolMap := make(map[uint]*SchoolAllocation)
 	menuItemMap := make(map[uint]map[uint]*MenuItemSummary) // schoolID -> recipeID -> MenuItemSummary
+	recipeMap := make(map[uint]*models.Recipe) // recipeID -> Recipe (for calculating components)
 	
 	for _, alloc := range filteredAllocations {
+		// Store recipe for later component calculation
+		recipeMap[alloc.MenuItem.Recipe.ID] = &alloc.MenuItem.Recipe
+		
 		// Initialize school entry if not exists
 		if _, exists := schoolMap[alloc.SchoolID]; !exists {
 			// Determine portion size type based on school category
@@ -265,12 +273,17 @@ func (s *PackingAllocationService) GetPackingAllocations(ctx context.Context, da
 		// Group menu items by recipe and accumulate portions by size
 		recipeID := alloc.MenuItem.Recipe.ID
 		if _, exists := menuItemMap[alloc.SchoolID][recipeID]; !exists {
+			// Get photo URL from recipe
+			photoURL := alloc.MenuItem.Recipe.PhotoURL
+			
 			menuItemMap[alloc.SchoolID][recipeID] = &MenuItemSummary{
 				RecipeID:      recipeID,
 				RecipeName:    alloc.MenuItem.Recipe.Name,
+				PhotoURL:      photoURL,
 				PortionsSmall: 0,
 				PortionsLarge: 0,
 				TotalPortions: 0,
+				Items:         []SemiFinishedQuantity{},
 			}
 		}
 		
@@ -280,6 +293,54 @@ func (s *PackingAllocationService) GetPackingAllocations(ctx context.Context, da
 			menuItemMap[alloc.SchoolID][recipeID].PortionsLarge += alloc.Portions
 		}
 		menuItemMap[alloc.SchoolID][recipeID].TotalPortions += alloc.Portions
+	}
+	
+	// Calculate semi-finished goods components for each menu item per school
+	for _, menuItems := range menuItemMap {
+		for recipeID, menuItem := range menuItems {
+			recipe := recipeMap[recipeID]
+			if recipe == nil {
+				continue
+			}
+			
+			// Calculate semi-finished goods quantities based on portions
+			items := make([]SemiFinishedQuantity, 0, len(recipe.RecipeItems))
+			for _, ri := range recipe.RecipeItems {
+				// Calculate total quantity needed based on portion sizes
+				totalQuantity := 0.0
+				
+				// Get quantities per portion from SemiFinishedGoods
+				quantitySmall := ri.SemiFinishedGoods.QuantityPerPortionSmall
+				quantityLarge := ri.SemiFinishedGoods.QuantityPerPortionLarge
+				
+				// Fallback to RecipeItem if SemiFinishedGoods doesn't have portion quantities
+				if quantitySmall == 0 && quantityLarge == 0 {
+					quantitySmall = ri.QuantityPerPortionSmall
+					quantityLarge = ri.QuantityPerPortionLarge
+				}
+				
+				// Calculate based on this school's portion allocation
+				if menuItem.PortionsSmall > 0 && quantitySmall > 0 {
+					totalQuantity += float64(menuItem.PortionsSmall) * quantitySmall
+				}
+				if menuItem.PortionsLarge > 0 && quantityLarge > 0 {
+					totalQuantity += float64(menuItem.PortionsLarge) * quantityLarge
+				}
+				
+				// Fallback to old quantity field if portion-specific quantities not set
+				if totalQuantity == 0 && ri.Quantity > 0 {
+					totalQuantity = ri.Quantity * float64(menuItem.TotalPortions)
+				}
+				
+				items = append(items, SemiFinishedQuantity{
+					Name:     ri.SemiFinishedGoods.Name,
+					Quantity: totalQuantity,
+					Unit:     ri.SemiFinishedGoods.Unit,
+				})
+			}
+			
+			menuItem.Items = items
+		}
 	}
 	
 	// Convert menu item map to slices
@@ -385,12 +446,12 @@ func (s *PackingAllocationService) UpdatePackingStatus(ctx context.Context, scho
 			var notes string
 			
 			if status == "packing" {
-				// Stage 3: order_dikemas (packing in progress)
-				monitoringStatus = "order_dikemas"
+				// Stage 3: siap_dipacking (ready for packing)
+				monitoringStatus = "siap_dipacking"
 				notes = "Packing started for school"
 			} else if status == "ready" {
-				// Stage 4: order_siap_diambil (packing completed, ready for pickup)
-				monitoringStatus = "order_siap_diambil"
+				// Stage 4: selesai_dipacking (packing completed)
+				monitoringStatus = "selesai_dipacking"
 				notes = "Packing completed, ready for driver pickup"
 			}
 			

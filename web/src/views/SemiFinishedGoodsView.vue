@@ -134,6 +134,7 @@
       title="Produksi Komponen"
       @ok="handleProduce"
       :confirm-loading="produceLoading"
+      width="700px"
     >
       <template v-if="producingRecord">
         <a-descriptions :column="1" bordered size="small" class="mb-4">
@@ -144,15 +145,50 @@
 
         <a-alert
           message="Bahan Baku yang Diperlukan"
-          type="info"
+          :type="hasInsufficientStock ? 'error' : 'info'"
           class="mb-4"
         >
           <template #description>
-            <ul class="ingredient-list">
-              <li v-for="ing in producingRecord.recipe?.ingredients" :key="ing.id">
-                {{ ing.ingredient?.name }}: {{ (ing.quantity * produceQuantity / producingRecord.recipe?.yield_amount).toFixed(2) }} {{ ing.ingredient?.unit }}
-              </li>
-            </ul>
+            <div class="ingredient-list-container">
+              <div 
+                v-for="ing in producingRecord.recipe?.ingredients" 
+                :key="ing.id"
+                class="ingredient-item"
+                :class="{ 'insufficient-stock': isInsufficientStock(ing) }"
+              >
+                <div class="ingredient-info">
+                  <span class="ingredient-name">{{ ing.ingredient?.name }}</span>
+                  <div class="ingredient-quantities">
+                    <span class="required-quantity">
+                      Butuh: {{ (ing.quantity * produceForm.quantity).toFixed(2) }} {{ ing.ingredient?.unit }}
+                    </span>
+                    <span 
+                      class="current-stock"
+                      :class="{ 
+                        'stock-sufficient': ing.current_stock >= (ing.quantity * produceForm.quantity),
+                        'stock-insufficient': ing.current_stock < (ing.quantity * produceForm.quantity)
+                      }"
+                    >
+                      Stok: {{ ing.current_stock?.toFixed(2) || '0.00' }} {{ ing.ingredient?.unit }}
+                    </span>
+                  </div>
+                </div>
+                <a-tag 
+                  v-if="isInsufficientStock(ing)" 
+                  color="red"
+                  style="margin-left: auto;"
+                >
+                  Tidak Cukup
+                </a-tag>
+              </div>
+            </div>
+            <a-alert
+              v-if="hasInsufficientStock"
+              message="Stok bahan baku tidak mencukupi untuk produksi!"
+              type="error"
+              show-icon
+              style="margin-top: 12px;"
+            />
           </template>
         </a-alert>
 
@@ -164,6 +200,7 @@
               :step="0.1"
               style="width: 100%"
               addon-after="batch"
+              @change="updateIngredientRequirements"
             />
             <div class="help-text">
               Hasil: {{ (produceForm.quantity * producingRecord.recipe?.yield_amount).toFixed(2) }} {{ producingRecord.unit }}
@@ -177,6 +214,17 @@
             />
           </a-form-item>
         </a-form>
+      </template>
+      <template #footer>
+        <a-button @click="produceModalVisible = false">Batal</a-button>
+        <a-button 
+          type="primary" 
+          @click="handleProduce"
+          :loading="produceLoading"
+          :disabled="hasInsufficientStock"
+        >
+          Produksi
+        </a-button>
       </template>
     </a-modal>
 
@@ -326,12 +374,41 @@ const showProduceModal = async (record) => {
     // Get full details including recipe
     const response = await semiFinishedService.getSemiFinishedGoods(record.id)
     producingRecord.value = response.data.data
+    
+    // Fetch current stock for each ingredient
+    if (producingRecord.value.recipe?.ingredients) {
+      for (const ing of producingRecord.value.recipe.ingredients) {
+        try {
+          const stockResponse = await semiFinishedService.getIngredientStock(ing.ingredient_id)
+          ing.current_stock = stockResponse.data.data?.quantity || 0
+        } catch (error) {
+          console.error(`Error fetching stock for ingredient ${ing.ingredient_id}:`, error)
+          ing.current_stock = 0
+        }
+      }
+    }
+    
     produceForm.value = { quantity: 1, notes: '' }
     produceModalVisible.value = true
   } catch (error) {
     message.error('Gagal memuat detail barang')
   }
 }
+
+const updateIngredientRequirements = () => {
+  // This will trigger reactivity to update the displayed requirements
+}
+
+const isInsufficientStock = (ingredient) => {
+  if (!producingRecord.value?.recipe?.yield_amount) return false
+  const required = ingredient.quantity * produceForm.value.quantity
+  return (ingredient.current_stock || 0) < required
+}
+
+const hasInsufficientStock = computed(() => {
+  if (!producingRecord.value?.recipe?.ingredients) return false
+  return producingRecord.value.recipe.ingredients.some(ing => isInsufficientStock(ing))
+})
 
 const showInventoryModal = () => {
   inventoryModalVisible.value = true
@@ -350,6 +427,7 @@ const handleProduce = async () => {
     )
     message.success('Produksi berhasil! Stok telah diperbarui.')
     produceModalVisible.value = false
+    producingRecord.value = null // Clear the cached data so stock is refreshed next time
     fetchGoods()
   } catch (error) {
     if (error.response?.data?.error_code === 'INSUFFICIENT_STOCK') {
@@ -473,5 +551,62 @@ onMounted(() => {
 .ingredient-list {
   margin: 0;
   padding-left: 16px;
+}
+
+.ingredient-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ingredient-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.ingredient-item.insufficient-stock {
+  background: #fff2f0;
+  border-color: #ffccc7;
+}
+
+.ingredient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.ingredient-name {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  font-size: 14px;
+}
+
+.ingredient-quantities {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.required-quantity {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.current-stock {
+  font-weight: 600;
+}
+
+.current-stock.stock-sufficient {
+  color: #52c41a;
+}
+
+.current-stock.stock-insufficient {
+  color: #ff4d4f;
 }
 </style>

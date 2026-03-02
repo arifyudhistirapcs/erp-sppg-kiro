@@ -16,6 +16,16 @@ import (
 )
 
 func main() {
+	// Set default timezone to Asia/Jakarta (WIB)
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		log.Printf("Warning: Failed to load Asia/Jakarta timezone: %v", err)
+		// Fallback to UTC+7
+		loc = time.FixedZone("WIB", 7*60*60)
+	}
+	time.Local = loc
+	log.Printf("Timezone set to: %s", loc.String())
+
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")

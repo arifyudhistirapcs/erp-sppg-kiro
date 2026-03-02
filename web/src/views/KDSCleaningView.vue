@@ -46,45 +46,73 @@
         </template>
       </a-alert>
 
+      <a-alert
+        v-if="!loading && allOmprengCompleted"
+        type="success"
+        message="Semua Ompreng Selesai Dicuci!"
+        description="Semua ompreng telah selesai dicuci dan siap untuk digunakan kembali."
+        show-icon
+        closable
+        style="margin-bottom: 16px"
+      />
+
       <a-spin :spinning="loading" tip="Memuat data...">
         <a-empty 
           v-if="!loading && pendingOmpreng.length === 0" 
           description="Tidak ada ompreng yang perlu dicuci"
         />
         
-        <a-table
-          v-else
-          :columns="columns"
-          :data-source="pendingOmpreng"
-          :pagination="false"
-          :row-key="record => record.id"
-          :loading="loading"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'school_name'">
-              <strong>{{ record.school_name }}</strong>
-            </template>
-            
-            <template v-else-if="column.key === 'delivery_date'">
-              {{ formatDate(record.delivery_date) }}
-            </template>
-            
-            <template v-else-if="column.key === 'ompreng_count'">
-              <a-tag color="blue">{{ record.ompreng_count }} unit</a-tag>
-            </template>
-            
-            <template v-else-if="column.key === 'status'">
-              <a-tag :color="getStatusColor(record.cleaning_status)">
-                {{ getStatusText(record.cleaning_status) }}
-              </a-tag>
-            </template>
-            
-            <template v-else-if="column.key === 'actions'">
-              <a-space>
+        <a-row :gutter="[16, 16]" v-else>
+          <a-col
+            v-for="record in pendingOmpreng"
+            :key="record.id"
+            :xs="24"
+            :sm="24"
+            :md="12"
+            :lg="8"
+            :xl="6"
+          >
+            <a-card
+              :class="['cleaning-card', `status-${record.cleaning_status}`]"
+            >
+              <div class="card-header">
+                <div class="school-name">{{ record.school_name || record.delivery_record?.school?.name || '-' }}</div>
+                <a-tag :color="getStatusColor(record.cleaning_status)" class="status-tag">
+                  {{ getStatusText(record.cleaning_status) }}
+                </a-tag>
+              </div>
+
+              <div class="cleaning-info">
+                <a-statistic
+                  title="Jumlah Ompreng"
+                  :value="record.ompreng_count"
+                  suffix="unit"
+                  :value-style="{ color: '#1890ff', fontSize: '28px', fontWeight: 'bold' }"
+                />
+
+                <a-divider>Informasi Pengiriman</a-divider>
+                
+                <div class="info-item">
+                  <span class="info-label">Tanggal Pengiriman:</span>
+                  <span class="info-value">{{ formatDate(record.delivery_date || record.delivery_record?.delivery_date) }}</span>
+                </div>
+
+                <div v-if="record.started_at" class="info-item">
+                  <span class="info-label">Mulai Cuci:</span>
+                  <span class="info-value">{{ formatDateTime(record.started_at) }}</span>
+                </div>
+
+                <div v-if="record.completed_at" class="info-item">
+                  <span class="info-label">Selesai:</span>
+                  <span class="info-value">{{ formatDateTime(record.completed_at) }}</span>
+                </div>
+              </div>
+
+              <template #actions>
                 <a-button
                   v-if="record.cleaning_status === 'pending'"
                   type="primary"
-                  size="small"
+                  block
                   @click="handleStartCleaning(record)"
                   :loading="updatingId === record.id"
                 >
@@ -95,7 +123,7 @@
                 <a-button
                   v-else-if="record.cleaning_status === 'in_progress'"
                   type="primary"
-                  size="small"
+                  block
                   @click="handleCompleteCleaning(record)"
                   :loading="updatingId === record.id"
                   style="background-color: #52c41a; border-color: #52c41a"
@@ -104,21 +132,21 @@
                   Selesai
                 </a-button>
                 
-                <a-tag v-else color="success">
+                <a-tag v-else color="success" style="width: 100%; text-align: center; padding: 8px 0;">
                   <template #icon><check-outlined /></template>
                   Sudah Selesai
                 </a-tag>
-              </a-space>
-            </template>
-          </template>
-        </a-table>
+              </template>
+            </a-card>
+          </a-col>
+        </a-row>
       </a-spin>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import {
   WifiOutlined,
@@ -163,40 +191,11 @@ const error = ref(null)
 const selectedDate = ref(new Date().toISOString().split('T')[0]) // Format: YYYY-MM-DD
 let firebaseListener = null
 
-// Table columns
-const columns = [
-  {
-    title: 'Sekolah',
-    dataIndex: 'school_name',
-    key: 'school_name',
-    width: '25%'
-  },
-  {
-    title: 'Tanggal Pengiriman',
-    dataIndex: 'delivery_date',
-    key: 'delivery_date',
-    width: '20%'
-  },
-  {
-    title: 'Jumlah Ompreng',
-    dataIndex: 'ompreng_count',
-    key: 'ompreng_count',
-    width: '15%',
-    align: 'center'
-  },
-  {
-    title: 'Status',
-    key: 'status',
-    width: '20%',
-    align: 'center'
-  },
-  {
-    title: 'Aksi',
-    key: 'actions',
-    width: '20%',
-    align: 'center'
-  }
-]
+// Check if all ompreng are completed
+const allOmprengCompleted = computed(() => {
+  if (pendingOmpreng.value.length === 0) return false
+  return pendingOmpreng.value.every(ompreng => ompreng.cleaning_status === 'completed')
+})
 
 // Get status color
 const getStatusColor = (status) => {
@@ -221,13 +220,55 @@ const getStatusText = (status) => {
 // Format date to readable format
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('id-ID', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
+  
+  // Parse the date string directly without timezone conversion
+  let date
+  if (typeof dateStr === 'number') {
+    date = new Date(dateStr < 10000000000 ? dateStr * 1000 : dateStr)
+  } else {
+    // Parse as UTC and display as-is (no timezone conversion)
+    date = new Date(dateStr)
+  }
+  
+  if (isNaN(date.getTime())) return '-'
+  
+  // Format using UTC to avoid timezone conversion
+  const year = date.getUTCFullYear()
+  const month = date.getUTCMonth()
+  const day = date.getUTCDate()
+  const dayOfWeek = date.getUTCDay()
+  
+  const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+  const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+  
+  return `${dayNames[dayOfWeek]}, ${day} ${monthNames[month]} ${year}`
+}
+
+// Format date time to readable format
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return '-'
+  
+  // Parse the date string directly without timezone conversion
+  let date
+  if (typeof dateStr === 'number') {
+    date = new Date(dateStr < 10000000000 ? dateStr * 1000 : dateStr)
+  } else {
+    // Parse as UTC and display as-is (no timezone conversion)
+    date = new Date(dateStr)
+  }
+  
+  if (isNaN(date.getTime())) return '-'
+  
+  // Format using UTC to avoid timezone conversion
+  const year = date.getUTCFullYear()
+  const month = date.getUTCMonth()
+  const day = date.getUTCDate()
+  const hours = date.getUTCHours()
+  const minutes = date.getUTCMinutes()
+  
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+  
+  return `${day} ${monthNames[month]} ${year}, ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
 }
 
 // Load data from API
@@ -451,21 +492,113 @@ onUnmounted(() => {
   max-width: 1600px;
   margin: 24px auto;
   padding: 0 24px;
-  background-color: white;
-  padding: 24px;
+}
+
+/* Card Styles */
+.cleaning-card {
+  height: 100%;
   border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  overflow: hidden;
 }
 
-:deep(.ant-table) {
-  background-color: white;
+.cleaning-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
 }
 
-:deep(.ant-table-thead > tr > th) {
-  background-color: #fafafa;
+.cleaning-card.status-pending {
+  border-left: 4px solid #d9d9d9;
+}
+
+.cleaning-card.status-in_progress {
+  border-left: 4px solid #1890ff;
+}
+
+.cleaning-card.status-completed {
+  border-left: 4px solid #52c41a;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.school-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+  flex: 1;
+  margin-right: 12px;
+  line-height: 1.4;
+}
+
+.status-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cleaning-info {
+  margin-top: 16px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 13px;
+  color: #8c8c8c;
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 13px;
+  color: #262626;
   font-weight: 600;
 }
 
-:deep(.ant-table-tbody > tr:hover > td) {
-  background-color: #f5f5f5;
+:deep(.ant-statistic-title) {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin-bottom: 4px;
+}
+
+:deep(.ant-statistic-content) {
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+:deep(.ant-divider) {
+  margin: 16px 0;
+  font-size: 13px;
+  color: #8c8c8c;
+}
+
+:deep(.ant-card-actions) {
+  background-color: #fafafa;
+  border-top: 1px solid #f0f0f0;
+}
+
+:deep(.ant-card-actions > li) {
+  margin: 8px 0;
+}
+
+:deep(.ant-card-actions > li > span) {
+  display: block;
+  padding: 0 12px;
 }
 </style>

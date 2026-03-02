@@ -884,3 +884,23 @@ func (s *DashboardService) ExportDashboardData(ctx context.Context, dashboardTyp
 
 	return data, nil
 }
+
+// ClearFirebaseKDSData clears all KDS-related data from Firebase
+func (s *DashboardService) ClearFirebaseKDSData(ctx context.Context) error {
+	if s.firebaseApp == nil {
+		return fmt.Errorf("Firebase app tidak tersedia")
+	}
+
+	// Create Firebase sync service
+	firebaseSync, err := NewFirebaseSyncService(s.firebaseApp)
+	if err != nil {
+		return fmt.Errorf("gagal membuat Firebase sync service: %w", err)
+	}
+
+	// Clear KDS data
+	if err := firebaseSync.ClearKDSData(ctx); err != nil {
+		return fmt.Errorf("gagal menghapus data KDS dari Firebase: %w", err)
+	}
+
+	return nil
+}

@@ -113,7 +113,7 @@ func TestMonitoringService_GetDeliveryRecordDetail(t *testing.T) {
 	deliveryRecord := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -235,7 +235,7 @@ func TestMonitoringService_GetDeliveryRecordDetail_MultipleRecords(t *testing.T)
 	record1 := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      100,
 		CurrentStatus: "sedang_dimasak",
@@ -246,7 +246,7 @@ func TestMonitoringService_GetDeliveryRecordDetail_MultipleRecords(t *testing.T)
 	record2 := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      200,
 		CurrentStatus: "diperjalanan",
@@ -347,7 +347,7 @@ func TestMonitoringService_UpdateDeliveryStatus_Success(t *testing.T) {
 	deliveryRecord := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -458,7 +458,7 @@ func TestMonitoringService_UpdateDeliveryStatus_InvalidTransition(t *testing.T) 
 	deliveryRecord := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -576,7 +576,7 @@ func TestMonitoringService_UpdateDeliveryStatus_MultipleTransitions(t *testing.T
 	deliveryRecord := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -695,7 +695,7 @@ func TestMonitoringService_GetActivityLog_Success(t *testing.T) {
 	deliveryRecord := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -846,7 +846,7 @@ func TestMonitoringService_GetActivityLog_EmptyLog(t *testing.T) {
 	deliveryRecord := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -952,7 +952,7 @@ func TestMonitoringService_GetActivityLog_MultipleUsers(t *testing.T) {
 	deliveryRecord := &models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -1119,7 +1119,7 @@ func TestMonitoringService_GetDailySummary_Success(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school1.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -1128,7 +1128,7 @@ func TestMonitoringService_GetDailySummary_Success(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school2.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      200,
 		CurrentStatus: "selesai_dimasak",
@@ -1139,7 +1139,7 @@ func TestMonitoringService_GetDailySummary_Success(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school1.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      100,
 		CurrentStatus: "sudah_diterima_pihak_sekolah",
@@ -1148,7 +1148,7 @@ func TestMonitoringService_GetDailySummary_Success(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school2.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      120,
 		CurrentStatus: "sudah_diterima_pihak_sekolah",
@@ -1157,7 +1157,7 @@ func TestMonitoringService_GetDailySummary_Success(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school1.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      80,
 		CurrentStatus: "sudah_diterima_pihak_sekolah",
@@ -1168,7 +1168,7 @@ func TestMonitoringService_GetDailySummary_Success(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school2.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      90,
 		CurrentStatus: "ompreng_proses_pencucian",
@@ -1177,7 +1177,7 @@ func TestMonitoringService_GetDailySummary_Success(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school1.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      110,
 		CurrentStatus: "ompreng_proses_pencucian",
@@ -1188,7 +1188,7 @@ func TestMonitoringService_GetDailySummary_Success(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  deliveryDate,
 		SchoolID:      school2.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      130,
 		CurrentStatus: "ompreng_selesai_dicuci",
@@ -1312,7 +1312,7 @@ func TestMonitoringService_GetDailySummary_DifferentDates(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  date1,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      150,
 		CurrentStatus: "sedang_dimasak",
@@ -1321,7 +1321,7 @@ func TestMonitoringService_GetDailySummary_DifferentDates(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  date1,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      100,
 		CurrentStatus: "sudah_diterima_pihak_sekolah",
@@ -1330,7 +1330,7 @@ func TestMonitoringService_GetDailySummary_DifferentDates(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  date1,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      120,
 		CurrentStatus: "ompreng_proses_pencucian",
@@ -1341,7 +1341,7 @@ func TestMonitoringService_GetDailySummary_DifferentDates(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  date2,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      200,
 		CurrentStatus: "selesai_dimasak",
@@ -1350,7 +1350,7 @@ func TestMonitoringService_GetDailySummary_DifferentDates(t *testing.T) {
 	db.Create(&models.DeliveryRecord{
 		DeliveryDate:  date2,
 		SchoolID:      school.ID,
-		DriverID:      driver.ID,
+		DriverID:      &driver.ID,
 		MenuItemID:    menuItem.ID,
 		Portions:      180,
 		CurrentStatus: "ompreng_selesai_dicuci",
@@ -1374,4 +1374,253 @@ func TestMonitoringService_GetDailySummary_DifferentDates(t *testing.T) {
 	assert.Equal(t, 0, summary2.CompletedDeliveries)
 	assert.Equal(t, 0, summary2.OmprengInCleaning)
 	assert.Equal(t, 1, summary2.OmprengCleaned)
+}
+
+// TestMonitoringService_AutoCompletePickupTask tests automatic pickup task completion
+// when all delivery records reach stage 13
+func TestMonitoringService_AutoCompletePickupTask(t *testing.T) {
+	db := setupMonitoringTestDB(t)
+	
+	// Migrate pickup_tasks table
+	err := db.AutoMigrate(&models.PickupTask{})
+	if err != nil {
+		t.Fatalf("Failed to migrate pickup_tasks table: %v", err)
+	}
+	
+	service := newTestMonitoringService(db)
+
+	// Create test driver
+	driver := &models.User{
+		NIK:          "1234567890",
+		Email:        "driver@example.com",
+		PasswordHash: "hashedpassword",
+		FullName:     "Driver Test",
+		Role:         "driver",
+		IsActive:     true,
+	}
+	db.Create(driver)
+
+	// Create test schools
+	school1 := &models.School{
+		Name:          "SD Negeri 1",
+		Address:       "Jl. Test No. 1",
+		Latitude:      -6.2088,
+		Longitude:     106.8456,
+		ContactPerson: "John Doe",
+		PhoneNumber:   "081234567890",
+		StudentCount:  150,
+		Category:      "SD",
+		IsActive:      true,
+	}
+	db.Create(school1)
+
+	school2 := &models.School{
+		Name:          "SD Negeri 2",
+		Address:       "Jl. Test No. 2",
+		Latitude:      -6.2100,
+		Longitude:     106.8500,
+		ContactPerson: "Jane Doe",
+		PhoneNumber:   "081234567891",
+		StudentCount:  200,
+		Category:      "SD",
+		IsActive:      true,
+	}
+	db.Create(school2)
+
+	// Create pickup task
+	pickupTask := &models.PickupTask{
+		TaskDate: time.Now(),
+		DriverID: driver.ID,
+		Status:   "active",
+	}
+	db.Create(pickupTask)
+
+	// Create delivery records at stage 12 (driver_kembali_ke_sppg)
+	deliveryRecord1 := &models.DeliveryRecord{
+		DeliveryDate:  time.Now(),
+		SchoolID:      school1.ID,
+		DriverID:      &driver.ID,
+		CurrentStatus: "driver_kembali_ke_sppg",
+		CurrentStage:  12,
+		Portions:      100,
+		OmprengCount:  10,
+		PickupTaskID:  &pickupTask.ID,
+		RouteOrder:    1,
+	}
+	db.Create(deliveryRecord1)
+
+	deliveryRecord2 := &models.DeliveryRecord{
+		DeliveryDate:  time.Now(),
+		SchoolID:      school2.ID,
+		DriverID:      &driver.ID,
+		CurrentStatus: "driver_kembali_ke_sppg",
+		CurrentStage:  12,
+		Portions:      150,
+		OmprengCount:  15,
+		PickupTaskID:  &pickupTask.ID,
+		RouteOrder:    2,
+	}
+	db.Create(deliveryRecord2)
+
+	// Test: Transition first delivery record to stage 13
+	err = service.UpdateDeliveryStatus(deliveryRecord1.ID, "driver_tiba_di_sppg", driver.ID, "Arrived at SPPG")
+	assert.NoError(t, err)
+
+	// Verify first record is at stage 13
+	var updatedRecord1 models.DeliveryRecord
+	db.First(&updatedRecord1, deliveryRecord1.ID)
+	assert.Equal(t, 13, updatedRecord1.CurrentStage)
+	assert.Equal(t, "driver_tiba_di_sppg", updatedRecord1.CurrentStatus)
+
+	// Verify pickup task is still active (not all records at stage 13)
+	var pickupTaskAfterFirst models.PickupTask
+	db.First(&pickupTaskAfterFirst, pickupTask.ID)
+	assert.Equal(t, "active", pickupTaskAfterFirst.Status)
+
+	// Test: Transition second delivery record to stage 13
+	err = service.UpdateDeliveryStatus(deliveryRecord2.ID, "driver_tiba_di_sppg", driver.ID, "Arrived at SPPG")
+	assert.NoError(t, err)
+
+	// Verify second record is at stage 13
+	var updatedRecord2 models.DeliveryRecord
+	db.First(&updatedRecord2, deliveryRecord2.ID)
+	assert.Equal(t, 13, updatedRecord2.CurrentStage)
+	assert.Equal(t, "driver_tiba_di_sppg", updatedRecord2.CurrentStatus)
+
+	// Verify pickup task is now completed (all records at stage 13)
+	var pickupTaskAfterSecond models.PickupTask
+	db.First(&pickupTaskAfterSecond, pickupTask.ID)
+	assert.Equal(t, "completed", pickupTaskAfterSecond.Status)
+}
+
+// TestMonitoringService_AutoCompletePickupTask_SingleRecord tests automatic completion
+// with a single delivery record
+func TestMonitoringService_AutoCompletePickupTask_SingleRecord(t *testing.T) {
+	db := setupMonitoringTestDB(t)
+	
+	// Migrate pickup_tasks table
+	err := db.AutoMigrate(&models.PickupTask{})
+	if err != nil {
+		t.Fatalf("Failed to migrate pickup_tasks table: %v", err)
+	}
+	
+	service := newTestMonitoringService(db)
+
+	// Create test driver
+	driver := &models.User{
+		NIK:          "1234567890",
+		Email:        "driver@example.com",
+		PasswordHash: "hashedpassword",
+		FullName:     "Driver Test",
+		Role:         "driver",
+		IsActive:     true,
+	}
+	db.Create(driver)
+
+	// Create test school
+	school := &models.School{
+		Name:          "SD Negeri 1",
+		Address:       "Jl. Test No. 1",
+		Latitude:      -6.2088,
+		Longitude:     106.8456,
+		ContactPerson: "John Doe",
+		PhoneNumber:   "081234567890",
+		StudentCount:  150,
+		Category:      "SD",
+		IsActive:      true,
+	}
+	db.Create(school)
+
+	// Create pickup task
+	pickupTask := &models.PickupTask{
+		TaskDate: time.Now(),
+		DriverID: driver.ID,
+		Status:   "active",
+	}
+	db.Create(pickupTask)
+
+	// Create single delivery record at stage 12
+	deliveryRecord := &models.DeliveryRecord{
+		DeliveryDate:  time.Now(),
+		SchoolID:      school.ID,
+		DriverID:      &driver.ID,
+		CurrentStatus: "driver_kembali_ke_sppg",
+		CurrentStage:  12,
+		Portions:      100,
+		OmprengCount:  10,
+		PickupTaskID:  &pickupTask.ID,
+		RouteOrder:    1,
+	}
+	db.Create(deliveryRecord)
+
+	// Test: Transition to stage 13
+	err = service.UpdateDeliveryStatus(deliveryRecord.ID, "driver_tiba_di_sppg", driver.ID, "Arrived at SPPG")
+	assert.NoError(t, err)
+
+	// Verify record is at stage 13
+	var updatedRecord models.DeliveryRecord
+	db.First(&updatedRecord, deliveryRecord.ID)
+	assert.Equal(t, 13, updatedRecord.CurrentStage)
+	assert.Equal(t, "driver_tiba_di_sppg", updatedRecord.CurrentStatus)
+
+	// Verify pickup task is completed
+	var updatedPickupTask models.PickupTask
+	db.First(&updatedPickupTask, pickupTask.ID)
+	assert.Equal(t, "completed", updatedPickupTask.Status)
+}
+
+// TestMonitoringService_AutoCompletePickupTask_NoPickupTask tests that
+// transitioning to stage 13 without a pickup task doesn't cause errors
+func TestMonitoringService_AutoCompletePickupTask_NoPickupTask(t *testing.T) {
+	db := setupMonitoringTestDB(t)
+	service := newTestMonitoringService(db)
+
+	// Create test driver
+	driver := &models.User{
+		NIK:          "1234567890",
+		Email:        "driver@example.com",
+		PasswordHash: "hashedpassword",
+		FullName:     "Driver Test",
+		Role:         "driver",
+		IsActive:     true,
+	}
+	db.Create(driver)
+
+	// Create test school
+	school := &models.School{
+		Name:          "SD Negeri 1",
+		Address:       "Jl. Test No. 1",
+		Latitude:      -6.2088,
+		Longitude:     106.8456,
+		ContactPerson: "John Doe",
+		PhoneNumber:   "081234567890",
+		StudentCount:  150,
+		Category:      "SD",
+		IsActive:      true,
+	}
+	db.Create(school)
+
+	// Create delivery record at stage 12 WITHOUT pickup task
+	deliveryRecord := &models.DeliveryRecord{
+		DeliveryDate:  time.Now(),
+		SchoolID:      school.ID,
+		DriverID:      &driver.ID,
+		CurrentStatus: "driver_kembali_ke_sppg",
+		CurrentStage:  12,
+		Portions:      100,
+		OmprengCount:  10,
+		PickupTaskID:  nil, // No pickup task
+		RouteOrder:    0,
+	}
+	db.Create(deliveryRecord)
+
+	// Test: Transition to stage 13 should succeed without errors
+	err := service.UpdateDeliveryStatus(deliveryRecord.ID, "driver_tiba_di_sppg", driver.ID, "Arrived at SPPG")
+	assert.NoError(t, err)
+
+	// Verify record is at stage 13
+	var updatedRecord models.DeliveryRecord
+	db.First(&updatedRecord, deliveryRecord.ID)
+	assert.Equal(t, 13, updatedRecord.CurrentStage)
+	assert.Equal(t, "driver_tiba_di_sppg", updatedRecord.CurrentStatus)
 }

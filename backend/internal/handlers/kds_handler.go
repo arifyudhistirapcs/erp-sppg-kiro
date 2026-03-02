@@ -138,6 +138,25 @@ func (h *KDSHandler) UpdateCookingStatus(c *gin.Context) {
 	if err != nil {
 		// Log the error for debugging
 		log.Printf("UpdateCookingStatus: Error updating recipe %d status to %s: %v", recipeID, req.Status, err)
+		
+		// Check if error is a KDSError with specific error code
+		if kdsErr, ok := err.(*services.KDSError); ok {
+			// Determine HTTP status code based on error code
+			statusCode := http.StatusInternalServerError
+			if kdsErr.Code == services.ErrCodeInsufficientStock || kdsErr.Code == services.ErrCodeInvalidRecipe {
+				statusCode = http.StatusBadRequest
+			}
+			
+			c.JSON(statusCode, gin.H{
+				"success":    false,
+				"error_code": kdsErr.Code,
+				"message":    kdsErr.Message,
+				"details":    kdsErr.Details,
+			})
+			return
+		}
+		
+		// Fallback for non-KDSError errors
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success":    false,
 			"error_code": "UPDATE_FAILED",

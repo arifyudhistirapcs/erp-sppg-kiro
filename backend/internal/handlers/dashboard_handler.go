@@ -353,3 +353,31 @@ func (h *DashboardHandler) ExportDashboard(c *gin.Context) {
 		})
 	}
 }
+
+// ClearFirebaseKDSData clears all KDS-related data from Firebase
+// @Summary Clear Firebase KDS Data
+// @Description Clears all KDS, delivery, and monitoring data from Firebase
+// @Tags Dashboard
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/dashboard/clear-firebase [post]
+func (h *DashboardHandler) ClearFirebaseKDSData(c *gin.Context) {
+	ctx := context.Background()
+
+	if err := h.dashboardService.ClearFirebaseKDSData(ctx); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success":    false,
+			"error_code": "INTERNAL_ERROR",
+			"message":    "Terjadi kesalahan saat menghapus data Firebase",
+			"details":    err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Data KDS di Firebase berhasil dihapus",
+	})
+}

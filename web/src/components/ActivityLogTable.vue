@@ -108,10 +108,11 @@ const sortedActivityLog = computed(() => {
   })
 })
 
-// Format timestamp to local timezone (Asia/Jakarta)
+// Format timestamp without timezone conversion (display as-is from backend)
 const formatTimestamp = (timestamp) => {
   if (!timestamp) return '-'
-  return dayjs(timestamp).tz('Asia/Jakarta').format('DD MMM YYYY, HH:mm') + ' WIB'
+  // Parse as UTC and display without timezone conversion
+  return dayjs.utc(timestamp).format('DD MMM YYYY, HH:mm') + ' WIB'
 }
 
 // Get status text in Indonesian

@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
+	"strings"
 	"time"
 
 	firebase "firebase.google.com/go/v4"
@@ -11,6 +13,37 @@ import (
 	"github.com/erp-sppg/backend/internal/models"
 	"gorm.io/gorm"
 )
+
+// Error codes for KDS operations
+const (
+	ErrCodeInsufficientStock  = "INSUFFICIENT_STOCK"
+	ErrCodeInventoryNotFound  = "INVENTORY_NOT_FOUND"
+	ErrCodeTransactionFailed  = "TRANSACTION_FAILED"
+	ErrCodeInvalidRecipe      = "INVALID_RECIPE"
+)
+
+// KDSError represents a KDS-specific error with an error code
+type KDSError struct {
+	Code    string
+	Message string
+	Details string
+}
+
+func (e *KDSError) Error() string {
+	if e.Details != "" {
+		return fmt.Sprintf("%s: %s", e.Message, e.Details)
+	}
+	return e.Message
+}
+
+// NewKDSError creates a new KDS error
+func NewKDSError(code, message, details string) *KDSError {
+	return &KDSError{
+		Code:    code,
+		Message: message,
+		Details: details,
+	}
+}
 
 // KDSService handles Kitchen Display System operations
 type KDSService struct {
@@ -35,6 +68,17 @@ func NewKDSService(database *gorm.DB, firebaseApp *firebase.App, monitoringServi
 		monitoringService: monitoringService,
 	}, nil
 }
+
+// getJakartaTime returns current time in Asia/Jakarta timezone
+func getJakartaTimeKDS() time.Time {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		// Fallback to UTC+7 if timezone data not available
+		loc = time.FixedZone("WIB", 7*60*60)
+	}
+	return time.Now().In(loc)
+}
+
 // normalizeDate normalizes a date to the start of day in Asia/Jakarta timezone
 func normalizeDate(date time.Time) time.Time {
 	loc, _ := time.LoadLocation("Asia/Jakarta")
@@ -71,6 +115,7 @@ type SemiFinishedQuantity struct {
 	Name        string               `json:"name"`
 	Quantity    float64              `json:"quantity"`
 	Unit        string               `json:"unit"`
+	CurrentStock *float64             `json:"current_stock,omitempty"`
 	RawMaterials []RawMaterialQuantity `json:"raw_materials,omitempty"`
 }
 
@@ -79,6 +124,7 @@ type RawMaterialQuantity struct {
 	Name     string  `json:"name"`
 	Quantity float64 `json:"quantity"`
 	Unit     string  `json:"unit"`
+	CurrentStock *float64 `json:"current_stock,omitempty"`
 }
 
 // PackingAllocation represents packing allocation for a school
@@ -155,6 +201,16 @@ func (s *KDSService) GetTodayMenu(ctx context.Context, date time.Time) ([]Recipe
 				}
 			}
 			
+			// Get current stock for this semi-finished good
+			var currentStock *float64
+			var sfInventory models.SemiFinishedInventory
+			err := s.db.WithContext(ctx).
+				Where("semi_finished_goods_id = ?", ri.SemiFinishedGoodsID).
+				First(&sfInventory).Error
+			if err == nil {
+				currentStock = &sfInventory.Quantity
+			}
+			
 			// Calculate raw materials needed based on semi-finished quantity
 			rawMaterials := make([]RawMaterialQuantity, 0)
 			if ri.SemiFinishedGoods.Recipe != nil && len(ri.SemiFinishedGoods.Recipe.Ingredients) > 0 {
@@ -163,10 +219,21 @@ func (s *KDSService) GetTodayMenu(ctx context.Context, date time.Time) ([]Recipe
 				multiplier := totalQuantity / ri.SemiFinishedGoods.Recipe.YieldAmount
 				
 				for _, ingredient := range ri.SemiFinishedGoods.Recipe.Ingredients {
+					// Get current stock for raw material (ingredient)
+					var rawCurrentStock *float64
+					var ingredientInventory models.InventoryItem
+					err := s.db.WithContext(ctx).
+						Where("ingredient_id = ?", ingredient.IngredientID).
+						First(&ingredientInventory).Error
+					if err == nil {
+						rawCurrentStock = &ingredientInventory.Quantity
+					}
+					
 					rawMaterials = append(rawMaterials, RawMaterialQuantity{
-						Name:     ingredient.Ingredient.Name,
-						Quantity: ingredient.Quantity * multiplier,
-						Unit:     ingredient.Ingredient.Unit,
+						Name:         ingredient.Ingredient.Name,
+						Quantity:     ingredient.Quantity * multiplier,
+						Unit:         ingredient.Ingredient.Unit,
+						CurrentStock: rawCurrentStock,
 					})
 				}
 			}
@@ -175,6 +242,7 @@ func (s *KDSService) GetTodayMenu(ctx context.Context, date time.Time) ([]Recipe
 				Name:         ri.SemiFinishedGoods.Name,
 				Quantity:     totalQuantity,
 				Unit:         ri.SemiFinishedGoods.Unit,
+				CurrentStock: currentStock,
 				RawMaterials: rawMaterials,
 			})
 		}
@@ -297,54 +365,85 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 	}
 
 	// If status is changing to "cooking", deduct inventory
-	// TEMPORARILY DISABLED - Skip inventory deduction for now
-	/*
 	if status == "cooking" {
-		err = s.deductInventory(ctx, &menuItem.Recipe, userID)
+		log.Printf("INFO: Starting stock validation for recipe_id=%d, user_id=%d, menu_item_id=%d", 
+			recipeID, userID, menuItem.ID)
+		err = s.deductInventory(ctx, &menuItem, userID)
 		if err != nil {
-			return fmt.Errorf("failed to deduct inventory: %w", err)
+			log.Printf("ERROR: Stock validation failed for recipe_id=%d, user_id=%d: %v", 
+				recipeID, userID, err)
+			// Return the error directly to preserve KDSError type for proper HTTP status code handling
+			return err
 		}
+		log.Printf("INFO: Stock validation and deduction completed successfully for recipe_id=%d", recipeID)
 	}
-	*/
 
 	// Trigger monitoring system updates for each school allocation
 	if s.monitoringService != nil {
+		fmt.Printf("DEBUG: monitoringService is available, status=%s, allocations=%d\n", status, len(menuItem.SchoolAllocations))
 		if status == "cooking" {
+			fmt.Printf("DEBUG: Creating delivery records for cooking status\n")
 			// Create delivery records and update status to "order_dimasak" (stage 2)
+			// Group allocations by school to calculate portions_small and portions_large
+			schoolPortions := make(map[uint]struct {
+				small int
+				large int
+				total int
+			})
+			
 			for _, alloc := range menuItem.SchoolAllocations {
-				// Check if delivery record already exists for this school allocation
+				portions := schoolPortions[alloc.SchoolID]
+				if alloc.PortionSize == "small" {
+					portions.small += alloc.Portions
+				} else if alloc.PortionSize == "large" {
+					portions.large += alloc.Portions
+				}
+				portions.total += alloc.Portions
+				schoolPortions[alloc.SchoolID] = portions
+			}
+			
+			// Create delivery records for each school
+			for schoolID, portions := range schoolPortions {
+				fmt.Printf("DEBUG: Processing school_id=%d, small=%d, large=%d, total=%d\n", 
+					schoolID, portions.small, portions.large, portions.total)
+				
+				// Check if delivery record already exists for this school
 				var existingRecord models.DeliveryRecord
 				err := s.db.WithContext(ctx).
 					Where("menu_item_id = ? AND school_id = ? AND delivery_date = DATE(?)", 
-						menuItem.ID, alloc.SchoolID, menuItem.Date).
+						menuItem.ID, schoolID, menuItem.Date).
 					First(&existingRecord).Error
 				
 				if err == gorm.ErrRecordNotFound {
-					// Create new delivery record with stage 2 (order_dimasak)
+					// Create new delivery record with stage 2 (sedang_dimasak)
 					deliveryRecord := models.DeliveryRecord{
 						DeliveryDate:  menuItem.Date,
-						SchoolID:      alloc.SchoolID,
-						DriverID:      0, // Driver assigned later at stage 4 (packing complete)
+						SchoolID:      schoolID,
+						DriverID:      nil, // Driver assigned later at stage 4
 						MenuItemID:    menuItem.ID,
-						Portions:      alloc.Portions,
-						CurrentStatus: "order_dimasak",
+						Portions:      portions.total,
+						PortionsSmall: portions.small,
+						PortionsLarge: portions.large,
+						CurrentStatus: "sedang_dimasak",
 						CurrentStage:  2,
-						OmprengCount:  alloc.Portions, // Assume 1 ompreng per portion
+						OmprengCount:  portions.total, // Assume 1 ompreng per portion
 						CreatedAt:     time.Now(),
 						UpdatedAt:     time.Now(),
 					}
 					
 					if err := s.db.WithContext(ctx).Create(&deliveryRecord).Error; err != nil {
 						// Log error but don't block cooking workflow
-						fmt.Printf("Warning: failed to create delivery record for school %d: %v\n", alloc.SchoolID, err)
+						fmt.Printf("Warning: failed to create delivery record for school %d: %v\n", schoolID, err)
 						continue
 					}
 					
+					createdRecord := deliveryRecord
+					
 					// Create initial status transition for stage 2
 					transition := models.StatusTransition{
-						DeliveryRecordID: deliveryRecord.ID,
+						DeliveryRecordID: createdRecord.ID,
 						FromStatus:       "",
-						ToStatus:         "order_dimasak",
+						ToStatus:         "sedang_dimasak",
 						Stage:            2,
 						TransitionedAt:   time.Now(),
 						TransitionedBy:   userID,
@@ -353,19 +452,30 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 					
 					if err := s.db.WithContext(ctx).Create(&transition).Error; err != nil {
 						// Log error but don't block cooking workflow
-						fmt.Printf("Warning: failed to create status transition for delivery record %d: %v\n", deliveryRecord.ID, err)
+						fmt.Printf("Warning: failed to create status transition for delivery record %d: %v\n", createdRecord.ID, err)
 					}
 				} else if err == nil {
 					// Update existing delivery record status to stage 2
-					if err := s.monitoringService.UpdateDeliveryStatus(existingRecord.ID, "order_dimasak", userID, "Cooking started from KDS"); err != nil {
+					if err := s.monitoringService.UpdateDeliveryStatus(existingRecord.ID, "sedang_dimasak", userID, "Cooking started from KDS"); err != nil {
 						// Log error but don't block cooking workflow
 						fmt.Printf("Warning: failed to update delivery status for record %d: %v\n", existingRecord.ID, err)
 					}
 				}
 			}
 		} else if status == "ready" {
-			// Update delivery records to "order_dikemas" (stage 3)
+			fmt.Printf("DEBUG: Updating delivery records to ready status, allocations=%d\n", len(menuItem.SchoolAllocations))
+			// Update delivery records to "selesai_dimasak" (stage 3)
+			// Use a map to track which schools we've already updated (to avoid duplicate updates for SD schools with multiple allocations)
+			updatedSchools := make(map[uint]bool)
+			
 			for _, alloc := range menuItem.SchoolAllocations {
+				// Skip if we've already updated this school
+				if updatedSchools[alloc.SchoolID] {
+					fmt.Printf("DEBUG: Skipping duplicate update for school_id=%d\n", alloc.SchoolID)
+					continue
+				}
+				
+				fmt.Printf("DEBUG: Looking for delivery record for school_id=%d, menu_item_id=%d\n", alloc.SchoolID, menuItem.ID)
 				var deliveryRecord models.DeliveryRecord
 				err := s.db.WithContext(ctx).
 					Where("menu_item_id = ? AND school_id = ? AND delivery_date = DATE(?)", 
@@ -373,10 +483,14 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 					First(&deliveryRecord).Error
 				
 				if err == nil {
-					if err := s.monitoringService.UpdateDeliveryStatus(deliveryRecord.ID, "order_dikemas", userID, "Cooking completed, ready for packing"); err != nil {
+					fmt.Printf("DEBUG: Found delivery record id=%d, updating to selesai_dimasak\n", deliveryRecord.ID)
+					if err := s.monitoringService.UpdateDeliveryStatus(deliveryRecord.ID, "selesai_dimasak", userID, "Cooking completed, ready for packing"); err != nil {
 						// Log error but don't block cooking workflow
 						fmt.Printf("Warning: failed to update delivery status for record %d: %v\n", deliveryRecord.ID, err)
+					} else {
+						fmt.Printf("DEBUG: Successfully updated delivery record id=%d to selesai_dimasak\n", deliveryRecord.ID)
 					}
+					updatedSchools[alloc.SchoolID] = true
 				} else {
 					// Log error but don't block cooking workflow
 					fmt.Printf("Warning: delivery record not found for school %d: %v\n", alloc.SchoolID, err)
@@ -450,88 +564,268 @@ func (s *KDSService) UpdateRecipeStatus(ctx context.Context, recipeID uint, stat
 		updateData["end_time"] = endTime
 		
 		// Calculate duration if start_time exists
-		var existingData map[string]interface{}
-		err := s.dbClient.NewRef(firebasePath).Get(ctx, &existingData)
-		if err == nil && existingData != nil {
-			if startTimeFloat, ok := existingData["start_time"].(float64); ok {
-				startTime := int64(startTimeFloat)
-				durationSeconds := endTime - startTime
-				durationMinutes := int(durationSeconds / 60)
-				updateData["duration_minutes"] = durationMinutes
+		if s.dbClient != nil {
+			var existingData map[string]interface{}
+			err := s.dbClient.NewRef(firebasePath).Get(ctx, &existingData)
+			if err == nil && existingData != nil {
+				if startTimeFloat, ok := existingData["start_time"].(float64); ok {
+					startTime := int64(startTimeFloat)
+					durationSeconds := endTime - startTime
+					durationMinutes := int(durationSeconds / 60)
+					updateData["duration_minutes"] = durationMinutes
+				}
 			}
 		}
 	}
 
-	err = s.dbClient.NewRef(firebasePath).Set(ctx, updateData)
-	if err != nil {
-		return fmt.Errorf("failed to update Firebase: %w", err)
+	// Skip Firebase update if dbClient is nil (for testing)
+	if s.dbClient != nil {
+		err = s.dbClient.NewRef(firebasePath).Set(ctx, updateData)
+		if err != nil {
+			return fmt.Errorf("failed to update Firebase: %w", err)
+		}
 	}
 
 	return nil
 }
 
 // deductInventory deducts semi-finished goods from inventory when cooking starts
-func (s *KDSService) deductInventory(ctx context.Context, recipe *models.Recipe, userID uint) error {
+func (s *KDSService) deductInventory(ctx context.Context, menuItem *models.MenuItem, userID uint) error {
+	log.Printf("INFO: deductInventory called for recipe_id=%d, recipe_name=%s, user_id=%d", 
+		menuItem.Recipe.ID, menuItem.Recipe.Name, userID)
+	
+	// Edge case: Check if recipe has any items
+	if len(menuItem.Recipe.RecipeItems) == 0 {
+		log.Printf("ERROR: Invalid recipe - no recipe items found for recipe_id=%d", menuItem.Recipe.ID)
+		return NewKDSError(
+			ErrCodeInvalidRecipe,
+			"Resep tidak valid",
+			"Resep tidak memiliki komponen bahan",
+		)
+	}
+
+	// Calculate portion allocations from school allocations
+	smallPortions := 0
+	largePortions := 0
+	
+	for _, alloc := range menuItem.SchoolAllocations {
+		if alloc.PortionSize == "small" {
+			smallPortions += alloc.Portions
+		} else if alloc.PortionSize == "large" {
+			largePortions += alloc.Portions
+		}
+	}
+	
+	log.Printf("INFO: Portion calculation - recipe_id=%d, small_portions=%d, large_portions=%d, total_portions=%d", 
+		menuItem.Recipe.ID, smallPortions, largePortions, smallPortions+largePortions)
+	
+	// PRE-VALIDATION: Check all items for sufficient stock BEFORE starting transaction
+	log.Printf("INFO: Starting pre-validation stock check for recipe_id=%d", menuItem.Recipe.ID)
+	type insufficientItem struct {
+		name      string
+		needed    float64
+		available float64
+	}
+	var insufficientItems []insufficientItem
+	
+	for _, ri := range menuItem.Recipe.RecipeItems {
+		// Calculate total needed based on portion sizes
+		totalNeeded := (float64(smallPortions) * ri.QuantityPerPortionSmall) + (float64(largePortions) * ri.QuantityPerPortionLarge)
+		
+		// Skip if no quantity needed (edge case)
+		if totalNeeded <= 0 {
+			continue
+		}
+		
+		// Get semi-finished goods name first for better error messages
+		var sfGoods models.SemiFinishedGoods
+		err := s.db.WithContext(ctx).First(&sfGoods, ri.SemiFinishedGoodsID).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				log.Printf("ERROR: Semi-finished goods not found - recipe_id=%d, sf_goods_id=%d", 
+					menuItem.Recipe.ID, ri.SemiFinishedGoodsID)
+				return NewKDSError(
+					ErrCodeInventoryNotFound,
+					"Data inventori tidak ditemukan",
+					fmt.Sprintf("Komponen bahan dengan ID %d tidak ditemukan dalam sistem", ri.SemiFinishedGoodsID),
+				)
+			}
+			log.Printf("ERROR: Failed to fetch semi-finished goods - recipe_id=%d, sf_goods_id=%d: %v", 
+				menuItem.Recipe.ID, ri.SemiFinishedGoodsID, err)
+			return NewKDSError(
+				ErrCodeTransactionFailed,
+				"Gagal mengambil data komponen bahan",
+				err.Error(),
+			)
+		}
+		
+		// Get current semi-finished inventory
+		var sfInventory models.SemiFinishedInventory
+		err = s.db.WithContext(ctx).Where("semi_finished_goods_id = ?", ri.SemiFinishedGoodsID).First(&sfInventory).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				log.Printf("ERROR: Inventory record not found - recipe_id=%d, ingredient=%s, sf_goods_id=%d", 
+					menuItem.Recipe.ID, sfGoods.Name, ri.SemiFinishedGoodsID)
+				return NewKDSError(
+					ErrCodeInventoryNotFound,
+					"Data inventori tidak ditemukan",
+					fmt.Sprintf("Stok untuk komponen %s belum diinisialisasi dalam sistem", sfGoods.Name),
+				)
+			}
+			log.Printf("ERROR: Failed to fetch inventory - recipe_id=%d, ingredient=%s: %v", 
+				menuItem.Recipe.ID, sfGoods.Name, err)
+			return NewKDSError(
+				ErrCodeTransactionFailed,
+				"Gagal mengambil data stok",
+				err.Error(),
+			)
+		}
+		
+		log.Printf("INFO: Stock check - recipe_id=%d, ingredient=%s, needed=%.2f, available=%.2f", 
+			menuItem.Recipe.ID, sfGoods.Name, totalNeeded, sfInventory.Quantity)
+		
+		// Check if sufficient quantity
+		if sfInventory.Quantity < totalNeeded {
+			insufficientItems = append(insufficientItems, insufficientItem{
+				name:      sfGoods.Name,
+				needed:    totalNeeded,
+				available: sfInventory.Quantity,
+			})
+		}
+	}
+	
+	// If any items are insufficient, return detailed error
+	if len(insufficientItems) > 0 {
+		var errorDetails []string
+		for _, item := range insufficientItems {
+			errorDetails = append(errorDetails, fmt.Sprintf("%s (butuh %.2f, tersedia %.2f)", item.name, item.needed, item.available))
+		}
+		errorMsg := fmt.Sprintf("Stok tidak mencukupi untuk: %s", strings.Join(errorDetails, ", "))
+		log.Printf("ERROR: Insufficient stock detected for recipe_id=%d, user_id=%d - %s", 
+			menuItem.Recipe.ID, userID, errorMsg)
+		return NewKDSError(
+			ErrCodeInsufficientStock,
+			"Stok tidak mencukupi untuk memulai memasak",
+			errorMsg,
+		)
+	}
+	
+	log.Printf("INFO: Pre-validation passed - all stock levels sufficient for recipe_id=%d", menuItem.Recipe.ID)
+	
 	// Start transaction
+	log.Printf("INFO: Starting transaction for stock deduction - recipe_id=%d", menuItem.Recipe.ID)
 	tx := s.db.WithContext(ctx).Begin()
 	defer func() {
 		if r := recover(); r != nil {
+			log.Printf("ERROR: Panic during stock deduction transaction for recipe_id=%d: %v", menuItem.Recipe.ID, r)
 			tx.Rollback()
 		}
 	}()
 
-	for _, ri := range recipe.RecipeItems {
+	for _, ri := range menuItem.Recipe.RecipeItems {
+		// Calculate total needed based on portion sizes
+		// Formula: totalNeeded = (smallPortions × quantity_per_portion_small) + (largePortions × quantity_per_portion_large)
+		totalNeeded := (float64(smallPortions) * ri.QuantityPerPortionSmall) + (float64(largePortions) * ri.QuantityPerPortionLarge)
+		
+		// Skip if no quantity needed (edge case)
+		if totalNeeded <= 0 {
+			continue
+		}
+		
 		// Get current semi-finished inventory
 		var sfInventory models.SemiFinishedInventory
 		err := tx.Where("semi_finished_goods_id = ?", ri.SemiFinishedGoodsID).First(&sfInventory).Error
 		if err != nil {
 			tx.Rollback()
-			return fmt.Errorf("failed to get inventory for semi-finished goods %d: %w", ri.SemiFinishedGoodsID, err)
+			return NewKDSError(
+				ErrCodeTransactionFailed,
+				"Gagal memperbarui stok",
+				fmt.Sprintf("Gagal mengambil data stok untuk komponen ID %d: %v", ri.SemiFinishedGoodsID, err),
+			)
 		}
 
-		// Get semi-finished goods name for error message
+		// Get semi-finished goods name for logging
 		var sfGoods models.SemiFinishedGoods
 		err = tx.First(&sfGoods, ri.SemiFinishedGoodsID).Error
 		if err != nil {
 			tx.Rollback()
-			return fmt.Errorf("failed to get semi-finished goods %d: %w", ri.SemiFinishedGoodsID, err)
+			return NewKDSError(
+				ErrCodeTransactionFailed,
+				"Gagal memperbarui stok",
+				fmt.Sprintf("Gagal mengambil data komponen ID %d: %v", ri.SemiFinishedGoodsID, err),
+			)
 		}
 
-		// Check if sufficient quantity
-		if sfInventory.Quantity < ri.Quantity {
+		// Double-check sufficient quantity (should not happen due to pre-validation)
+		if sfInventory.Quantity < totalNeeded {
 			tx.Rollback()
-			return fmt.Errorf("insufficient inventory for %s: have %.2f, need %.2f",
-				sfGoods.Name, sfInventory.Quantity, ri.Quantity)
+			return NewKDSError(
+				ErrCodeInsufficientStock,
+				"Stok tidak mencukupi",
+				fmt.Sprintf("Stok %s tidak mencukupi: butuh %.2f, tersedia %.2f", sfGoods.Name, totalNeeded, sfInventory.Quantity),
+			)
 		}
 
 		// Deduct quantity
-		sfInventory.Quantity -= ri.Quantity
+		sfInventory.Quantity -= totalNeeded
 		sfInventory.LastUpdated = time.Now()
 		err = tx.Save(&sfInventory).Error
 		if err != nil {
 			tx.Rollback()
-			return fmt.Errorf("failed to update inventory: %w", err)
+			log.Printf("ERROR: Failed to save stock deduction for recipe_id=%d, ingredient=%s, user_id=%d: %v", 
+				menuItem.Recipe.ID, sfGoods.Name, userID, err)
+			return NewKDSError(
+				ErrCodeTransactionFailed,
+				"Gagal memperbarui stok",
+				fmt.Sprintf("Gagal menyimpan perubahan stok: %v", err),
+			)
 		}
+		
+		log.Printf("INFO: Stock deducted - recipe_id=%d, ingredient=%s, quantity_deducted=%.2f, remaining_stock=%.2f, user_id=%d", 
+			menuItem.Recipe.ID, sfGoods.Name, totalNeeded, sfInventory.Quantity, userID)
 
-		// Record semi-finished inventory movement (we'll reuse InventoryMovement for now with negative reference)
-		// In a real implementation, you might want a separate movement table for semi-finished goods
-		movement := models.InventoryMovement{
-			IngredientID: ri.SemiFinishedGoodsID, // Using semi_finished_goods_id in ingredient_id field temporarily
-			MovementType: "out",
-			Quantity:     ri.Quantity,
-			Reference:    fmt.Sprintf("recipe_%d", recipe.ID),
-			MovementDate: time.Now(),
-			CreatedBy:    userID,
-			Notes:        fmt.Sprintf("Deducted for cooking recipe: %s", recipe.Name),
+		// Record semi-finished inventory movement
+		movement := models.SemiFinishedMovement{
+			SemiFinishedGoodsID: ri.SemiFinishedGoodsID,
+			MovementType:        "out",
+			Quantity:            totalNeeded,
+			Reference:           fmt.Sprintf("recipe_%d", menuItem.Recipe.ID),
+			MovementDate:        time.Now(),
+			CreatedBy:           userID,
+			Notes:               fmt.Sprintf("Deducted for cooking recipe: %s (small: %d, large: %d)", menuItem.Recipe.Name, smallPortions, largePortions),
 		}
 		err = tx.Create(&movement).Error
 		if err != nil {
 			tx.Rollback()
-			return fmt.Errorf("failed to record inventory movement: %w", err)
+			log.Printf("ERROR: Failed to record semi-finished movement for recipe_id=%d, ingredient=%s, user_id=%d: %v", 
+				menuItem.Recipe.ID, sfGoods.Name, userID, err)
+			return NewKDSError(
+				ErrCodeTransactionFailed,
+				"Gagal mencatat pergerakan stok",
+				fmt.Sprintf("Gagal menyimpan log pergerakan stok: %v", err),
+			)
 		}
+		
+		log.Printf("INFO: Semi-finished movement recorded - recipe_id=%d, ingredient=%s, movement_type=out, quantity=%.2f, user_id=%d", 
+			menuItem.Recipe.ID, sfGoods.Name, totalNeeded, userID)
 	}
 
-	return tx.Commit().Error
+	// Commit transaction
+	log.Printf("INFO: Committing transaction for recipe_id=%d", menuItem.Recipe.ID)
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("ERROR: Failed to commit transaction for recipe_id=%d, user_id=%d: %v", 
+			menuItem.Recipe.ID, userID, err)
+		return NewKDSError(
+			ErrCodeTransactionFailed,
+			"Gagal menyimpan perubahan stok",
+			fmt.Sprintf("Gagal commit transaksi: %v", err),
+		)
+	}
+	
+	log.Printf("INFO: Transaction committed successfully - recipe_id=%d, total_items_deducted=%d, user_id=%d", 
+		menuItem.Recipe.ID, len(menuItem.Recipe.RecipeItems), userID)
+
+	return nil
 }
 
 // SyncTodayMenuToFirebase syncs today's menu to Firebase for real-time display

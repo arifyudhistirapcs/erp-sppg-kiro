@@ -24,16 +24,18 @@ func NewActivityTrackerService(db *gorm.DB) *ActivityTrackerService {
 
 // OrderResponse represents a simplified order for list view
 type OrderResponse struct {
-	ID           uint                  `json:"id"`
-	OrderDate    time.Time             `json:"order_date"`
-	School       SchoolInfo            `json:"school"`
-	Menu         MenuInfo              `json:"menu"`
-	Driver       DriverInfo            `json:"driver"`
-	Portions     int                   `json:"portions"`
-	CurrentStatus string               `json:"current_status"`
-	CurrentStage int                   `json:"current_stage"`
-	OmprengCount int                   `json:"ompreng_count"`
-	UpdatedAt    time.Time             `json:"updated_at"`
+	ID            uint                  `json:"id"`
+	OrderDate     time.Time             `json:"order_date"`
+	School        SchoolInfo            `json:"school"`
+	Menu          MenuInfo              `json:"menu"`
+	Driver        DriverInfo            `json:"driver"`
+	Portions      int                   `json:"portions"`
+	PortionsSmall int                   `json:"portions_small"`
+	PortionsLarge int                   `json:"portions_large"`
+	CurrentStatus string                `json:"current_status"`
+	CurrentStage  int                   `json:"current_stage"`
+	OmprengCount  int                   `json:"ompreng_count"`
+	UpdatedAt     time.Time             `json:"updated_at"`
 }
 
 // SchoolInfo represents school information
@@ -127,6 +129,8 @@ func (s *ActivityTrackerService) GetOrdersByDate(ctx context.Context, date time.
 				VehicleInfo: "", // TODO: Add vehicle info to User model or create separate Driver model
 			},
 			Portions:      record.Portions,
+			PortionsSmall: record.PortionsSmall,
+			PortionsLarge: record.PortionsLarge,
 			CurrentStatus: record.CurrentStatus,
 			CurrentStage:  record.CurrentStage,
 			OmprengCount:  record.OmprengCount,
@@ -280,21 +284,21 @@ func (s *ActivityTrackerService) buildTimeline(currentStage int, transitions []m
 		Description string
 	}{
 		{1, "order_disiapkan", "Order sedang disiapkan", "Makanan sedang diproses dan disiapkan untuk dimasak."},
-		{2, "order_dimasak", "Order sedang dimasak", "Makanan sedang dimasak sesuai menu yang dijadwalkan."},
-		{3, "order_dikemas", "Order sedang dikemas", "Makanan sedang dalam proses dikemas menjadi porsi satuan."},
-		{4, "order_siap_diambil", "Order siap diambil", "Pesanan sudah siap di dapur dan menunggu diambil untuk dikirim ke sekolah."},
-		{5, "pesanan_dalam_perjalanan", "Pesanan dalam perjalanan", "Driver sedang dalam perjalanan menuju sekolah."},
-		{6, "pesanan_sudah_tiba", "Pesanan sudah tiba", "Driver sudah tiba di sekolah."},
-		{7, "pesanan_sudah_diterima", "Pesanan sudah diterima", "Pesanan sudah diterima pihak sekolah."},
-		{8, "driver_menuju_lokasi", "Driver menuju lokasi pengambilan", "Driver diperjalanan mengambil menu/ompreng/wadah makan."},
-		{9, "driver_tiba_di_lokasi", "Driver sudah tiba di lokasi", "Driver sudah tiba di sekolah untuk mengambil menu/ompreng/wadah makan."},
-		{10, "driver_kembali", "Driver dalam perjalanan kembali", "Driver diperjalanan kembali ke SPPG untuk mengembalikan menu/ompreng/wadah makan."},
-		{11, "driver_tiba_di_sppg", "Driver sudah tiba di SPPG", "Driver tiba di SPPG untuk mengembalikan menu/ompreng/wadah makan."},
-		{12, "ompreng_siap_dicuci", "Ompreng siap dicuci", "Menu/ompreng/wadah makan siap di cuci."},
-		{13, "ompreng_sedang_dicuci", "Ompreng sedang dicuci", "Menu/ompreng/wadah makan proses di cuci."},
-		{14, "ompreng_selesai_dicuci", "Ompreng selesai dicuci", "Menu/ompreng/wadah makan selesai dicuci."},
-		{15, "ompreng_siap_digunakan", "Ompreng siap digunakan kembali", "Ompreng sudah bersih dan siap digunakan untuk order berikutnya."},
-		{16, "order_selesai", "Order selesai", "Seluruh proses order telah selesai."},
+		{2, "sedang_dimasak", "Order sedang dimasak", "Makanan sedang dimasak sesuai menu yang dijadwalkan."},
+		{3, "selesai_dimasak", "Order selesai dimasak", "Makanan selesai dimasak dan siap untuk dikemas."},
+		{4, "siap_dipacking", "Order siap dipacking", "Makanan siap untuk proses pengemasan."},
+		{5, "selesai_dipacking", "Order selesai dipacking", "Makanan selesai dikemas menjadi porsi satuan."},
+		{6, "siap_dikirim", "Order siap dikirim", "Pesanan sudah siap di dapur dan menunggu diambil untuk dikirim ke sekolah."},
+		{7, "diperjalanan", "Pesanan dalam perjalanan", "Driver sedang dalam perjalanan menuju sekolah."},
+		{8, "sudah_sampai_sekolah", "Pesanan sudah tiba", "Driver sudah tiba di sekolah."},
+		{9, "sudah_diterima_pihak_sekolah", "Pesanan sudah diterima", "Pesanan sudah diterima pihak sekolah."},
+		{10, "driver_menuju_lokasi_pengambilan", "Driver menuju lokasi pengambilan", "Driver diperjalanan mengambil menu/ompreng/wadah makan."},
+		{11, "driver_tiba_di_lokasi_pengambilan", "Driver sudah tiba di lokasi", "Driver sudah tiba di sekolah untuk mengambil menu/ompreng/wadah makan."},
+		{12, "driver_kembali_ke_sppg", "Driver dalam perjalanan kembali", "Driver diperjalanan kembali ke SPPG untuk mengembalikan menu/ompreng/wadah makan."},
+		{13, "driver_tiba_di_sppg", "Driver sudah tiba di SPPG", "Driver tiba di SPPG untuk mengembalikan menu/ompreng/wadah makan."},
+		{14, "ompreng_siap_dicuci", "Ompreng siap dicuci", "Menu/ompreng/wadah makan siap di cuci."},
+		{15, "ompreng_proses_pencucian", "Ompreng sedang dicuci", "Menu/ompreng/wadah makan proses di cuci."},
+		{16, "ompreng_selesai_dicuci", "Ompreng selesai dicuci", "Menu/ompreng/wadah makan selesai dicuci."},
 	}
 	
 	// Create map of transitions by stage
@@ -306,12 +310,15 @@ func (s *ActivityTrackerService) buildTimeline(currentStage int, transitions []m
 	// Build timeline
 	timeline := make([]TimelineStage, 16)
 	for i, def := range stageDefinitions {
+		// Stage 16 is the final stage, so mark it as completed when current stage is 16
+		isCompleted := def.Stage < currentStage || (def.Stage == 16 && currentStage >= 16)
+		
 		stage := TimelineStage{
 			Stage:       def.Stage,
 			Status:      def.Status,
 			Title:       def.Title,
 			Description: def.Description,
-			IsCompleted: def.Stage < currentStage,
+			IsCompleted: isCompleted,
 		}
 		
 		// Add transition data if exists
@@ -360,14 +367,23 @@ func (s *ActivityTrackerService) UpdateOrderStatus(ctx context.Context, orderID 
 	}
 	
 	// Validate stage progression
-	if stage < deliveryRecord.CurrentStage {
-		log.Printf("Warning: Backward transition attempted from stage %d to %d for order %d", deliveryRecord.CurrentStage, stage, orderID)
-		// Allow backward transitions but log warning
-	}
-	
-	// Check for skipped stages
-	if stage > deliveryRecord.CurrentStage+1 {
-		log.Printf("Warning: Skipped stages detected from stage %d to %d for order %d", deliveryRecord.CurrentStage, stage, orderID)
+	// For pickup stages (10-13), enforce strict sequential validation
+	if stage >= 10 && stage <= 13 {
+		if err := s.validatePickupStageTransition(deliveryRecord.CurrentStage, stage); err != nil {
+			tx.Rollback()
+			return err
+		}
+	} else {
+		// For non-pickup stages, allow transitions but log warnings
+		if stage < deliveryRecord.CurrentStage {
+			log.Printf("Warning: Backward transition attempted from stage %d to %d for order %d", deliveryRecord.CurrentStage, stage, orderID)
+			// Allow backward transitions but log warning
+		}
+		
+		// Check for skipped stages
+		if stage > deliveryRecord.CurrentStage+1 {
+			log.Printf("Warning: Skipped stages detected from stage %d to %d for order %d", deliveryRecord.CurrentStage, stage, orderID)
+		}
 	}
 	
 	// Create status transition record
@@ -407,6 +423,36 @@ func (s *ActivityTrackerService) UpdateOrderStatus(ctx context.Context, orderID 
 	log.Printf("Order %d status updated from %s (stage %d) to %s (stage %d)", orderID, deliveryRecord.CurrentStatus, deliveryRecord.CurrentStage, newStatus, stage)
 	
 	return nil
+}
+
+// GetActivityLog retrieves the activity log (status transition history) for an order
+// Returns the complete timeline with all 16 stages
+func (s *ActivityTrackerService) GetActivityLog(ctx context.Context, orderID uint) ([]TimelineStage, error) {
+	// Fetch delivery record to get current stage
+	var deliveryRecord models.DeliveryRecord
+	if err := s.db.WithContext(ctx).First(&deliveryRecord, orderID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("order not found")
+		}
+		log.Printf("Error fetching delivery record: %v", err)
+		return nil, fmt.Errorf("failed to fetch order: %w", err)
+	}
+	
+	// Fetch status transitions
+	var transitions []models.StatusTransition
+	if err := s.db.WithContext(ctx).
+		Preload("User").
+		Where("delivery_record_id = ?", orderID).
+		Order("stage ASC, transitioned_at ASC").
+		Find(&transitions).Error; err != nil {
+		log.Printf("Error fetching status transitions: %v", err)
+		return nil, fmt.Errorf("failed to fetch status transitions: %w", err)
+	}
+	
+	// Build timeline with all 16 stages
+	timeline := s.buildTimeline(deliveryRecord.CurrentStage, transitions)
+	
+	return timeline, nil
 }
 
 // AttachStageMedia attaches photo or video URL to a specific stage transition
@@ -504,6 +550,52 @@ func (s *ActivityTrackerService) SyncOrderToFirebase(ctx context.Context, orderI
 	// if err := ref.Set(ctx, firebaseData); err != nil {
 	//     return fmt.Errorf("failed to write to Firebase: %w", err)
 	// }
+	
+	return nil
+}
+
+// validatePickupStageTransition validates that pickup stage transitions (10-13) follow the correct sequence
+// Valid transitions: 9→10, 10→11, 11→12, 12→13
+// Invalid transitions: backward transitions (e.g., 11→10), skipped stages (e.g., 10→13)
+func (s *ActivityTrackerService) validatePickupStageTransition(currentStage, newStage int) error {
+	// Define valid pickup stage transitions
+	validTransitions := map[int][]int{
+		9:  {10},    // From stage 9 (delivery complete) can go to stage 10 (driver en route to pickup)
+		10: {11},    // From stage 10 can only go to stage 11 (driver arrived at pickup location)
+		11: {12},    // From stage 11 can only go to stage 12 (driver returning to SPPG)
+		12: {13},    // From stage 12 can only go to stage 13 (driver arrived at SPPG)
+		13: {},      // Stage 13 is terminal for pickup phase, no further pickup transitions
+	}
+	
+	// Check if current stage is in the valid transitions map
+	allowedNextStages, exists := validTransitions[currentStage]
+	if !exists {
+		// Current stage is not in pickup range (9-13), but new stage is
+		// This means trying to jump into pickup stages from an invalid stage
+		return fmt.Errorf("invalid stage transition: cannot transition to pickup stage %d from stage %d", newStage, currentStage)
+	}
+	
+	// Check if the new stage is in the list of allowed next stages
+	isValidTransition := false
+	for _, allowedStage := range allowedNextStages {
+		if newStage == allowedStage {
+			isValidTransition = true
+			break
+		}
+	}
+	
+	if !isValidTransition {
+		// Generate descriptive error message
+		if newStage < currentStage {
+			return fmt.Errorf("invalid stage transition: backward transition from stage %d to stage %d is not allowed for pickup stages", currentStage, newStage)
+		} else if newStage > currentStage+1 {
+			return fmt.Errorf("invalid stage transition: cannot skip from stage %d to stage %d, must follow sequence 10→11→12→13", currentStage, newStage)
+		} else if currentStage == 13 {
+			return fmt.Errorf("invalid stage transition: stage 13 is the final pickup stage, cannot transition to stage %d", newStage)
+		} else {
+			return fmt.Errorf("invalid stage transition: cannot transition from stage %d to stage %d, allowed next stages: %v", currentStage, newStage, allowedNextStages)
+		}
+	}
 	
 	return nil
 }

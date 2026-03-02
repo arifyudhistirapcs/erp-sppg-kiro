@@ -6,8 +6,8 @@
     </div>
 
     <div class="filters-section">
-      <a-row :gutter="16">
-        <a-col :span="8">
+      <a-row :gutter="16" align="middle">
+        <a-col :span="7">
           <a-date-picker
             v-model:value="selectedDate"
             format="YYYY-MM-DD"
@@ -16,7 +16,7 @@
             @change="fetchOrders"
           />
         </a-col>
-        <a-col :span="8">
+        <a-col :span="7">
           <a-select
             v-model:value="selectedSchoolId"
             placeholder="Semua Sekolah"
@@ -34,12 +34,23 @@
             </a-select-option>
           </a-select>
         </a-col>
-        <a-col :span="8">
+        <a-col :span="7">
           <a-input-search
             v-model:value="searchQuery"
             placeholder="Cari menu atau sekolah..."
             @search="fetchOrders"
           />
+        </a-col>
+        <a-col :span="3">
+          <a-button 
+            type="default" 
+            :icon="h(ReloadOutlined)" 
+            @click="fetchOrders"
+            :loading="loading"
+            style="width: 100%"
+          >
+            Refresh
+          </a-button>
         </a-col>
       </a-row>
     </div>
@@ -81,74 +92,140 @@
         </a-row>
       </div>
 
-      <div class="orders-grid">
-        <a-row :gutter="[16, 16]">
-          <a-col
-            v-for="order in orders"
-            :key="order.id"
-            :xs="24"
-            :sm="12"
-            :md="8"
-            :lg="6"
-          >
-            <a-card
-              hoverable
-              class="order-card"
-              @click="navigateToDetail(order.id)"
+      <div class="orders-list">
+        <a-list
+          :data-source="orders"
+          :bordered="false"
+        >
+          <template #renderItem="{ item: order }">
+            <a-list-item
+              class="order-list-item"
+              @click="showOrderDetail(order)"
             >
-              <template #cover>
-                <div class="order-image">
-                  <img
-                    v-if="order.menu.photo_url"
-                    :src="order.menu.photo_url"
-                    :alt="order.menu.name"
-                  />
-                  <div v-else class="no-image">
-                    <picture-outlined style="font-size: 48px" />
-                  </div>
-                </div>
-              </template>
-              <a-card-meta>
+              <a-list-item-meta>
                 <template #title>
-                  <div class="order-title">{{ order.menu.name }}</div>
+                  <div class="order-list-title">
+                    {{ order.menu.name }}
+                  </div>
                 </template>
                 <template #description>
-                  <div class="order-info">
-                    <div class="school-name">
+                  <div class="order-list-info">
+                    <span class="info-item">
                       <environment-outlined />
                       {{ order.school.name }}
-                    </div>
-                    <div class="portions">
+                    </span>
+                    <span class="info-item">
                       <team-outlined />
-                      {{ order.portions }} porsi
-                    </div>
-                    <div class="status-badge">
-                      <a-tag :color="getStatusColor(order.current_status)">
-                        Stage {{ order.current_stage }}: {{ getStatusLabel(order.current_status) }}
-                      </a-tag>
-                    </div>
+                      <template v-if="order.portions_small > 0 && order.portions_large > 0">
+                        {{ order.portions_small }} porsi kecil + {{ order.portions_large }} porsi besar
+                      </template>
+                      <template v-else-if="order.portions_small > 0">
+                        {{ order.portions_small }} porsi kecil
+                      </template>
+                      <template v-else-if="order.portions_large > 0">
+                        {{ order.portions_large }} porsi besar
+                      </template>
+                      <template v-else>
+                        {{ order.portions }} porsi
+                      </template>
+                    </span>
                   </div>
                 </template>
-              </a-card-meta>
-            </a-card>
-          </a-col>
-        </a-row>
+              </a-list-item-meta>
+              <template #actions>
+                <a-tag :color="getStatusColor(order.current_status)">
+                  Stage {{ order.current_stage }}: {{ getStatusLabel(order.current_status) }}
+                </a-tag>
+              </template>
+            </a-list-item>
+          </template>
+        </a-list>
       </div>
     </div>
+
+    <!-- Detail Modal -->
+    <a-modal
+      v-model:open="detailModalVisible"
+      title="Detail Aktivitas Pelacakan"
+      width="800px"
+      :footer="null"
+    >
+      <div v-if="selectedOrder" class="order-detail-modal">
+        <div class="order-header">
+          <h3>{{ selectedOrder.menu.name }}</h3>
+          <div class="order-meta">
+            <span><environment-outlined /> {{ selectedOrder.school.name }}</span>
+            <span>
+              <team-outlined />
+              <template v-if="selectedOrder.portions_small > 0 && selectedOrder.portions_large > 0">
+                {{ selectedOrder.portions_small }} porsi kecil + {{ selectedOrder.portions_large }} porsi besar
+              </template>
+              <template v-else-if="selectedOrder.portions_small > 0">
+                {{ selectedOrder.portions_small }} porsi kecil
+              </template>
+              <template v-else-if="selectedOrder.portions_large > 0">
+                {{ selectedOrder.portions_large }} porsi besar
+              </template>
+              <template v-else>
+                {{ selectedOrder.portions }} porsi
+              </template>
+            </span>
+          </div>
+        </div>
+
+        <a-divider />
+
+        <div class="timeline-container">
+          <a-timeline>
+            <a-timeline-item
+              v-for="stage in orderTimeline"
+              :key="stage.stage"
+              :color="stage.completed ? 'green' : stage.inProgress ? 'blue' : 'gray'"
+            >
+              <template #dot>
+                <check-circle-filled v-if="stage.completed" style="font-size: 16px" />
+                <clock-circle-outlined v-else-if="stage.inProgress" style="font-size: 16px" />
+                <span v-else class="timeline-dot-empty"></span>
+              </template>
+              <div class="timeline-content">
+                <div class="timeline-title">
+                  <strong>Stage {{ stage.stage }}: {{ stage.label }}</strong>
+                  <a-tag v-if="stage.inProgress" color="processing">Sedang Berlangsung</a-tag>
+                </div>
+                <div class="timeline-description">{{ stage.description }}</div>
+                <div v-if="stage.timestamp" class="timeline-timestamp">
+                  {{ formatTimestamp(stage.timestamp) }}
+                </div>
+              </div>
+            </a-timeline-item>
+          </a-timeline>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, h } from 'vue';
+import { ref, onMounted, onUnmounted, h, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import dayjs from 'dayjs';
+import 'dayjs/locale/id';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import api from '@/services/api';
+
+// Configure dayjs plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.locale('id');
 import {
   InboxOutlined,
   ShoppingOutlined,
   EnvironmentOutlined,
   TeamOutlined,
-  PictureOutlined,
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 
@@ -166,6 +243,10 @@ const summary = ref({
 const loading = ref(false);
 const retryCount = ref(0);
 const maxRetries = 3;
+const detailModalVisible = ref(false);
+const selectedOrder = ref(null);
+const orderActivityLog = ref([]);
+let refreshInterval = null;
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -232,21 +313,21 @@ const navigateToDetail = (orderId) => {
 const getStatusColor = (status) => {
   const stageColors = {
     order_disiapkan: 'default',
-    order_dimasak: 'processing',
-    order_dikemas: 'processing',
-    order_siap_diambil: 'success',
-    pesanan_dalam_perjalanan: 'processing',
-    pesanan_sudah_tiba: 'success',
-    pesanan_sudah_diterima: 'success',
-    driver_menuju_lokasi: 'processing',
-    driver_tiba_di_lokasi: 'success',
-    driver_kembali: 'processing',
+    sedang_dimasak: 'processing',
+    selesai_dimasak: 'success',
+    siap_dipacking: 'default',
+    selesai_dipacking: 'success',
+    siap_dikirim: 'success',
+    diperjalanan: 'processing',
+    sudah_sampai_sekolah: 'success',
+    sudah_diterima_pihak_sekolah: 'success',
+    driver_menuju_lokasi_pengambilan: 'processing',
+    driver_tiba_di_lokasi_pengambilan: 'success',
+    driver_kembali_ke_sppg: 'processing',
     driver_tiba_di_sppg: 'success',
     ompreng_siap_dicuci: 'default',
-    ompreng_sedang_dicuci: 'processing',
+    ompreng_proses_pencucian: 'processing',
     ompreng_selesai_dicuci: 'success',
-    ompreng_siap_digunakan: 'success',
-    order_selesai: 'success',
   };
   return stageColors[status] || 'default';
 };
@@ -254,28 +335,96 @@ const getStatusColor = (status) => {
 const getStatusLabel = (status) => {
   const labels = {
     order_disiapkan: 'Sedang Disiapkan',
-    order_dimasak: 'Sedang Dimasak',
-    order_dikemas: 'Sedang Dikemas',
-    order_siap_diambil: 'Siap Diambil',
-    pesanan_dalam_perjalanan: 'Dalam Perjalanan',
-    pesanan_sudah_tiba: 'Sudah Tiba',
-    pesanan_sudah_diterima: 'Sudah Diterima',
-    driver_menuju_lokasi: 'Menuju Lokasi',
-    driver_tiba_di_lokasi: 'Tiba di Lokasi',
-    driver_kembali: 'Kembali',
+    sedang_dimasak: 'Sedang Dimasak',
+    selesai_dimasak: 'Selesai Dimasak',
+    siap_dipacking: 'Siap Dipacking',
+    selesai_dipacking: 'Selesai Dipacking',
+    siap_dikirim: 'Siap Dikirim',
+    diperjalanan: 'Dalam Perjalanan',
+    sudah_sampai_sekolah: 'Sudah Tiba',
+    sudah_diterima_pihak_sekolah: 'Sudah Diterima',
+    driver_menuju_lokasi_pengambilan: 'Menuju Lokasi',
+    driver_tiba_di_lokasi_pengambilan: 'Tiba di Lokasi',
+    driver_kembali_ke_sppg: 'Kembali',
     driver_tiba_di_sppg: 'Tiba di SPPG',
     ompreng_siap_dicuci: 'Siap Dicuci',
-    ompreng_sedang_dicuci: 'Sedang Dicuci',
+    ompreng_proses_pencucian: 'Sedang Dicuci',
     ompreng_selesai_dicuci: 'Selesai Dicuci',
-    ompreng_siap_digunakan: 'Siap Digunakan',
-    order_selesai: 'Selesai',
   };
   return labels[status] || status;
+};
+
+const showOrderDetail = async (order) => {
+  selectedOrder.value = order;
+  detailModalVisible.value = true;
+  
+  // Fetch activity log
+  try {
+    const response = await api.get(`/activity-tracker/orders/${order.id}/activity`);
+    if (response.data.success) {
+      orderActivityLog.value = response.data.data;
+    }
+  } catch (error) {
+    console.error('Error fetching activity log:', error);
+    message.error('Gagal memuat log aktivitas');
+  }
+};
+
+const orderTimeline = computed(() => {
+  if (!selectedOrder.value || !orderActivityLog.value) return [];
+  
+  // Backend returns full timeline with all stages
+  return orderActivityLog.value.map(stage => ({
+    stage: stage.stage,
+    status: stage.status,
+    label: stage.title,
+    description: stage.description,
+    completed: stage.is_completed,
+    inProgress: !stage.is_completed && stage.stage === selectedOrder.value.current_stage,
+    timestamp: stage.completed_at || stage.started_at,
+  }));
+});
+
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return '';
+  // Backend sends timestamp in WIB: "2026-02-28T14:35:33.390103+07:00"
+  // Extract time directly from the string to avoid any timezone conversion
+  const timeStr = timestamp.toString();
+  const dateMatch = timeStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const timeMatch = timeStr.match(/T(\d{2}):(\d{2})/);
+  
+  if (dateMatch && timeMatch) {
+    const [, year, month, day] = dateMatch;
+    const [, hour, minute] = timeMatch;
+    
+    // Map day of week in Indonesian
+    const date = new Date(year, parseInt(month) - 1, day);
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    
+    return `${days[date.getDay()]}, ${parseInt(day)} ${months[parseInt(month) - 1]} ${year} ${hour}:${minute}`;
+  }
+  
+  // Fallback
+  return dayjs(timestamp).format('dddd, DD MMMM YYYY HH:mm');
 };
 
 onMounted(() => {
   fetchSchools();
   fetchOrders();
+  
+  // Auto-refresh every 10 seconds
+  refreshInterval = setInterval(() => {
+    fetchOrders();
+  }, 10000);
+});
+
+onUnmounted(() => {
+  // Clear interval when component is destroyed
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
 });
 </script>
 
@@ -341,63 +490,97 @@ onMounted(() => {
   color: #595959;
 }
 
-.orders-grid {
-  margin-top: 16px;
-}
-
-.order-card {
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.order-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.order-image {
-  height: 180px;
+.orders-list {
+  background: #fff;
+  border-radius: 8px;
   overflow: hidden;
-  background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.order-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.order-list-item {
+  cursor: pointer;
+  padding: 16px 24px;
+  transition: background-color 0.3s;
 }
 
-.no-image {
-  color: #d9d9d9;
+.order-list-item:hover {
+  background-color: #f5f5f5;
 }
 
-.order-title {
+.order-list-title {
   font-size: 16px;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #262626;
 }
 
-.order-info {
+.order-list-info {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 24px;
+  margin-top: 4px;
 }
 
-.school-name,
-.portions {
+.info-item {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 14px;
   color: #595959;
 }
 
-.status-badge {
-  margin-top: 4px;
+.order-detail-modal {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.order-header h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.order-meta {
+  display: flex;
+  gap: 16px;
+  color: #595959;
+}
+
+.order-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timeline-container {
+  padding: 16px 0;
+}
+
+.timeline-content {
+  padding-bottom: 16px;
+}
+
+.timeline-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.timeline-description {
+  color: #595959;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.timeline-timestamp {
+  color: #8c8c8c;
+  font-size: 13px;
+}
+
+.timeline-dot-empty {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #d9d9d9;
+  background: #fff;
 }
 </style>

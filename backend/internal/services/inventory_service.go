@@ -176,6 +176,23 @@ func (s *InventoryService) InitializeInventoryForIngredient(ingredientID uint) e
 	return nil
 }
 
+// GetInventoryByIngredient retrieves inventory for a specific ingredient
+func (s *InventoryService) GetInventoryByIngredient(ingredientID uint) (*models.InventoryItem, error) {
+	var inventory models.InventoryItem
+	err := s.db.Where("ingredient_id = ?", ingredientID).First(&inventory).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Return zero inventory if not found
+			return &models.InventoryItem{
+				IngredientID: ingredientID,
+				Quantity:     0,
+			}, nil
+		}
+		return nil, err
+	}
+	return &inventory, nil
+}
+
 // LowStockAlert represents a low stock alert
 type LowStockAlert struct {
 	IngredientID   uint    `json:"ingredient_id"`

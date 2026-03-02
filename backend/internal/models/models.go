@@ -14,6 +14,7 @@ func AllModels() []interface{} {
 		&SemiFinishedRecipeIngredient{},
 		&SemiFinishedInventory{},
 		&SemiFinishedProductionLog{},
+		&SemiFinishedMovement{},
 		&Recipe{},
 		&RecipeItem{},
 		&RecipeVersion{},
@@ -29,6 +30,8 @@ func AllModels() []interface{} {
 		&GoodsReceiptItem{},
 		&InventoryItem{},
 		&InventoryMovement{},
+		&StokOpnameForm{},
+		&StokOpnameItem{},
 		
 		// Logistics & Distribution
 		&School{},

@@ -53,6 +53,20 @@ const deliveryTaskService = {
         is_active: true 
       } 
     })
+  },
+
+  // Get ready orders (delivery records with status siap_dikirim)
+  getReadyOrders(date) {
+    return api.get('/delivery-tasks/ready-orders', {
+      params: { date }
+    })
+  },
+
+  // Get available drivers (not assigned on the given date)
+  getAvailableDrivers(date) {
+    return api.get('/delivery-tasks/available-drivers', {
+      params: { date }
+    })
   }
 }
 
