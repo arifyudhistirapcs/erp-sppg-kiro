@@ -39,6 +39,8 @@
             v-model:value="searchQuery"
             placeholder="Cari menu atau sekolah..."
             @search="fetchOrders"
+            allow-clear
+            @clear="fetchOrders"
           />
         </a-col>
         <a-col :span="3">
@@ -255,6 +257,11 @@ const fetchOrders = async (isRetry = false) => {
     retryCount.value = 0;
   }
   
+  // Ensure selectedDate has a value
+  if (!selectedDate.value) {
+    selectedDate.value = dayjs();
+  }
+  
   loading.value = true;
   try {
     const params = {
@@ -265,15 +272,19 @@ const fetchOrders = async (isRetry = false) => {
       params.school_id = selectedSchoolId.value;
     }
     
-    if (searchQuery.value) {
-      params.search = searchQuery.value;
+    if (searchQuery.value && searchQuery.value.trim() !== '') {
+      params.search = searchQuery.value.trim();
     }
+    
+    console.log('Fetching orders with params:', params);
     
     const response = await api.get('/activity-tracker/orders', { params });
     
+    console.log('Orders response:', response.data);
+    
     if (response.data.success) {
-      orders.value = response.data.data.orders;
-      summary.value = response.data.data.summary;
+      orders.value = response.data.data.orders || [];
+      summary.value = response.data.data.summary || { total_orders: 0, status_distribution: {} };
       retryCount.value = 0;
     }
   } catch (error) {
@@ -296,12 +307,18 @@ const fetchOrders = async (isRetry = false) => {
 
 const fetchSchools = async () => {
   try {
+    console.log('Fetching schools...');
     const response = await api.get('/schools');
+    console.log('Schools response:', response.data);
     if (response.data.success) {
       schools.value = response.data.data;
+      console.log('Schools loaded:', schools.value.length, 'schools');
+    } else {
+      console.error('Schools API returned success=false');
     }
   } catch (error) {
     console.error('Error fetching schools:', error);
+    console.error('Error details:', error.response?.data);
     message.warning('Gagal memuat daftar sekolah');
   }
 };
@@ -371,7 +388,7 @@ const showOrderDetail = async (order) => {
 };
 
 const orderTimeline = computed(() => {
-  if (!selectedOrder.value || !orderActivityLog.value) return [];
+  if (!selectedOrder.value || !orderActivityLog.value || !Array.isArray(orderActivityLog.value)) return [];
   
   // Backend returns full timeline with all stages
   return orderActivityLog.value.map(stage => ({

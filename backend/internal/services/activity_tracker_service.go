@@ -94,9 +94,10 @@ func (s *ActivityTrackerService) GetOrdersByDate(ctx context.Context, date time.
 	// Apply search filter if provided
 	if search != "" {
 		searchPattern := "%" + search + "%"
-		query = query.Joins("LEFT JOIN schools ON schools.id = delivery_records.school_id").
-			Joins("LEFT JOIN menu_items ON menu_items.id = delivery_records.menu_item_id").
-			Where("schools.name ILIKE ? OR menu_items.name ILIKE ?", searchPattern, searchPattern)
+		query = query.Joins("JOIN schools ON schools.id = delivery_records.school_id").
+			Joins("JOIN menu_items ON menu_items.id = delivery_records.menu_item_id").
+			Joins("JOIN recipes ON recipes.id = menu_items.recipe_id").
+			Where("schools.name ILIKE ? OR recipes.name ILIKE ?", searchPattern, searchPattern)
 	}
 	
 	// Execute query

@@ -64,9 +64,13 @@ func (h *ActivityTrackerHandler) GetOrdersByDate(c *gin.Context) {
 	// Call service
 	response, err := h.service.GetOrdersByDate(c.Request.Context(), date, schoolID, search)
 	if err != nil {
+		// Log the actual error for debugging
+		c.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "failed to fetch orders",
+			"success":    false,
+			"error":      "failed to fetch orders",
+			"error_code": "FETCH_ORDERS_ERROR",
+			"message":    err.Error(),
 		})
 		return
 	}
