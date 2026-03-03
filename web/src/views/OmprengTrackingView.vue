@@ -73,12 +73,17 @@
             <!-- Search and Actions -->
             <a-row :gutter="16">
               <a-col :span="12">
-                <a-input-search
+                <a-input
                   v-model:value="searchText"
                   placeholder="Cari nama sekolah..."
-                  @search="handleSearch"
+                  @change="handleSearch"
                   allow-clear
-                />
+                  size="large"
+                >
+                  <template #prefix>
+                    <SearchOutlined />
+                  </template>
+                </a-input>
               </a-col>
               <a-col :span="6">
                 <a-select
@@ -87,6 +92,7 @@
                   style="width: 100%"
                   @change="handleSearch"
                   allow-clear
+                  size="large"
                 >
                   <a-select-option value="missing">Ada Ompreng Hilang</a-select-option>
                   <a-select-option value="normal">Normal</a-select-option>

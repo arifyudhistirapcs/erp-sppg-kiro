@@ -1,49 +1,37 @@
 <template>
-  <div class="activity-tracker-list">
-    <div class="page-header">
-      <h1>Aktivitas Pelacakan</h1>
-      <p class="subtitle">Monitor proses order dari persiapan hingga selesai</p>
+  <div>
+    <!-- Page Subtitle -->
+    <div class="page-subtitle">
+      Monitor proses order dari persiapan hingga selesai
     </div>
 
-    <div class="filters-section">
-      <a-row :gutter="16" align="middle">
-        <a-col :span="7">
+    <!-- Filters Section -->
+    <div class="h-card filters-section">
+      <a-row :gutter="[16, 16]" align="middle">
+        <a-col :xs="24" :sm="12" :md="8">
           <a-date-picker
             v-model:value="selectedDate"
             format="YYYY-MM-DD"
             placeholder="Pilih tanggal"
             style="width: 100%"
             @change="fetchOrders"
+            size="large"
           />
         </a-col>
-        <a-col :span="7">
-          <a-select
-            v-model:value="selectedSchoolId"
-            placeholder="Semua Sekolah"
-            style="width: 100%"
-            allow-clear
-            @change="fetchOrders"
-          >
-            <a-select-option :value="null">Semua Sekolah</a-select-option>
-            <a-select-option
-              v-for="school in schools"
-              :key="school.id"
-              :value="school.id"
-            >
-              {{ school.name }}
-            </a-select-option>
-          </a-select>
-        </a-col>
-        <a-col :span="7">
-          <a-input-search
+        <a-col :xs="24" :sm="12" :md="12">
+          <a-input
             v-model:value="searchQuery"
             placeholder="Cari menu atau sekolah..."
-            @search="fetchOrders"
+            @change="fetchOrders"
             allow-clear
-            @clear="fetchOrders"
-          />
+            size="large"
+          >
+            <template #prefix>
+              <SearchOutlined />
+            </template>
+          </a-input>
         </a-col>
-        <a-col :span="3">
+        <a-col :xs="24" :sm="24" :md="4">
           <a-button 
             type="default" 
             :icon="h(ReloadOutlined)" 
@@ -57,93 +45,81 @@
       </a-row>
     </div>
 
-    <div v-if="loading" class="loading-container">
-      <a-spin size="large" />
+    <!-- Status Stats Cards -->
+    <div class="stats-row">
+      <HStatCard
+        :icon="ClockCircleOutlined"
+        icon-bg="linear-gradient(135deg, #FFB547 0%, #FF9A3D 100%)"
+        label="Pending"
+        :value="statusCounts.pending"
+        :loading="loading"
+      />
+      <HStatCard
+        :icon="SyncOutlined"
+        icon-bg="linear-gradient(135deg, #5A4372 0%, #3D2B53 100%)"
+        label="In Progress"
+        :value="statusCounts.inProgress"
+        :loading="loading"
+      />
+      <HStatCard
+        :icon="CheckCircleOutlined"
+        icon-bg="linear-gradient(135deg, #05CD99 0%, #04B886 100%)"
+        label="Completed"
+        :value="statusCounts.completed"
+        :loading="loading"
+      />
     </div>
 
-    <div v-else-if="orders.length === 0" class="empty-state">
-      <a-empty description="Tidak ada order untuk tanggal ini">
-        <template #image>
-          <inbox-outlined style="font-size: 64px; color: #d9d9d9" />
-        </template>
-      </a-empty>
-    </div>
+    <!-- Activity List Table -->
+    <HDataTable
+      :columns="tableColumns"
+      :data-source="tableData"
+      :loading="loading"
+      :pagination="{
+        current: 1,
+        pageSize: 20,
+        showSizeChanger: true,
+        showTotal: (total) => `Total ${total} aktivitas`
+      }"
+      :mobile-card-view="true"
+    >
+      <!-- Custom Cell: Menu Name -->
+      <template #cell-menuName="{ record }">
+        <div class="menu-cell">
+          <div class="menu-name">{{ record.menuName }}</div>
+          <div class="menu-school">
+            <EnvironmentOutlined style="margin-right: 4px" />
+            {{ record.schoolName }}
+          </div>
+        </div>
+      </template>
 
-    <div v-else>
-      <div class="summary-section">
-        <a-row :gutter="16">
-          <a-col :span="8">
-            <a-statistic
-              title="Total Order"
-              :value="summary.total_orders"
-              :prefix="h(ShoppingOutlined)"
-            />
-          </a-col>
-          <a-col :span="16">
-            <div class="status-distribution">
-              <span class="label">Status:</span>
-              <a-tag
-                v-for="(count, status) in summary.status_distribution"
-                :key="status"
-                :color="getStatusColor(status)"
-              >
-                {{ getStatusLabel(status) }}: {{ count }}
-              </a-tag>
-            </div>
-          </a-col>
-        </a-row>
-      </div>
+      <!-- Custom Cell: Portions -->
+      <template #cell-portions="{ record }">
+        <div class="portions-cell">
+          <TeamOutlined style="margin-right: 4px" />
+          {{ record.portions }}
+        </div>
+      </template>
 
-      <div class="orders-list">
-        <a-list
-          :data-source="orders"
-          :bordered="false"
+      <!-- Custom Cell: Status -->
+      <template #cell-status="{ text }">
+        <a-tag :color="getStatusColor(text)">
+          {{ text }}
+        </a-tag>
+      </template>
+
+      <!-- Custom Cell: Actions -->
+      <template #actions="{ record }">
+        <a-button
+          type="link"
+          size="small"
+          @click="showOrderDetail(record)"
         >
-          <template #renderItem="{ item: order }">
-            <a-list-item
-              class="order-list-item"
-              @click="showOrderDetail(order)"
-            >
-              <a-list-item-meta>
-                <template #title>
-                  <div class="order-list-title">
-                    {{ order.menu.name }}
-                  </div>
-                </template>
-                <template #description>
-                  <div class="order-list-info">
-                    <span class="info-item">
-                      <environment-outlined />
-                      {{ order.school.name }}
-                    </span>
-                    <span class="info-item">
-                      <team-outlined />
-                      <template v-if="order.portions_small > 0 && order.portions_large > 0">
-                        {{ order.portions_small }} porsi kecil + {{ order.portions_large }} porsi besar
-                      </template>
-                      <template v-else-if="order.portions_small > 0">
-                        {{ order.portions_small }} porsi kecil
-                      </template>
-                      <template v-else-if="order.portions_large > 0">
-                        {{ order.portions_large }} porsi besar
-                      </template>
-                      <template v-else>
-                        {{ order.portions }} porsi
-                      </template>
-                    </span>
-                  </div>
-                </template>
-              </a-list-item-meta>
-              <template #actions>
-                <a-tag :color="getStatusColor(order.current_status)">
-                  Stage {{ order.current_stage }}: {{ getStatusLabel(order.current_status) }}
-                </a-tag>
-              </template>
-            </a-list-item>
-          </template>
-        </a-list>
-      </div>
-    </div>
+          Detail
+        </a-button>
+      </template>
+    </HDataTable>
 
     <!-- Detail Modal -->
     <a-modal
@@ -151,26 +127,19 @@
       title="Detail Aktivitas Pelacakan"
       width="800px"
       :footer="null"
+      class="detail-modal"
     >
       <div v-if="selectedOrder" class="order-detail-modal">
         <div class="order-header">
-          <h3>{{ selectedOrder.menu.name }}</h3>
+          <h3>{{ selectedOrder.menuName }}</h3>
           <div class="order-meta">
-            <span><environment-outlined /> {{ selectedOrder.school.name }}</span>
             <span>
-              <team-outlined />
-              <template v-if="selectedOrder.portions_small > 0 && selectedOrder.portions_large > 0">
-                {{ selectedOrder.portions_small }} porsi kecil + {{ selectedOrder.portions_large }} porsi besar
-              </template>
-              <template v-else-if="selectedOrder.portions_small > 0">
-                {{ selectedOrder.portions_small }} porsi kecil
-              </template>
-              <template v-else-if="selectedOrder.portions_large > 0">
-                {{ selectedOrder.portions_large }} porsi besar
-              </template>
-              <template v-else>
-                {{ selectedOrder.portions }} porsi
-              </template>
+              <EnvironmentOutlined style="margin-right: 4px" />
+              {{ selectedOrder.schoolName }}
+            </span>
+            <span>
+              <TeamOutlined style="margin-right: 4px" />
+              {{ selectedOrder.portions }}
             </span>
           </div>
         </div>
@@ -185,8 +154,8 @@
               :color="stage.completed ? 'green' : stage.inProgress ? 'blue' : 'gray'"
             >
               <template #dot>
-                <check-circle-filled v-if="stage.completed" style="font-size: 16px" />
-                <clock-circle-outlined v-else-if="stage.inProgress" style="font-size: 16px" />
+                <CheckCircleFilled v-if="stage.completed" style="font-size: 16px" />
+                <ClockCircleOutlined v-else-if="stage.inProgress" style="font-size: 16px" />
                 <span v-else class="timeline-dot-empty"></span>
               </template>
               <div class="timeline-content">
@@ -220,24 +189,29 @@ import api from '@/services/api';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale('id');
+
+// Horizon Components
+import HStatCard from '@/components/horizon/HStatCard.vue';
+import HDataTable from '@/components/horizon/HDataTable.vue';
+
+// Icons
 import {
-  InboxOutlined,
-  ShoppingOutlined,
+  ClockCircleOutlined,
+  SyncOutlined,
+  CheckCircleOutlined,
   EnvironmentOutlined,
   TeamOutlined,
   CheckCircleFilled,
-  ClockCircleOutlined,
   ReloadOutlined,
 } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 
 const router = useRouter();
 
+// State
 const selectedDate = ref(dayjs());
-const selectedSchoolId = ref(null);
 const searchQuery = ref('');
 const orders = ref([]);
-const schools = ref([]);
 const summary = ref({
   total_orders: 0,
   status_distribution: {},
@@ -250,8 +224,115 @@ const selectedOrder = ref(null);
 const orderActivityLog = ref([]);
 let refreshInterval = null;
 
+// Computed: Status Counts
+const statusCounts = computed(() => {
+  const counts = {
+    pending: 0,
+    inProgress: 0,
+    completed: 0,
+  };
+
+  orders.value.forEach(order => {
+    const status = order.current_status;
+    
+    // Pending statuses
+    if (status === 'order_disiapkan' || status === 'siap_dipacking' || status === 'siap_dikirim') {
+      counts.pending++;
+    }
+    // In Progress statuses
+    else if (
+      status === 'sedang_dimasak' ||
+      status === 'selesai_dipacking' ||
+      status === 'diperjalanan' ||
+      status === 'driver_menuju_lokasi_pengambilan' ||
+      status === 'driver_kembali_ke_sppg' ||
+      status === 'ompreng_proses_pencucian'
+    ) {
+      counts.inProgress++;
+    }
+    // Completed statuses
+    else if (
+      status === 'selesai_dimasak' ||
+      status === 'sudah_sampai_sekolah' ||
+      status === 'sudah_diterima_pihak_sekolah' ||
+      status === 'driver_tiba_di_lokasi_pengambilan' ||
+      status === 'driver_tiba_di_sppg' ||
+      status === 'ompreng_selesai_dicuci'
+    ) {
+      counts.completed++;
+    }
+  });
+
+  return counts;
+});
+
+// Computed: Table Columns
+const tableColumns = computed(() => [
+  {
+    title: 'Menu & Sekolah',
+    dataIndex: 'menuName',
+    key: 'menuName',
+    width: 300,
+  },
+  {
+    title: 'Porsi',
+    dataIndex: 'portions',
+    key: 'portions',
+    width: 150,
+  },
+  {
+    title: 'Stage',
+    dataIndex: 'stage',
+    key: 'stage',
+    width: 100,
+  },
+  {
+    title: 'Status',
+    dataIndex: 'status',
+    key: 'status',
+    type: 'status',
+    width: 200,
+  },
+  {
+    title: 'Aksi',
+    key: 'actions',
+    type: 'actions',
+    width: 100,
+  },
+]);
+
+// Computed: Table Data
+const tableData = computed(() => {
+  return orders.value.map((order, index) => ({
+    key: order.id || index,
+    id: order.id,
+    menuName: order.menu?.name || '-',
+    schoolName: order.school?.name || '-',
+    portions: formatPortions(order),
+    stage: `Stage ${order.current_stage}`,
+    status: getStatusLabel(order.current_status),
+    rawStatus: order.current_status,
+    rawOrder: order,
+  }));
+});
+
+// Helper: Format Portions
+const formatPortions = (order) => {
+  if (order.portions_small > 0 && order.portions_large > 0) {
+    return `${order.portions_small} kecil + ${order.portions_large} besar`;
+  } else if (order.portions_small > 0) {
+    return `${order.portions_small} porsi kecil`;
+  } else if (order.portions_large > 0) {
+    return `${order.portions_large} porsi besar`;
+  } else {
+    return `${order.portions || 0} porsi`;
+  }
+};
+
+// Helper: Sleep
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Fetch Orders
 const fetchOrders = async (isRetry = false) => {
   if (!isRetry) {
     retryCount.value = 0;
@@ -267,10 +348,6 @@ const fetchOrders = async (isRetry = false) => {
     const params = {
       date: selectedDate.value.format('YYYY-MM-DD'),
     };
-    
-    if (selectedSchoolId.value) {
-      params.school_id = selectedSchoolId.value;
-    }
     
     if (searchQuery.value && searchQuery.value.trim() !== '') {
       params.search = searchQuery.value.trim();
@@ -305,50 +382,24 @@ const fetchOrders = async (isRetry = false) => {
   }
 };
 
-const fetchSchools = async () => {
-  try {
-    console.log('Fetching schools...');
-    const response = await api.get('/schools');
-    console.log('Schools response:', response.data);
-    if (response.data.success) {
-      schools.value = response.data.data;
-      console.log('Schools loaded:', schools.value.length, 'schools');
-    } else {
-      console.error('Schools API returned success=false');
-    }
-  } catch (error) {
-    console.error('Error fetching schools:', error);
-    console.error('Error details:', error.response?.data);
-    message.warning('Gagal memuat daftar sekolah');
-  }
-};
-
-const navigateToDetail = (orderId) => {
-  router.push({ name: 'ActivityTrackerDetail', params: { id: orderId } });
-};
-
+// Get Status Color
 const getStatusColor = (status) => {
-  const stageColors = {
-    order_disiapkan: 'default',
-    sedang_dimasak: 'processing',
-    selesai_dimasak: 'success',
-    siap_dipacking: 'default',
-    selesai_dipacking: 'success',
-    siap_dikirim: 'success',
-    diperjalanan: 'processing',
-    sudah_sampai_sekolah: 'success',
-    sudah_diterima_pihak_sekolah: 'success',
-    driver_menuju_lokasi_pengambilan: 'processing',
-    driver_tiba_di_lokasi_pengambilan: 'success',
-    driver_kembali_ke_sppg: 'processing',
-    driver_tiba_di_sppg: 'success',
-    ompreng_siap_dicuci: 'default',
-    ompreng_proses_pencucian: 'processing',
-    ompreng_selesai_dicuci: 'success',
-  };
-  return stageColors[status] || 'default';
+  const statusLower = String(status).toLowerCase();
+  
+  if (statusLower.includes('selesai') || statusLower.includes('diterima') || statusLower.includes('tiba')) {
+    return 'success';
+  }
+  if (statusLower.includes('sedang') || statusLower.includes('proses') || statusLower.includes('perjalanan') || statusLower.includes('menuju')) {
+    return 'processing';
+  }
+  if (statusLower.includes('siap') || statusLower.includes('disiapkan')) {
+    return 'default';
+  }
+  
+  return 'default';
 };
 
+// Get Status Label
 const getStatusLabel = (status) => {
   const labels = {
     order_disiapkan: 'Sedang Disiapkan',
@@ -371,13 +422,14 @@ const getStatusLabel = (status) => {
   return labels[status] || status;
 };
 
-const showOrderDetail = async (order) => {
-  selectedOrder.value = order;
+// Show Order Detail
+const showOrderDetail = async (record) => {
+  selectedOrder.value = record;
   detailModalVisible.value = true;
   
   // Fetch activity log
   try {
-    const response = await api.get(`/activity-tracker/orders/${order.id}/activity`);
+    const response = await api.get(`/activity-tracker/orders/${record.id}/activity`);
     if (response.data.success) {
       orderActivityLog.value = response.data.data;
     }
@@ -387,6 +439,7 @@ const showOrderDetail = async (order) => {
   }
 };
 
+// Order Timeline
 const orderTimeline = computed(() => {
   if (!selectedOrder.value || !orderActivityLog.value || !Array.isArray(orderActivityLog.value)) return [];
   
@@ -397,11 +450,12 @@ const orderTimeline = computed(() => {
     label: stage.title,
     description: stage.description,
     completed: stage.is_completed,
-    inProgress: !stage.is_completed && stage.stage === selectedOrder.value.current_stage,
+    inProgress: !stage.is_completed && stage.stage === selectedOrder.value.rawOrder?.current_stage,
     timestamp: stage.completed_at || stage.started_at,
   }));
 });
 
+// Format Timestamp
 const formatTimestamp = (timestamp) => {
   if (!timestamp) return '';
   // Backend sends timestamp in WIB: "2026-02-28T14:35:33.390103+07:00"
@@ -427,8 +481,8 @@ const formatTimestamp = (timestamp) => {
   return dayjs(timestamp).format('dddd, DD MMMM YYYY HH:mm');
 };
 
+// Lifecycle
 onMounted(() => {
-  fetchSchools();
   fetchOrders();
   
   // Auto-refresh every 10 seconds
@@ -446,101 +500,73 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.activity-tracker-list {
-  padding: 24px;
+/* Page Subtitle */
+.page-subtitle {
+  color: var(--h-text-secondary);
+  font-size: var(--h-text-sm);
+  margin-top: calc(var(--h-spacing-4) * -1);
+  margin-bottom: var(--h-spacing-4);
 }
 
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-header h1 {
-  font-size: 28px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.subtitle {
-  color: #8c8c8c;
-  font-size: 14px;
-}
-
+/* Filters Section */
 .filters-section {
-  margin-bottom: 24px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 8px;
+  padding: var(--h-spacing-4);
 }
 
-.loading-container {
+/* Stats Row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--h-spacing-5);
+}
+
+/* Mobile: Stack stats 1 column */
+@media (max-width: 767px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Menu Cell */
+.menu-cell {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
+  flex-direction: column;
+  gap: var(--h-spacing-1);
 }
 
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-  background: #fff;
-  border-radius: 8px;
+.menu-name {
+  font-size: var(--h-text-base);
+  font-weight: var(--h-font-semibold);
+  color: var(--h-text-primary);
 }
 
-.summary-section {
-  margin-bottom: 24px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 8px;
-}
-
-.status-distribution {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.status-distribution .label {
-  font-weight: 500;
-  color: #595959;
-}
-
-.orders-list {
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.order-list-item {
-  cursor: pointer;
-  padding: 16px 24px;
-  transition: background-color 0.3s;
-}
-
-.order-list-item:hover {
-  background-color: #f5f5f5;
-}
-
-.order-list-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #262626;
-}
-
-.order-list-info {
-  display: flex;
-  gap: 24px;
-  margin-top: 4px;
-}
-
-.info-item {
+.menu-school {
+  font-size: var(--h-text-sm);
+  color: var(--h-text-secondary);
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  color: #595959;
+}
+
+/* Portions Cell */
+.portions-cell {
+  display: flex;
+  align-items: center;
+  font-size: var(--h-text-sm);
+  color: var(--h-text-primary);
+}
+
+/* Detail Modal */
+.detail-modal :deep(.ant-modal-content) {
+  border-radius: var(--h-radius-lg);
+}
+
+.detail-modal :deep(.ant-modal-header) {
+  border-radius: var(--h-radius-lg) var(--h-radius-lg) 0 0;
+  padding: var(--h-spacing-5);
+}
+
+.detail-modal :deep(.ant-modal-body) {
+  padding: var(--h-spacing-5);
 }
 
 .order-detail-modal {
@@ -549,47 +575,50 @@ onUnmounted(() => {
 }
 
 .order-header h3 {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  font-size: var(--h-text-xl);
+  font-weight: var(--h-font-semibold);
+  margin-bottom: var(--h-spacing-2);
+  color: var(--h-text-primary);
 }
 
 .order-meta {
   display: flex;
-  gap: 16px;
-  color: #595959;
+  gap: var(--h-spacing-4);
+  color: var(--h-text-secondary);
+  font-size: var(--h-text-sm);
 }
 
 .order-meta span {
   display: flex;
   align-items: center;
-  gap: 4px;
 }
 
 .timeline-container {
-  padding: 16px 0;
+  padding: var(--h-spacing-4) 0;
 }
 
 .timeline-content {
-  padding-bottom: 16px;
+  padding-bottom: var(--h-spacing-4);
 }
 
 .timeline-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: var(--h-spacing-2);
+  margin-bottom: var(--h-spacing-1);
+  font-size: var(--h-text-base);
+  color: var(--h-text-primary);
 }
 
 .timeline-description {
-  color: #595959;
-  font-size: 14px;
-  margin-bottom: 4px;
+  color: var(--h-text-secondary);
+  font-size: var(--h-text-sm);
+  margin-bottom: var(--h-spacing-1);
 }
 
 .timeline-timestamp {
-  color: #8c8c8c;
-  font-size: 13px;
+  color: var(--h-text-light);
+  font-size: var(--h-text-xs);
 }
 
 .timeline-dot-empty {
@@ -597,7 +626,49 @@ onUnmounted(() => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid #d9d9d9;
-  background: #fff;
+  border: 2px solid var(--h-border-color);
+  background: var(--h-bg-card);
+}
+
+/* Dark Mode Support */
+.dark .page-subtitle {
+  color: var(--h-text-secondary);
+}
+
+.dark .menu-name {
+  color: var(--h-text-primary);
+}
+
+.dark .menu-school {
+  color: var(--h-text-secondary);
+}
+
+.dark .portions-cell {
+  color: var(--h-text-primary);
+}
+
+.dark .order-header h3 {
+  color: var(--h-text-primary);
+}
+
+.dark .order-meta {
+  color: var(--h-text-secondary);
+}
+
+.dark .timeline-title {
+  color: var(--h-text-primary);
+}
+
+.dark .timeline-description {
+  color: var(--h-text-secondary);
+}
+
+.dark .timeline-timestamp {
+  color: var(--h-text-light);
+}
+
+.dark .timeline-dot-empty {
+  border-color: var(--h-border-color);
+  background: var(--h-bg-card);
 }
 </style>

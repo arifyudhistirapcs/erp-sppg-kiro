@@ -63,11 +63,25 @@ func roundToDecimal(value float64, decimals int) float64 {
 
 // KepalaSSPGDashboard represents operational dashboard for Kepala SPPG
 type KepalaSSPGDashboard struct {
-	ProductionStatus  *ProductionStatus  `json:"production_status"`
-	DeliveryStatus    *DeliveryStatus    `json:"delivery_status"`
+	ProductionStatus  *ProductionStatus   `json:"production_status"`
+	DeliveryStatus    *DeliveryStatus     `json:"delivery_status"`
+	PickupStatus      *PickupStatus       `json:"pickup_status"`
+	CleaningStatus    *CleaningStatus     `json:"cleaning_status"`
+	ProductionDetails []SchoolDetail      `json:"production_details"`
+	DeliveryDetails   []SchoolDetail      `json:"delivery_details"`
+	PickupDetails     []SchoolDetail      `json:"pickup_details"`
+	CleaningDetails   []SchoolDetail      `json:"cleaning_details"`
 	CriticalStock     []CriticalStockItem `json:"critical_stock"`
-	TodayKPIs         *TodayKPIs         `json:"today_kpis"`
-	UpdatedAt         time.Time          `json:"updated_at"`
+	TodayKPIs         *TodayKPIs          `json:"today_kpis"`
+	UpdatedAt         time.Time           `json:"updated_at"`
+}
+
+// SchoolDetail represents school-level detail for dashboard tables
+type SchoolDetail struct {
+	SchoolID   uint   `json:"school_id"`
+	SchoolName string `json:"school_name"`
+	Portions   int    `json:"portions"`
+	Status     string `json:"status"`
 }
 
 // ProductionStatus represents production milestones
@@ -82,13 +96,34 @@ type ProductionStatus struct {
 	CompletionRate    float64 `json:"completion_rate"`
 }
 
-// DeliveryStatus represents delivery progress
+// DeliveryStatus represents delivery progress (stages 6-9: delivery to school)
 type DeliveryStatus struct {
-	TotalDeliveries     int     `json:"total_deliveries"`
-	DeliveriesPending   int     `json:"deliveries_pending"`
-	DeliveriesInProgress int    `json:"deliveries_in_progress"`
-	DeliveriesCompleted int     `json:"deliveries_completed"`
-	CompletionRate      float64 `json:"completion_rate"`
+	TotalDeliveries      int            `json:"total_deliveries"`
+	StatusBreakdown      []StatusCount  `json:"status_breakdown"`
+	CompletionRate       float64        `json:"completion_rate"`
+}
+
+// StatusCount represents count per status for charts
+type StatusCount struct {
+	Status      string `json:"status"`
+	StatusLabel string `json:"status_label"`
+	Count       int    `json:"count"`
+}
+
+// PickupStatus represents ompreng pickup progress (stages 10-13: pickup from school back to SPPG)
+type PickupStatus struct {
+	TotalPickups    int           `json:"total_pickups"`
+	StatusBreakdown []StatusCount `json:"status_breakdown"`
+	CompletionRate  float64       `json:"completion_rate"`
+}
+
+// CleaningStatus represents cleaning progress
+type CleaningStatus struct {
+	TotalItems      int     `json:"total_items"`
+	ItemsPending    int     `json:"items_pending"`
+	ItemsInProgress int     `json:"items_in_progress"`
+	ItemsCompleted  int     `json:"items_completed"`
+	CompletionRate  float64 `json:"completion_rate"`
 }
 
 // CriticalStockItem represents low stock item
@@ -181,6 +216,22 @@ func (s *DashboardService) GetKepalaSSPGDashboard(ctx context.Context) (*KepalaS
 	}
 	dashboard.DeliveryStatus = deliveryStatus
 
+	// Get pickup status
+	pickupStatus, err := s.getPickupStatus(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to get pickup status: %v. Using defaults.", err)
+		pickupStatus = &PickupStatus{}
+	}
+	dashboard.PickupStatus = pickupStatus
+
+	// Get cleaning status
+	cleaningStatus, err := s.getCleaningStatus(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to get cleaning status: %v. Using defaults.", err)
+		cleaningStatus = &CleaningStatus{}
+	}
+	dashboard.CleaningStatus = cleaningStatus
+
 	// Get critical stock
 	criticalStock, err := s.getCriticalStock(ctx)
 	if err != nil {
@@ -188,6 +239,38 @@ func (s *DashboardService) GetKepalaSSPGDashboard(ctx context.Context) (*KepalaS
 		criticalStock = []CriticalStockItem{}
 	}
 	dashboard.CriticalStock = criticalStock
+
+	// Get production details (school-level)
+	productionDetails, err := s.getProductionDetails(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to get production details: %v. Using empty list.", err)
+		productionDetails = []SchoolDetail{}
+	}
+	dashboard.ProductionDetails = productionDetails
+
+	// Get delivery details (school-level)
+	deliveryDetails, err := s.getDeliveryDetails(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to get delivery details: %v. Using empty list.", err)
+		deliveryDetails = []SchoolDetail{}
+	}
+	dashboard.DeliveryDetails = deliveryDetails
+
+	// Get pickup details (school-level, stages 10-13)
+	pickupDetails, err := s.getPickupDetails(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to get pickup details: %v. Using empty list.", err)
+		pickupDetails = []SchoolDetail{}
+	}
+	dashboard.PickupDetails = pickupDetails
+
+	// Get cleaning details (school-level)
+	cleaningDetails, err := s.getCleaningDetails(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to get cleaning details: %v. Using empty list.", err)
+		cleaningDetails = []SchoolDetail{}
+	}
+	dashboard.CleaningDetails = cleaningDetails
 
 	// Calculate today's KPIs
 	todayKPIs, err := s.calculateTodayKPIs(ctx)
@@ -215,11 +298,21 @@ func (s *DashboardService) getDummyKepalaSSPGDashboard() *KepalaSSPGDashboard {
 			CompletionRate:    58.3,
 		},
 		DeliveryStatus: &DeliveryStatus{
-			TotalDeliveries:      15,
-			DeliveriesPending:    3,
-			DeliveriesInProgress: 5,
-			DeliveriesCompleted:  7,
-			CompletionRate:       46.7,
+			TotalDeliveries: 15,
+			StatusBreakdown: []StatusCount{
+				{Status: "siap_dikirim", StatusLabel: "Siap Dikirim", Count: 3},
+				{Status: "diperjalanan", StatusLabel: "Diperjalanan", Count: 5},
+				{Status: "sudah_sampai_sekolah", StatusLabel: "Sudah Sampai Sekolah", Count: 4},
+				{Status: "sudah_diterima_pihak_sekolah", StatusLabel: "Sudah Diterima", Count: 3},
+			},
+			CompletionRate: 20.0,
+		},
+		CleaningStatus: &CleaningStatus{
+			TotalItems:      10,
+			ItemsPending:    2,
+			ItemsInProgress: 3,
+			ItemsCompleted:  5,
+			CompletionRate:  50.0,
 		},
 		CriticalStock: []CriticalStockItem{
 			{
@@ -256,94 +349,91 @@ func (s *DashboardService) getDummyKepalaSSPGDashboard() *KepalaSSPGDashboard {
 	}
 }
 
-// getProductionStatus retrieves production status for today
+// Status string groupings — source of truth for categorization
+// (stage numbers in old data may be inconsistent)
+var productionStatuses = []string{
+	"pending", "sedang_dimasak", "selesai_dimasak",
+	"siap_dipacking", "selesai_dipacking",
+}
+
+var deliveryStatuses = []string{
+	"siap_dikirim", "diperjalanan",
+	"sudah_sampai_sekolah", "sudah_diterima_pihak_sekolah",
+}
+
+var pickupStatuses = []string{
+	"driver_menuju_lokasi_pengambilan", "driver_tiba_di_lokasi_pengambilan",
+	"driver_kembali_ke_sppg", "driver_tiba_di_sppg",
+}
+
+// deliveryAndPickupStatuses combines delivery + pickup for the unified dashboard section
+var deliveryAndPickupStatuses = []string{
+	// Delivery statuses (stages 6-9)
+	"siap_dikirim", "diperjalanan",
+	"sudah_sampai_sekolah", "sudah_diterima_pihak_sekolah",
+	// Pickup statuses (stages 10-13)
+	"driver_menuju_lokasi_pengambilan", "driver_tiba_di_lokasi_pengambilan",
+	"driver_kembali_ke_sppg", "driver_tiba_di_sppg",
+}
+
+// getProductionStatus retrieves production status for today (stages 1-5)
 func (s *DashboardService) getProductionStatus(ctx context.Context) (*ProductionStatus, error) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	tomorrow := today.Add(24 * time.Hour)
 	
-	// Get menu items for today - use date range for better compatibility
-	var totalRecipes int64
+	type StatusCount struct {
+		Status string
+		Count  int64
+	}
+	
+	var statusCounts []StatusCount
 	err := s.db.WithContext(ctx).
-		Table("menu_items").
-		Joins("JOIN menu_plans ON menu_items.menu_plan_id = menu_plans.id").
-		Where("menu_plans.status = ?", "approved").
-		Where("menu_items.date >= ? AND menu_items.date < ?", today, tomorrow).
-		Count(&totalRecipes).Error
+		Table("delivery_records").
+		Select("current_status as status, COUNT(*) as count").
+		Where("delivery_date >= ? AND delivery_date < ?", today, tomorrow).
+		Where("current_status IN ?", productionStatuses).
+		Group("current_status").
+		Scan(&statusCounts).Error
+	
 	if err != nil {
-		log.Printf("Error querying menu items: %v", err)
+		log.Printf("Error querying production status: %v", err)
 		return nil, err
 	}
-
-	log.Printf("Dashboard: Found %d menu items for today", totalRecipes)
-
-	// Get recipe statuses from Firebase (gracefully handle errors)
-	var pending, cooking, ready int
-	if s.dbClient != nil {
-		firebasePath := fmt.Sprintf("/kds/cooking/%s", today.Format("2006-01-02"))
-		var recipeStatuses map[string]interface{}
-		err = s.dbClient.NewRef(firebasePath).Get(ctx, &recipeStatuses)
-		if err != nil && err.Error() != "client: no data at ref" {
-			// Log warning but don't fail - use default values
-			log.Printf("Warning: Failed to get cooking status from Firebase: %v", err)
-			pending = int(totalRecipes)
-		} else if recipeStatuses != nil {
-			for _, v := range recipeStatuses {
-				if recipeData, ok := v.(map[string]interface{}); ok {
-					status, _ := recipeData["status"].(string)
-					switch status {
-					case "pending":
-						pending++
-					case "cooking":
-						cooking++
-					case "ready":
-						ready++
-					}
-				}
-			}
-		} else {
-			// If no Firebase data, all recipes are pending
-			pending = int(totalRecipes)
-		}
-	} else {
-		// No Firebase client, all recipes are pending
-		pending = int(totalRecipes)
-	}
-
-	// Get packing status (gracefully handle errors)
-	var packingPending, packingInProgress, packingReady int
-	if s.dbClient != nil {
-		packingPath := fmt.Sprintf("/kds/packing/%s", today.Format("2006-01-02"))
-		var packingStatuses map[string]interface{}
-		err = s.dbClient.NewRef(packingPath).Get(ctx, &packingStatuses)
-		if err != nil && err.Error() != "client: no data at ref" {
-			// Log warning but don't fail
-			log.Printf("Warning: Failed to get packing status from Firebase: %v", err)
-		} else if packingStatuses != nil {
-			for _, v := range packingStatuses {
-				if packingData, ok := v.(map[string]interface{}); ok {
-					status, _ := packingData["status"].(string)
-					switch status {
-					case "pending":
-						packingPending++
-					case "packing":
-						packingInProgress++
-					case "ready":
-						packingReady++
-					}
-				}
-			}
+	
+	var totalRecipes, pending, cooking, ready, packingPending, packingInProgress, packingReady int
+	
+	for _, sc := range statusCounts {
+		totalRecipes += int(sc.Count)
+		
+		switch sc.Status {
+		case "pending":
+			pending += int(sc.Count)
+		case "sedang_dimasak":
+			cooking += int(sc.Count)
+		case "selesai_dimasak":
+			ready += int(sc.Count)
+		case "siap_dipacking", "siap_packing":
+			packingPending += int(sc.Count)
+		case "sedang_packing":
+			packingInProgress += int(sc.Count)
+		case "selesai_dipacking":
+			packingReady += int(sc.Count)
+		default:
+			pending += int(sc.Count)
 		}
 	}
 
-	// Calculate completion rate (rounded to 2 decimal places)
+	log.Printf("Dashboard: Found %d production records (pending: %d, cooking: %d, ready: %d, packing: %d/%d/%d)", 
+		totalRecipes, pending, cooking, ready, packingPending, packingInProgress, packingReady)
+
 	completionRate := 0.0
 	if totalRecipes > 0 {
-		completionRate = roundToDecimal((float64(ready)/float64(totalRecipes))*100, 2)
+		completionRate = roundToDecimal((float64(packingReady)/float64(totalRecipes))*100, 2)
 	}
 
 	return &ProductionStatus{
-		TotalRecipes:      int(totalRecipes),
+		TotalRecipes:      totalRecipes,
 		RecipesPending:    pending,
 		RecipesCooking:    cooking,
 		RecipesReady:      ready,
@@ -354,43 +444,216 @@ func (s *DashboardService) getProductionStatus(ctx context.Context) (*Production
 	}, nil
 }
 
-// getDeliveryStatus retrieves delivery status for today
+// getDeliveryStatus retrieves delivery & pickup status for today (stages 6-13)
 func (s *DashboardService) getDeliveryStatus(ctx context.Context) (*DeliveryStatus, error) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrow := today.Add(24 * time.Hour)
 	
-	tasks, err := s.deliveryTaskService.GetAllDeliveryTasks(nil, "", &today)
+	type DBStatusCount struct {
+		Status string
+		Count  int64
+	}
+	
+	var dbCounts []DBStatusCount
+	err := s.db.WithContext(ctx).
+		Table("delivery_records").
+		Select("current_status as status, COUNT(*) as count").
+		Where("delivery_date >= ? AND delivery_date < ?", today, tomorrow).
+		Where("current_status IN ?", deliveryAndPickupStatuses).
+		Group("current_status").
+		Scan(&dbCounts).Error
+	
 	if err != nil {
-		log.Printf("Error querying delivery tasks: %v", err)
+		log.Printf("Error querying delivery status: %v", err)
 		return nil, err
 	}
 
-	log.Printf("Dashboard: Found %d delivery tasks for today", len(tasks))
-
-	var pending, inProgress, completed int
-	for _, task := range tasks {
-		switch task.Status {
-		case "pending":
-			pending++
-		case "in_progress":
-			inProgress++
-		case "completed":
-			completed++
+	// Build status breakdown with labels
+	var statusBreakdown []StatusCount
+	var total, completed int
+	
+	for _, sc := range dbCounts {
+		label := mapDeliveryAndPickupStatus(sc.Status)
+		statusBreakdown = append(statusBreakdown, StatusCount{
+			Status:      sc.Status,
+			StatusLabel: label,
+			Count:       int(sc.Count),
+		})
+		total += int(sc.Count)
+		// Completed = sudah_diterima or driver_tiba_di_sppg
+		if sc.Status == "sudah_diterima_pihak_sekolah" || sc.Status == "driver_tiba_di_sppg" {
+			completed += int(sc.Count)
 		}
 	}
 
-	total := len(tasks)
 	completionRate := 0.0
 	if total > 0 {
 		completionRate = roundToDecimal((float64(completed)/float64(total))*100, 2)
 	}
 
+	log.Printf("Dashboard: Delivery & Pickup status - total: %d, breakdown: %v", total, statusBreakdown)
+
 	return &DeliveryStatus{
-		TotalDeliveries:      total,
-		DeliveriesPending:    pending,
-		DeliveriesInProgress: inProgress,
-		DeliveriesCompleted:  completed,
-		CompletionRate:       completionRate,
+		TotalDeliveries: total,
+		StatusBreakdown: statusBreakdown,
+		CompletionRate:  completionRate,
+	}, nil
+}
+
+// getPickupStatus retrieves ompreng pickup status for today (stages 10-13)
+func (s *DashboardService) getPickupStatus(ctx context.Context) (*PickupStatus, error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrow := today.Add(24 * time.Hour)
+
+	type DBStatusCount struct {
+		Status string
+		Count  int64
+	}
+
+	var dbCounts []DBStatusCount
+	err := s.db.WithContext(ctx).
+		Table("delivery_records").
+		Select("current_status as status, COUNT(*) as count").
+		Where("delivery_date >= ? AND delivery_date < ?", today, tomorrow).
+		Where("current_status IN ?", pickupStatuses).
+		Group("current_status").
+		Scan(&dbCounts).Error
+
+	if err != nil {
+		log.Printf("Error querying pickup status: %v", err)
+		return nil, err
+	}
+
+	var statusBreakdown []StatusCount
+	var total, completed int
+	
+	for _, sc := range dbCounts {
+		label := mapPickupStatus(sc.Status)
+		statusBreakdown = append(statusBreakdown, StatusCount{
+			Status:      sc.Status,
+			StatusLabel: label,
+			Count:       int(sc.Count),
+		})
+		total += int(sc.Count)
+		if sc.Status == "driver_tiba_di_sppg" {
+			completed += int(sc.Count)
+		}
+	}
+
+	completionRate := 0.0
+	if total > 0 {
+		completionRate = roundToDecimal((float64(completed)/float64(total))*100, 2)
+	}
+
+	log.Printf("Dashboard: Pickup status - total: %d, breakdown: %v", total, statusBreakdown)
+
+	return &PickupStatus{
+		TotalPickups:    total,
+		StatusBreakdown: statusBreakdown,
+		CompletionRate:  completionRate,
+	}, nil
+}
+
+// getCleaningStatus retrieves cleaning status for today
+func (s *DashboardService) getCleaningStatus(ctx context.Context) (*CleaningStatus, error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrow := today.Add(24 * time.Hour)
+	todayStr := today.Format("2006-01-02")
+	
+	log.Printf("Dashboard: Getting cleaning status for date: %s", todayStr)
+	
+	var pending, inProgress, completed int
+	
+	// Try to get cleaning activities from database first
+	type CleaningCount struct {
+		Status string
+		Count  int64
+	}
+	
+	var counts []CleaningCount
+	err := s.db.WithContext(ctx).
+		Table("ompreng_cleanings").
+		Select("cleaning_status as status, COUNT(*) as count").
+		Joins("JOIN delivery_records ON ompreng_cleanings.delivery_record_id = delivery_records.id").
+		Where("delivery_records.delivery_date >= ? AND delivery_records.delivery_date < ?", today, tomorrow).
+		Group("cleaning_status").
+		Scan(&counts).Error
+	
+	if err != nil {
+		log.Printf("Dashboard: Database query failed: %v", err)
+		// Don't return error, try Firebase as fallback
+	} else {
+		log.Printf("Dashboard: Found %d cleaning status groups from database", len(counts))
+		for _, count := range counts {
+			log.Printf("Dashboard: Cleaning status %s: %d items", count.Status, count.Count)
+			switch count.Status {
+			case "pending":
+				pending = int(count.Count)
+			case "in_progress":
+				inProgress = int(count.Count)
+			case "completed":
+				completed = int(count.Count)
+			}
+		}
+	}
+	
+	// Also check Firebase for any additional data (in case database is not synced)
+	if s.dbClient != nil {
+		log.Printf("Dashboard: Checking Firebase for cleaning data...")
+		cleaningPath := "/cleaning/pending"
+		var cleaningRecords map[string]interface{}
+		err := s.dbClient.NewRef(cleaningPath).Get(ctx, &cleaningRecords)
+		
+		if err != nil {
+			if err.Error() != "client: no data at ref" {
+				log.Printf("Warning: Failed to get cleaning status from Firebase: %v", err)
+			}
+		} else if cleaningRecords != nil {
+			log.Printf("Dashboard: Found %d cleaning records in Firebase", len(cleaningRecords))
+			
+			// Count Firebase records (only if database had no data)
+			if pending == 0 && inProgress == 0 && completed == 0 {
+				for key, v := range cleaningRecords {
+					if cleaningData, ok := v.(map[string]interface{}); ok {
+						deliveryDate, _ := cleaningData["delivery_date"].(string)
+						status, _ := cleaningData["status"].(string)
+						
+						log.Printf("Dashboard: Cleaning record %s - delivery_date: %s, status: %s", key, deliveryDate, status)
+						
+						if deliveryDate == todayStr {
+							switch status {
+							case "pending":
+								pending++
+							case "in_progress":
+								inProgress++
+							case "completed":
+								completed++
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	total := pending + inProgress + completed
+	completionRate := 0.0
+	if total > 0 {
+		completionRate = roundToDecimal((float64(completed)/float64(total))*100, 2)
+	}
+
+	log.Printf("Dashboard: Cleaning status for %s - total: %d (pending: %d, in_progress: %d, completed: %d, rate: %.2f%%)", 
+		todayStr, total, pending, inProgress, completed, completionRate)
+
+	return &CleaningStatus{
+		TotalItems:      total,
+		ItemsPending:    pending,
+		ItemsInProgress: inProgress,
+		ItemsCompleted:  completed,
+		CompletionRate:  completionRate,
 	}, nil
 }
 
@@ -417,6 +680,282 @@ func (s *DashboardService) getCriticalStock(ctx context.Context) ([]CriticalStoc
 	}
 
 	return criticalItems, nil
+}
+
+// getProductionDetails retrieves school-level production details for today (stages 1-5)
+func (s *DashboardService) getProductionDetails(ctx context.Context) ([]SchoolDetail, error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrow := today.Add(24 * time.Hour)
+	
+	type SchoolProduction struct {
+		SchoolID   uint
+		SchoolName string
+		Portions   int
+		Status     string
+	}
+	
+	var schoolProductions []SchoolProduction
+	err := s.db.WithContext(ctx).
+		Table("delivery_records").
+		Select("schools.id as school_id, schools.name as school_name, delivery_records.portions as portions, delivery_records.current_status as status").
+		Joins("JOIN schools ON delivery_records.school_id = schools.id").
+		Where("delivery_records.delivery_date >= ? AND delivery_records.delivery_date < ?", today, tomorrow).
+		Where("delivery_records.current_status IN ?", productionStatuses).
+		Scan(&schoolProductions).Error
+	
+	if err != nil {
+		log.Printf("Error querying production details: %v", err)
+		return nil, err
+	}
+	
+	details := make([]SchoolDetail, 0, len(schoolProductions))
+	for _, sp := range schoolProductions {
+		details = append(details, SchoolDetail{
+			SchoolID:   sp.SchoolID,
+			SchoolName: sp.SchoolName,
+			Portions:   sp.Portions,
+			Status:     mapProductionStatus(sp.Status, 0),
+		})
+	}
+	
+	log.Printf("Dashboard: Found %d production details", len(details))
+	return details, nil
+}
+
+// getDeliveryDetails retrieves school-level delivery & pickup details for today (stages 6-13)
+func (s *DashboardService) getDeliveryDetails(ctx context.Context) ([]SchoolDetail, error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrow := today.Add(24 * time.Hour)
+	
+	type SchoolDelivery struct {
+		SchoolID   uint
+		SchoolName string
+		Portions   int
+		Status     string
+	}
+	
+	var schoolDeliveries []SchoolDelivery
+	err := s.db.WithContext(ctx).
+		Table("delivery_records").
+		Select("schools.id as school_id, schools.name as school_name, delivery_records.portions as portions, delivery_records.current_status as status").
+		Joins("JOIN schools ON delivery_records.school_id = schools.id").
+		Where("delivery_records.delivery_date >= ? AND delivery_records.delivery_date < ?", today, tomorrow).
+		Where("delivery_records.current_status IN ?", deliveryAndPickupStatuses).
+		Scan(&schoolDeliveries).Error
+	
+	if err != nil {
+		log.Printf("Error querying delivery details: %v", err)
+		return nil, err
+	}
+	
+	details := make([]SchoolDetail, 0, len(schoolDeliveries))
+	for _, sd := range schoolDeliveries {
+		details = append(details, SchoolDetail{
+			SchoolID:   sd.SchoolID,
+			SchoolName: sd.SchoolName,
+			Portions:   sd.Portions,
+			Status:     mapDeliveryAndPickupStatus(sd.Status),
+		})
+	}
+	
+	log.Printf("Dashboard: Found %d delivery & pickup details", len(details))
+	return details, nil
+}
+
+// getPickupDetails retrieves school-level ompreng pickup details for today (stages 10-13)
+func (s *DashboardService) getPickupDetails(ctx context.Context) ([]SchoolDetail, error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrow := today.Add(24 * time.Hour)
+
+	type SchoolPickup struct {
+		SchoolID   uint
+		SchoolName string
+		OmprengCount int
+		Status     string
+	}
+
+	var schoolPickups []SchoolPickup
+	err := s.db.WithContext(ctx).
+		Table("delivery_records").
+		Select("schools.id as school_id, schools.name as school_name, delivery_records.ompreng_count, delivery_records.current_status as status").
+		Joins("JOIN schools ON delivery_records.school_id = schools.id").
+		Where("delivery_records.delivery_date >= ? AND delivery_records.delivery_date < ?", today, tomorrow).
+		Where("delivery_records.current_status IN ?", pickupStatuses).
+		Scan(&schoolPickups).Error
+
+	if err != nil {
+		log.Printf("Error querying pickup details: %v", err)
+		return nil, err
+	}
+
+	details := make([]SchoolDetail, 0, len(schoolPickups))
+	for _, sp := range schoolPickups {
+		details = append(details, SchoolDetail{
+			SchoolID:   sp.SchoolID,
+			SchoolName: sp.SchoolName,
+			Portions:   sp.OmprengCount,
+			Status:     mapPickupStatus(sp.Status),
+		})
+	}
+
+	log.Printf("Dashboard: Found %d pickup details", len(details))
+	return details, nil
+}
+
+// getCleaningDetails retrieves school-level cleaning details for today
+func (s *DashboardService) getCleaningDetails(ctx context.Context) ([]SchoolDetail, error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrow := today.Add(24 * time.Hour)
+	
+	type SchoolCleaning struct {
+		SchoolID       uint
+		SchoolName     string
+		OmprengCount   int
+		CleaningStatus string
+	}
+	
+	var schoolCleanings []SchoolCleaning
+	err := s.db.WithContext(ctx).
+		Table("ompreng_cleanings").
+		Select("schools.id as school_id, schools.name as school_name, ompreng_cleanings.ompreng_count, ompreng_cleanings.cleaning_status").
+		Joins("JOIN delivery_records ON ompreng_cleanings.delivery_record_id = delivery_records.id").
+		Joins("JOIN schools ON delivery_records.school_id = schools.id").
+		Where("delivery_records.delivery_date >= ? AND delivery_records.delivery_date < ?", today, tomorrow).
+		Scan(&schoolCleanings).Error
+	
+	if err != nil {
+		log.Printf("Error querying cleaning details: %v", err)
+		return nil, err
+	}
+	
+	// Convert to SchoolDetail format
+	details := make([]SchoolDetail, 0, len(schoolCleanings))
+	for _, sc := range schoolCleanings {
+		// Map status to user-friendly text
+		statusText := mapCleaningStatus(sc.CleaningStatus)
+		
+		details = append(details, SchoolDetail{
+			SchoolID:   sc.SchoolID,
+			SchoolName: sc.SchoolName,
+			Portions:   sc.OmprengCount,
+			Status:     statusText,
+		})
+	}
+	
+	log.Printf("Dashboard: Found %d cleaning details", len(details))
+	return details, nil
+}
+
+// mapProductionStatus maps production status to user-friendly text
+func mapProductionStatus(status string, stage int) string {
+	switch status {
+	case "pending":
+		return "Menunggu"
+	case "sedang_dimasak":
+		return "Sedang Dimasak"
+	case "selesai_dimasak":
+		return "Selesai Dimasak"
+	case "siap_dipacking":
+		return "Siap Packing"
+	case "siap_packing":
+		return "Siap Packing"
+	case "sedang_packing":
+		return "Sedang Packing"
+	case "selesai_dipacking":
+		return "Selesai Packing"
+	case "siap_dikirim":
+		return "Siap Dikirim"
+	default:
+		// Fallback based on stage
+		if stage <= 1 {
+			return "Menunggu"
+		} else if stage <= 2 {
+			return "Sedang Dimasak"
+		} else if stage <= 3 {
+			return "Selesai Dimasak"
+		} else if stage <= 4 {
+			return "Sedang Packing"
+		}
+		return "Selesai"
+	}
+}
+
+// mapDeliveryStatus maps delivery status to user-friendly text (stages 6-9)
+func mapDeliveryStatus(status string, stage int) string {
+	switch status {
+	case "siap_dikirim":
+		return "Siap Dikirim"
+	case "diperjalanan", "dalam_perjalanan":
+		return "Diperjalanan"
+	case "sudah_sampai_sekolah", "tiba_di_sekolah":
+		return "Sudah Sampai Sekolah"
+	case "sudah_diterima_pihak_sekolah":
+		return "Sudah Diterima"
+	case "selesai":
+		return "Selesai"
+	default:
+		return "Dalam Perjalanan"
+	}
+}
+
+// mapDeliveryAndPickupStatus maps both delivery and pickup statuses to user-friendly text
+func mapDeliveryAndPickupStatus(status string) string {
+	switch status {
+	// Delivery statuses
+	case "siap_dikirim":
+		return "Siap Dikirim"
+	case "diperjalanan", "dalam_perjalanan":
+		return "Diperjalanan"
+	case "sudah_sampai_sekolah", "tiba_di_sekolah":
+		return "Sudah Sampai Sekolah"
+	case "sudah_diterima_pihak_sekolah":
+		return "Sudah Diterima"
+	// Pickup statuses
+	case "driver_menuju_lokasi_pengambilan":
+		return "Driver Menuju Lokasi Pengambilan"
+	case "driver_tiba_di_lokasi_pengambilan":
+		return "Driver Tiba di Lokasi"
+	case "driver_kembali_ke_sppg":
+		return "Driver Kembali ke SPPG"
+	case "driver_tiba_di_sppg":
+		return "Driver Tiba di SPPG"
+	default:
+		return status
+	}
+}
+
+// mapPickupStatus maps pickup status to user-friendly text (stages 10-13)
+func mapPickupStatus(status string) string {
+	switch status {
+	case "driver_menuju_lokasi_pengambilan":
+		return "Driver Menuju Lokasi Pengambilan"
+	case "driver_tiba_di_lokasi_pengambilan":
+		return "Driver Tiba di Lokasi"
+	case "driver_kembali_ke_sppg":
+		return "Driver Kembali ke SPPG"
+	case "driver_tiba_di_sppg":
+		return "Driver Tiba di SPPG"
+	default:
+		return "Dalam Proses Pengambilan"
+	}
+}
+
+// mapCleaningStatus maps cleaning status to user-friendly text
+func mapCleaningStatus(status string) string {
+	switch status {
+	case "pending":
+		return "Menunggu"
+	case "in_progress":
+		return "Sedang Dicuci"
+	case "completed":
+		return "Selesai"
+	default:
+		return "Menunggu"
+	}
 }
 
 // calculateTodayKPIs calculates key performance indicators for today

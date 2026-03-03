@@ -1,0 +1,91 @@
+/**
+ * Horizon UI - Utility Classes
+ * 
+ * Common utility classes for Horizon UI components
+ * Following the design system specifications
+ */
+
+/* ========================================
+   CARD UTILITIES
+   ======================================== */
+
+/**
+ * Base card styling
+ * - White background (adapts to dark mode via CSS variables)
+ * - 16px border radius
+ * - Card shadow
+ * - 24px padding
+ */
+.h-card {
+  background: var(--h-bg-card);
+  border-radius: var(--h-radius-lg);
+  box-shadow: var(--h-shadow-card);
+  padding: var(--h-spacing-6);
+}
+
+/**
+ * Card hover effect
+ * - Lifts card up by 4px
+ * - Increases shadow for depth
+ * - Smooth transition
+ */
+.h-card-hover {
+  transition: transform var(--h-transition-base), box-shadow var(--h-transition-base);
+}
+
+.h-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--h-shadow-xl);
+}
+
+/* ========================================
+   GRADIENT UTILITIES
+   ======================================== */
+
+/**
+ * Primary gradient
+ * - Linear gradient from primary purple to accent purple
+ * - 135 degree angle
+ */
+.h-gradient-primary {
+  background: linear-gradient(135deg, #5A4372 0%, #3D2B53 100%);
+}
+
+/* ========================================
+   TEXT UTILITIES
+   ======================================== */
+
+/**
+ * Primary text color
+ * - Dark purple-gray for main content
+ * - Adapts to light color in dark mode
+ */
+.h-text-primary {
+  color: var(--h-text-primary);
+}
+
+/**
+ * Secondary text color
+ * - Medium gray for secondary content
+ * - Adapts in dark mode
+ */
+.h-text-secondary {
+  color: var(--h-text-secondary);
+}
+
+/* ========================================
+   BUTTON UTILITIES
+   ======================================== */
+
+/**
+ * Button base styling
+ * - Smooth transitions
+ * - Scale effect on hover
+ */
+.h-button {
+  transition: all var(--h-transition-fast);
+}
+
+.h-button:hover {
+  transform: scale(1.02);
+}

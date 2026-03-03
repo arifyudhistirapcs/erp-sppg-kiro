@@ -1,27 +1,23 @@
 <template>
-  <div class="menu-planning">
-    <a-page-header
-      title="Perencanaan Menu Mingguan"
-      sub-title="Susun menu mingguan dengan standar gizi terpenuhi"
-    >
-      <template #extra>
-        <a-space>
-          <a-button @click="duplicatePreviousWeek">
-            <template #icon><CopyOutlined /></template>
-            Duplikat Minggu Lalu
-          </a-button>
-          <a-button type="primary" @click="showCreateModal">
-            <template #icon><PlusOutlined /></template>
-            Buat Menu Baru
-          </a-button>
-        </a-space>
-      </template>
-    </a-page-header>
+  <div>
+    <!-- Header Actions -->
+    <div class="menu-planning-header">
+      <a-space :size="12">
+        <a-button @click="duplicatePreviousWeek">
+          <template #icon><CopyOutlined /></template>
+          Duplikat Minggu Lalu
+        </a-button>
+        <a-button type="primary" @click="showCreateModal">
+          <template #icon><PlusOutlined /></template>
+          Buat Menu Baru
+        </a-button>
+      </a-space>
+    </div>
 
-    <a-card>
-      <!-- Week Selector -->
-      <a-row :gutter="16" class="mb-4">
-        <a-col :span="12">
+    <!-- Week Selector Card -->
+    <div class="h-card week-selector">
+      <a-row :gutter="16" align="middle">
+        <a-col :xs="24" :md="12">
           <a-space>
             <a-button @click="previousWeek">
               <template #icon><LeftOutlined /></template>
@@ -41,7 +37,7 @@
             </a-button>
           </a-space>
         </a-col>
-        <a-col :span="12" style="text-align: right">
+        <a-col :xs="24" :md="12" style="text-align: right">
           <a-space v-if="currentMenuPlan">
             <a-tag :color="currentMenuPlan.status === 'approved' ? 'green' : 'orange'">
               {{ currentMenuPlan.status === 'approved' ? 'Disetujui' : 'Draft' }}
@@ -58,142 +54,140 @@
           </a-space>
         </a-col>
       </a-row>
+    </div>
 
-      <!-- Weekly Calendar -->
-      <a-spin :spinning="loading">
-        <div class="weekly-calendar">
-          <a-row :gutter="16">
-            <a-col
-              v-for="day in weekDays"
-              :key="day.date"
-              :span="24 / 7"
-            >
-              <a-card
-                size="small"
-                :class="['day-card', { 'today': isToday(day.date) }]"
+    <!-- Weekly Calendar -->
+    <a-spin :spinning="loading">
+      <div class="weekly-calendar">
+        <a-row :gutter="[16, 16]">
+          <a-col
+            v-for="day in weekDays"
+            :key="day.date"
+            :xs="24"
+            :sm="12"
+            :md="12"
+            :lg="6"
+          >
+            <div class="h-card day-card" :class="{ 'today': isToday(day.date) }">
+              <!-- Day Header -->
+              <div class="day-header">
+                <div class="day-name">{{ day.dayName }}</div>
+                <div class="day-date">{{ formatDate(day.date) }}</div>
+              </div>
+
+              <!-- Menu Items for this day -->
+              <div
+                class="menu-items-container"
+                @drop="onDrop($event, day.date)"
+                @dragover.prevent
+                @dragenter.prevent
               >
-                <template #title>
-                  <div class="day-header">
-                    <div>{{ day.dayName }}</div>
-                    <div class="date-text">{{ formatDate(day.date) }}</div>
-                  </div>
-                </template>
-
-                <!-- Menu Items for this day -->
                 <div
-                  class="menu-items-container"
-                  @drop="onDrop($event, day.date)"
-                  @dragover.prevent
-                  @dragenter.prevent
+                  v-for="item in getMenuItemsForDay(day.date)"
+                  :key="item.id"
+                  class="menu-item h-card-hover"
+                  draggable="true"
+                  @dragstart="onDragStart($event, item)"
                 >
-                  <div
-                    v-for="item in getMenuItemsForDay(day.date)"
-                    :key="item.id"
-                    class="menu-item"
-                    draggable="true"
-                    @dragstart="onDragStart($event, item)"
-                  >
-                    <div v-if="item.recipe?.photo_url" class="menu-item-photo">
-                      <img :src="item.recipe.photo_url" :alt="item.recipe.name" />
+                  <div v-if="item.recipe?.photo_url" class="menu-item-photo">
+                    <img :src="item.recipe.photo_url" :alt="item.recipe.name" />
+                  </div>
+                  <div class="menu-item-content">
+                    <div class="menu-item-name">{{ item.recipe?.name }}</div>
+                    <div class="menu-item-portions">{{ item.portions }} porsi</div>
+                    <div v-if="item.school_allocations && item.school_allocations.length > 0" class="menu-item-portion-summary">
+                      <template v-if="getTotalSmallPortions(item.school_allocations) > 0">
+                        <span class="portion-badge">Kecil: {{ getTotalSmallPortions(item.school_allocations) }}</span>
+                      </template>
+                      <template v-if="getTotalLargePortions(item.school_allocations) > 0">
+                        <span class="portion-badge">Besar: {{ getTotalLargePortions(item.school_allocations) }}</span>
+                      </template>
                     </div>
-                    <div class="menu-item-content">
-                      <div class="menu-item-name">{{ item.recipe?.name }}</div>
-                      <div class="menu-item-portions">{{ item.portions }} porsi</div>
-                      <div v-if="item.school_allocations && item.school_allocations.length > 0" class="menu-item-portion-summary">
-                        <template v-if="getTotalSmallPortions(item.school_allocations) > 0">
-                          <span class="portion-summary-item">Porsi Kecil: {{ getTotalSmallPortions(item.school_allocations) }}</span>
-                        </template>
-                        <template v-if="getTotalLargePortions(item.school_allocations) > 0">
-                          <span class="portion-summary-item">Porsi Besar: {{ getTotalLargePortions(item.school_allocations) }}</span>
-                        </template>
-                      </div>
-                      <div v-if="item.school_allocations && item.school_allocations.length > 0" class="menu-item-allocations">
-                        <div v-for="schoolAlloc in getGroupedAllocations(item.school_allocations)" :key="schoolAlloc.school_id" class="allocation-item">
-                          <span class="school-name">{{ schoolAlloc.school_name }}</span>
-                          <span class="school-portions">
-                            <template v-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_small > 0 && schoolAlloc.portions_large > 0">
-                              <span class="portion-detail">K: {{ schoolAlloc.portions_small }}</span>
-                              <span class="portion-separator">|</span>
-                              <span class="portion-detail">B: {{ schoolAlloc.portions_large }}</span>
-                            </template>
-                            <template v-else-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_small > 0">
-                              <span class="portion-detail">K: {{ schoolAlloc.portions_small }}</span>
-                            </template>
-                            <template v-else-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_large > 0">
-                              <span class="portion-detail">B: {{ schoolAlloc.portions_large }}</span>
-                            </template>
-                            <template v-else>
-                              <span class="portion-detail">B: {{ schoolAlloc.portions_large || schoolAlloc.portions_small }}</span>
-                            </template>
-                          </span>
-                        </div>
-                      </div>
-                      <div v-else class="menu-item-allocations no-allocations">
-                        <span class="no-allocation-text">Belum ada alokasi</span>
+                    <div v-if="item.school_allocations && item.school_allocations.length > 0" class="menu-item-allocations">
+                      <div v-for="schoolAlloc in getGroupedAllocations(item.school_allocations)" :key="schoolAlloc.school_id" class="allocation-item">
+                        <span class="school-name">{{ schoolAlloc.school_name }}</span>
+                        <span class="school-portions">
+                          <template v-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_small > 0 && schoolAlloc.portions_large > 0">
+                            <span class="portion-detail">K: {{ schoolAlloc.portions_small }}</span>
+                            <span class="portion-separator">|</span>
+                            <span class="portion-detail">B: {{ schoolAlloc.portions_large }}</span>
+                          </template>
+                          <template v-else-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_small > 0">
+                            <span class="portion-detail">K: {{ schoolAlloc.portions_small }}</span>
+                          </template>
+                          <template v-else-if="schoolAlloc.category === 'SD' && schoolAlloc.portions_large > 0">
+                            <span class="portion-detail">B: {{ schoolAlloc.portions_large }}</span>
+                          </template>
+                          <template v-else>
+                            <span class="portion-detail">B: {{ schoolAlloc.portions_large || schoolAlloc.portions_small }}</span>
+                          </template>
+                        </span>
                       </div>
                     </div>
-                    <div class="menu-item-actions">
-                      <a-button
-                        type="text"
-                        size="small"
-                        @click="showEditMenuModal(item)"
-                      >
-                        <template #icon><EditOutlined /></template>
-                      </a-button>
-                      <a-button
-                        type="text"
-                        size="small"
-                        danger
-                        @click="removeMenuItem(item)"
-                      >
-                        <template #icon><DeleteOutlined /></template>
-                      </a-button>
+                    <div v-else class="menu-item-allocations no-allocations">
+                      <span class="no-allocation-text">Belum ada alokasi</span>
                     </div>
                   </div>
-
-                  <!-- Add Menu Button -->
-                  <a-button
-                    type="dashed"
-                    size="small"
-                    block
-                    @click="showAddMenuModal(day.date)"
-                    style="margin-top: 8px"
-                  >
-                    <template #icon><PlusOutlined /></template>
-                    Tambah Menu
-                  </a-button>
-                </div>
-
-                <!-- Daily Nutrition Summary -->
-                <a-divider style="margin: 12px 0" />
-                <div class="nutrition-summary">
-                  <div class="nutrition-item">
-                    <span class="label">Kalori:</span>
-                    <span :class="['value', getDailyNutritionStatus(day.date, 'calories')]">
-                      {{ getDailyNutrition(day.date, 'calories') }} kkal
-                    </span>
-                  </div>
-                  <div class="nutrition-item">
-                    <span class="label">Protein:</span>
-                    <span :class="['value', getDailyNutritionStatus(day.date, 'protein')]">
-                      {{ getDailyNutrition(day.date, 'protein') }} g
-                    </span>
-                  </div>
-                  <div class="validation-status">
-                    <a-tag
-                      :color="isDailyNutritionValid(day.date) ? 'success' : 'warning'"
-                      style="margin: 0"
+                  <div class="menu-item-actions">
+                    <a-button
+                      type="text"
+                      size="small"
+                      @click="showEditMenuModal(item)"
                     >
-                      {{ isDailyNutritionValid(day.date) ? '✓ Memenuhi Standar' : '⚠ Belum Memenuhi' }}
-                    </a-tag>
+                      <template #icon><EditOutlined /></template>
+                    </a-button>
+                    <a-button
+                      type="text"
+                      size="small"
+                      danger
+                      @click="removeMenuItem(item)"
+                    >
+                      <template #icon><DeleteOutlined /></template>
+                    </a-button>
                   </div>
                 </div>
-              </a-card>
-            </a-col>
-          </a-row>
-        </div>
-      </a-spin>
-    </a-card>
+
+                <!-- Add Menu Button -->
+                <a-button
+                  type="dashed"
+                  size="small"
+                  block
+                  @click="showAddMenuModal(day.date)"
+                  class="add-menu-button"
+                >
+                  <template #icon><PlusOutlined /></template>
+                  Tambah Menu
+                </a-button>
+              </div>
+
+              <!-- Daily Nutrition Summary -->
+              <div class="nutrition-summary">
+                <div class="nutrition-item">
+                  <span class="label">Kalori:</span>
+                  <span :class="['value', getDailyNutritionStatus(day.date, 'calories')]">
+                    {{ getDailyNutrition(day.date, 'calories') }} kkal
+                  </span>
+                </div>
+                <div class="nutrition-item">
+                  <span class="label">Protein:</span>
+                  <span :class="['value', getDailyNutritionStatus(day.date, 'protein')]">
+                    {{ getDailyNutrition(day.date, 'protein') }} g
+                  </span>
+                </div>
+                <div class="validation-status">
+                  <a-tag
+                    :color="isDailyNutritionValid(day.date) ? 'success' : 'warning'"
+                    style="margin: 0"
+                  >
+                    {{ isDailyNutritionValid(day.date) ? '✓ Memenuhi Standar' : '⚠ Belum Memenuhi' }}
+                  </a-tag>
+                </div>
+              </div>
+            </div>
+          </a-col>
+        </a-row>
+      </div>
+    </a-spin>
 
     <!-- Add/Edit Menu Item Modal -->
     <a-modal
@@ -957,62 +951,101 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.menu-planning {
-  padding: 24px;
-}
-
-.mb-4 {
+/* Header Actions */
+.menu-planning-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
   margin-bottom: 16px;
 }
 
-.weekly-calendar {
-  margin-top: 16px;
+/* Week Selector */
+.week-selector {
+  padding: var(--h-spacing-5);
+  margin-bottom: 16px;
 }
 
+/* Weekly Calendar */
+.weekly-calendar {
+  margin-top: 0;
+}
+
+/* Day Card */
 .day-card {
-  height: 100%;
   min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  transition: all var(--h-transition-base);
 }
 
 .day-card.today {
-  border: 2px solid #1890ff;
+  border: 2px solid var(--h-primary);
+  box-shadow: 0 0 0 4px rgba(90, 67, 114, 0.1);
 }
 
+/* Day Header */
 .day-header {
   text-align: center;
+  padding-bottom: var(--h-spacing-3);
+  border-bottom: 2px solid var(--h-border-color);
+  margin-bottom: var(--h-spacing-4);
 }
 
-.day-header .date-text {
-  font-size: 12px;
-  font-weight: normal;
-  color: #8c8c8c;
+.day-name {
+  font-size: var(--h-text-base);
+  font-weight: var(--h-font-bold);
+  color: var(--h-text-primary);
+  margin-bottom: var(--h-spacing-1);
 }
 
+.day-date {
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-medium);
+  color: var(--h-text-secondary);
+}
+
+/* Menu Items Container */
 .menu-items-container {
-  min-height: 200px;
+  flex: 1;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-3);
+  margin-bottom: var(--h-spacing-4);
 }
 
+/* Menu Item */
 .menu-item {
-  background: #f0f2f5;
-  padding: 8px;
-  margin-bottom: 8px;
-  border-radius: 4px;
+  background: var(--h-bg-light);
+  padding: var(--h-spacing-3);
+  border-radius: var(--h-radius-md);
   cursor: move;
   display: flex;
-  gap: 8px;
+  gap: var(--h-spacing-3);
   align-items: flex-start;
+  transition: all var(--h-transition-base);
+  border: 1px solid var(--h-border-light);
 }
 
 .menu-item:hover {
-  background: #e6e9ed;
+  background: var(--h-bg-secondary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.menu-item:active {
+  cursor: grabbing;
+  opacity: 0.7;
 }
 
 .menu-item-photo {
   flex-shrink: 0;
-  width: 60px;
-  height: 60px;
-  border-radius: 4px;
+  width: 70px;
+  height: 70px;
+  border-radius: var(--h-radius-sm);
   overflow: hidden;
+  background: var(--h-bg-secondary);
 }
 
 .menu-item-photo img {
@@ -1025,68 +1058,72 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--h-spacing-2);
   min-width: 0;
 }
 
 .menu-item-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--h-spacing-1);
   flex-shrink: 0;
 }
 
 .menu-item-name {
-  font-weight: 500;
-  font-size: 13px;
+  font-weight: var(--h-font-semibold);
+  font-size: var(--h-text-sm);
+  color: var(--h-text-primary);
+  line-height: var(--h-leading-tight);
 }
 
 .menu-item-portions {
-  font-size: 11px;
-  color: #8c8c8c;
+  font-size: var(--h-text-xs);
+  color: var(--h-text-secondary);
+  font-weight: var(--h-font-medium);
 }
 
 .menu-item-portion-summary {
   display: flex;
-  gap: 8px;
-  font-size: 10px;
-  color: #595959;
-  margin-top: 2px;
+  gap: var(--h-spacing-2);
+  flex-wrap: wrap;
 }
 
-.portion-summary-item {
-  padding: 1px 6px;
-  background: #e6f7ff;
-  border: 1px solid #91d5ff;
-  border-radius: 2px;
-  font-weight: 500;
+.portion-badge {
+  padding: 2px 8px;
+  background: rgba(90, 67, 114, 0.1);
+  border: 1px solid rgba(90, 67, 114, 0.2);
+  border-radius: var(--h-radius-sm);
+  font-size: var(--h-text-xs);
+  font-weight: var(--h-font-semibold);
+  color: var(--h-primary);
 }
 
 .menu-item-allocations {
-  margin-top: 4px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--h-spacing-1);
 }
 
 .allocation-item {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
-  padding: 2px 6px;
-  background: #fff;
-  border-radius: 2px;
+  align-items: center;
+  font-size: var(--h-text-xs);
+  padding: var(--h-spacing-1) var(--h-spacing-2);
+  background: var(--h-bg-primary);
+  border-radius: var(--h-radius-sm);
 }
 
 .allocation-item .school-name {
-  color: #595959;
+  color: var(--h-text-secondary);
+  font-weight: var(--h-font-medium);
 }
 
 .allocation-item .school-portions {
-  color: #1890ff;
-  font-weight: 500;
+  color: var(--h-primary);
+  font-weight: var(--h-font-semibold);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--h-spacing-1);
 }
 
 .portion-detail {
@@ -1094,48 +1131,182 @@ onMounted(() => {
 }
 
 .portion-separator {
-  color: #d9d9d9;
+  color: var(--h-text-light);
   margin: 0 2px;
 }
 
 .no-allocations {
-  font-size: 11px;
-  color: #ff4d4f;
+  font-size: var(--h-text-xs);
+  color: var(--h-error);
   font-style: italic;
 }
 
 .no-allocation-text {
-  padding: 2px 6px;
+  padding: var(--h-spacing-1) var(--h-spacing-2);
 }
 
+/* Add Menu Button */
+.add-menu-button {
+  margin-top: auto;
+  height: 40px;
+  border-radius: var(--h-radius-md);
+  border-color: var(--h-border-color);
+  color: var(--h-text-secondary);
+  font-weight: var(--h-font-medium);
+  transition: all var(--h-transition-base);
+}
+
+.add-menu-button:hover {
+  border-color: var(--h-primary);
+  color: var(--h-primary);
+  background: rgba(90, 67, 114, 0.05);
+}
+
+/* Nutrition Summary */
 .nutrition-summary {
-  font-size: 12px;
+  padding-top: var(--h-spacing-4);
+  border-top: 2px solid var(--h-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-2);
 }
 
 .nutrition-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 4px;
+  align-items: center;
+  font-size: var(--h-text-sm);
 }
 
 .nutrition-item .label {
-  color: #8c8c8c;
+  color: var(--h-text-secondary);
+  font-weight: var(--h-font-medium);
 }
 
 .nutrition-item .value {
-  font-weight: 500;
+  font-weight: var(--h-font-semibold);
+  color: var(--h-text-primary);
 }
 
 .nutrition-item .value.valid {
-  color: #52c41a;
+  color: var(--h-success);
 }
 
 .nutrition-item .value.invalid {
-  color: #faad14;
+  color: var(--h-warning);
 }
 
 .validation-status {
-  margin-top: 8px;
+  margin-top: var(--h-spacing-2);
   text-align: center;
+}
+
+/* Responsive - Tablet */
+@media (max-width: 1024px) {
+  .day-card {
+    min-height: 400px;
+  }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 767px) {
+  .menu-planning-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--h-spacing-3);
+  }
+  
+  .week-selector :deep(.ant-row) {
+    flex-direction: column;
+    gap: var(--h-spacing-3);
+  }
+  
+  .week-selector :deep(.ant-col) {
+    text-align: left !important;
+  }
+  
+  .day-card {
+    min-height: 350px;
+  }
+  
+  .menu-item-photo {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .menu-item-name {
+    font-size: var(--h-text-xs);
+  }
+}
+
+/* Dark Mode Support */
+.dark .day-header {
+  border-bottom-color: var(--h-border-color);
+}
+
+.dark .day-name {
+  color: var(--h-text-primary);
+}
+
+.dark .day-date {
+  color: var(--h-text-secondary);
+}
+
+.dark .menu-item {
+  background: rgba(163, 174, 208, 0.05);
+  border-color: var(--h-border-color);
+}
+
+.dark .menu-item:hover {
+  background: rgba(163, 174, 208, 0.1);
+}
+
+.dark .menu-item-name {
+  color: var(--h-text-primary);
+}
+
+.dark .menu-item-portions {
+  color: var(--h-text-secondary);
+}
+
+.dark .portion-badge {
+  background: rgba(90, 67, 114, 0.2);
+  border-color: rgba(90, 67, 114, 0.3);
+  color: var(--h-primary-light);
+}
+
+.dark .allocation-item {
+  background: rgba(163, 174, 208, 0.05);
+}
+
+.dark .allocation-item .school-name {
+  color: var(--h-text-secondary);
+}
+
+.dark .allocation-item .school-portions {
+  color: var(--h-primary-light);
+}
+
+.dark .add-menu-button {
+  border-color: var(--h-border-color);
+  color: var(--h-text-secondary);
+}
+
+.dark .add-menu-button:hover {
+  border-color: var(--h-primary-light);
+  color: var(--h-primary-light);
+  background: rgba(90, 67, 114, 0.1);
+}
+
+.dark .nutrition-summary {
+  border-top-color: var(--h-border-color);
+}
+
+.dark .nutrition-item .label {
+  color: var(--h-text-secondary);
+}
+
+.dark .nutrition-item .value {
+  color: var(--h-text-primary);
 }
 </style>

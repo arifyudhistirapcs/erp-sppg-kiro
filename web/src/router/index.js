@@ -25,7 +25,7 @@ const router = createRouter({
           path: 'dashboard',
           name: 'dashboard',
           component: () => import('@/views/DashboardView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan']
           }
@@ -34,17 +34,17 @@ const router = createRouter({
           path: 'dashboard/kepala-sppg',
           name: 'dashboard-kepala-sppg',
           component: () => import('@/views/DashboardKepalaSSPGView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg'],
-            title: 'Dashboard Kepala SPPG'
+            title: 'Dashboard'
           }
         },
         {
           path: 'dashboard/kepala-yayasan',
           name: 'dashboard-kepala-yayasan',
           component: () => import('@/views/DashboardKepalaYayasanView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_yayasan'],
             title: 'Dashboard Kepala Yayasan'
@@ -54,28 +54,17 @@ const router = createRouter({
           path: 'recipes',
           name: 'recipes',
           component: () => import('@/views/RecipeListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'ahli_gizi'],
             title: 'Manajemen Resep'
           }
         },
-        // Manajemen Bahan hidden - data sama dengan Inventory
-        // {
-        //   path: 'ingredients',
-        //   name: 'ingredients',
-        //   component: () => import('@/views/IngredientListView.vue'),
-        //   meta: { 
-        //     requiresAuth: true,
-        //     roles: ['kepala_sppg', 'ahli_gizi'],
-        //     title: 'Manajemen Bahan'
-        //   }
-        // },
         {
           path: 'semi-finished',
           name: 'semi-finished',
           component: () => import('@/views/SemiFinishedGoodsView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'ahli_gizi', 'chef'],
             title: 'Barang Setengah Jadi'
@@ -85,7 +74,7 @@ const router = createRouter({
           path: 'menu-planning',
           name: 'menu-planning',
           component: () => import('@/views/MenuPlanningView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'ahli_gizi'],
             title: 'Perencanaan Menu'
@@ -95,7 +84,7 @@ const router = createRouter({
           path: 'kds/cooking',
           name: 'kds-cooking',
           component: () => import('@/views/KDSCookingView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'ahli_gizi', 'chef'],
             title: 'KDS - Dapur Memasak'
@@ -105,7 +94,7 @@ const router = createRouter({
           path: 'kds/packing',
           name: 'kds-packing',
           component: () => import('@/views/KDSPackingView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'ahli_gizi', 'chef', 'packing'],
             title: 'KDS - Packing'
@@ -115,7 +104,7 @@ const router = createRouter({
           path: 'kds/cleaning',
           name: 'kds-cleaning',
           component: () => import('@/views/KDSCleaningView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'kebersihan'],
             title: 'KDS - Pencucian Ompreng'
@@ -125,7 +114,7 @@ const router = createRouter({
           path: 'suppliers',
           name: 'suppliers',
           component: () => import('@/views/SupplierListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'pengadaan'],
             title: 'Manajemen Supplier'
@@ -135,7 +124,7 @@ const router = createRouter({
           path: 'purchase-orders',
           name: 'purchase-orders',
           component: () => import('@/views/PurchaseOrderListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'pengadaan'],
             title: 'Purchase Order'
@@ -145,7 +134,7 @@ const router = createRouter({
           path: 'goods-receipts',
           name: 'goods-receipts',
           component: () => import('@/views/GoodsReceiptView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'pengadaan'],
             title: 'Penerimaan Barang'
@@ -155,17 +144,17 @@ const router = createRouter({
           path: 'inventory',
           name: 'inventory',
           component: () => import('@/views/InventoryView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'pengadaan', 'akuntan'],
-            title: 'Inventory Bahan Baku'
+            title: 'Manajemen Bahan Baku'
           }
         },
         {
           path: 'inventory/stok-opname/create',
           name: 'stok-opname-create',
           component: () => import('@/components/StokOpnameForm.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'pengadaan'],
             title: 'Buat Stok Opname'
@@ -175,7 +164,7 @@ const router = createRouter({
           path: 'inventory/stok-opname/:id/edit',
           name: 'stok-opname-edit',
           component: () => import('@/components/StokOpnameForm.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'pengadaan'],
             title: 'Edit Stok Opname'
@@ -185,7 +174,7 @@ const router = createRouter({
           path: 'inventory/stok-opname/:id',
           name: 'stok-opname-detail',
           component: () => import('@/components/StokOpnameDetail.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'pengadaan', 'akuntan'],
             title: 'Detail Stok Opname'
@@ -195,7 +184,7 @@ const router = createRouter({
           path: 'schools',
           name: 'schools',
           component: () => import('@/views/SchoolListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'driver', 'asisten'],
             title: 'Manajemen Sekolah'
@@ -205,7 +194,7 @@ const router = createRouter({
           path: 'schools/create',
           name: 'school-create',
           component: () => import('@/views/SchoolFormView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg'],
             title: 'Tambah Sekolah'
@@ -215,7 +204,7 @@ const router = createRouter({
           path: 'schools/:id/edit',
           name: 'school-edit',
           component: () => import('@/views/SchoolFormView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg'],
             title: 'Edit Sekolah'
@@ -225,7 +214,7 @@ const router = createRouter({
           path: 'delivery-tasks',
           name: 'delivery-tasks',
           component: () => import('@/views/DeliveryTaskListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'driver', 'asisten'],
             title: 'Manajemen Tugas Pengiriman'
@@ -235,7 +224,7 @@ const router = createRouter({
           path: 'delivery-tasks/create',
           name: 'delivery-task-create',
           component: () => import('@/views/DeliveryTaskFormView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg'],
             title: 'Buat Tugas Pengiriman'
@@ -245,7 +234,7 @@ const router = createRouter({
           path: 'delivery-tasks/:id/edit',
           name: 'delivery-task-edit',
           component: () => import('@/views/DeliveryTaskFormView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg'],
             title: 'Edit Tugas Pengiriman'
@@ -255,7 +244,7 @@ const router = createRouter({
           path: 'ompreng-tracking',
           name: 'ompreng-tracking',
           component: () => import('@/views/OmprengTrackingView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'driver', 'asisten'],
             title: 'Pelacakan Ompreng'
@@ -265,27 +254,27 @@ const router = createRouter({
           path: 'logistics/monitoring',
           name: 'logistics-monitoring',
           component: () => import('@/views/logistics/MonitoringDashboardView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan'],
-            title: 'Monitoring Pengiriman'
+            title: 'Monitoring Aktivitas'
           }
         },
         {
           path: 'logistics/monitoring/deliveries/:id',
           name: 'delivery-detail',
           component: () => import('@/views/logistics/DeliveryDetailView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan'],
-            title: 'Detail Pengiriman'
+            title: 'Detail Aktivitas'
           }
         },
         {
           path: 'employees',
           name: 'employees',
           component: () => import('@/views/EmployeeListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'akuntan'],
             title: 'Manajemen Karyawan'
@@ -295,7 +284,7 @@ const router = createRouter({
           path: 'employees/create',
           name: 'employee-create',
           component: () => import('@/views/EmployeeFormView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'akuntan'],
             title: 'Tambah Karyawan'
@@ -305,7 +294,7 @@ const router = createRouter({
           path: 'employees/:id/edit',
           name: 'employee-edit',
           component: () => import('@/views/EmployeeFormView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'akuntan'],
             title: 'Edit Karyawan'
@@ -315,7 +304,7 @@ const router = createRouter({
           path: 'attendance-report',
           name: 'attendance-report',
           component: () => import('@/views/AttendanceReportView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'akuntan'],
             title: 'Laporan Absensi'
@@ -325,7 +314,7 @@ const router = createRouter({
           path: 'wifi-config',
           name: 'wifi-config',
           component: () => import('@/views/WiFiConfigView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'akuntan'],
             title: 'Konfigurasi Wi-Fi'
@@ -335,7 +324,7 @@ const router = createRouter({
           path: 'assets',
           name: 'assets',
           component: () => import('@/views/AssetListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'akuntan'],
             title: 'Manajemen Aset Dapur'
@@ -345,7 +334,7 @@ const router = createRouter({
           path: 'cash-flow',
           name: 'cash-flow',
           component: () => import('@/views/CashFlowListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'akuntan'],
             title: 'Manajemen Arus Kas'
@@ -355,7 +344,7 @@ const router = createRouter({
           path: 'financial-reports',
           name: 'financial-reports',
           component: () => import('@/views/FinancialReportView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'akuntan'],
             title: 'Laporan Keuangan'
@@ -365,7 +354,7 @@ const router = createRouter({
           path: 'audit-trail',
           name: 'audit-trail',
           component: () => import('@/views/AuditTrailView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg'],
             title: 'Audit Trail'
@@ -375,7 +364,7 @@ const router = createRouter({
           path: 'system-config',
           name: 'system-config',
           component: () => import('@/views/SystemConfigView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg'],
             title: 'Konfigurasi Sistem'
@@ -385,7 +374,7 @@ const router = createRouter({
           path: 'activity-tracker',
           name: 'activity-tracker',
           component: () => import('@/views/ActivityTrackerListView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan'],
             title: 'Aktivitas Pelacakan'
@@ -395,7 +384,7 @@ const router = createRouter({
           path: 'activity-tracker/:id',
           name: 'activity-tracker-detail',
           component: () => import('@/views/ActivityTrackerDetailView.vue'),
-          meta: { 
+          meta: {
             requiresAuth: true,
             roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan'],
             title: 'Detail Aktivitas Pelacakan'
@@ -422,11 +411,9 @@ const hasRequiredRole = (userRole, requiredRoles) => {
 // Navigation guard
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
-  
-  // Check if route requires authentication
+
   if (to.meta.requiresAuth) {
     if (!authStore.isAuthenticated) {
-      // Not authenticated, redirect to login
       next({
         path: '/login',
         query: { redirect: to.fullPath }
@@ -434,10 +421,8 @@ router.beforeEach(async (to, from, next) => {
       return
     }
 
-    // Check if user data is loaded
     if (!authStore.user) {
       try {
-        // Try to fetch current user data
         await authStore.getCurrentUser()
       } catch (error) {
         console.error('Failed to fetch user data:', error)
@@ -447,7 +432,6 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // Check role-based access
     if (to.meta.roles) {
       const userRole = authStore.user?.role
       if (!hasRequiredRole(userRole, to.meta.roles)) {
@@ -459,9 +443,7 @@ router.beforeEach(async (to, from, next) => {
 
     next()
   } else {
-    // Route doesn't require auth
     if (to.path === '/login' && authStore.isAuthenticated) {
-      // Already logged in, redirect to dashboard
       next('/dashboard')
     } else {
       next()
@@ -469,9 +451,7 @@ router.beforeEach(async (to, from, next) => {
   }
 })
 
-// After navigation
 router.afterEach((to, from) => {
-  // Update page title
   const baseTitle = 'ERP SPPG'
   const pageTitle = to.meta.title || to.name
   document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle

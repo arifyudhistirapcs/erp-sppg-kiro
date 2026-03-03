@@ -16,12 +16,17 @@
       <!-- Search -->
       <a-row :gutter="16" class="mb-4">
         <a-col :span="8">
-          <a-input-search
+          <a-input
             v-model:value="searchText"
             placeholder="Cari nama bahan..."
-            @search="handleSearch"
+            @change="handleSearch"
             allow-clear
-          />
+            size="large"
+          >
+            <template #prefix>
+              <SearchOutlined />
+            </template>
+          </a-input>
         </a-col>
       </a-row>
 

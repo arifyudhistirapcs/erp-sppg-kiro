@@ -1,763 +1,570 @@
 <template>
-  <div class="dashboard-kepala-sppg">
-    <a-page-header
-      title="Dashboard Kepala SPPG"
-      sub-title="Monitoring operasional harian secara real-time"
-    >
-      <template #extra>
-        <a-space>
-          <a-tag :color="isConnected ? 'green' : 'red'">
-            <template #icon>
-              <wifi-outlined v-if="isConnected" />
-              <disconnect-outlined v-else />
-            </template>
-            {{ isConnected ? 'Terhubung' : 'Terputus' }}
-          </a-tag>
-          <a-button @click="refreshData" :loading="loading">
-            <template #icon><reload-outlined /></template>
-            Refresh
-          </a-button>
-          <a-button @click="exportDashboard" :loading="exporting">
-            <template #icon><download-outlined /></template>
-            Export
-          </a-button>
-        </a-space>
-      </template>
-    </a-page-header>
+  <div class="dashboard-sspg">
+    <!-- Stats Cards Row -->
+    <div class="stats-row">
+      <HStatCard
+        :icon="AppstoreOutlined"
+        icon-bg="linear-gradient(135deg, #5A4372 0%, #3D2B53 100%)"
+        label="Porsi Disiapkan"
+        :value="String(kpis.portions_prepared)"
+        change="porsi hari ini"
+        change-type="increase"
+        :loading="loading"
+      />
+      <HStatCard
+        :icon="CarOutlined"
+        icon-bg="linear-gradient(135deg, #74788C 0%, #5A4372 100%)"
+        label="Delivery Rate"
+        :value="`${kpis.delivery_rate}%`"
+        :change="`${delivery.total_deliveries} pengiriman hari ini`"
+        change-type="increase"
+        :loading="loading"
+      />
+      <HStatCard
+        :icon="InboxOutlined"
+        icon-bg="linear-gradient(135deg, #3D2B53 0%, #5A4372 100%)"
+        label="Ketersediaan Stok"
+        :value="`${kpis.stock_availability}%`"
+        :change="`${criticalStockItems.length} item kritis`"
+        :change-type="criticalStockItems.length > 0 ? 'decrease' : 'increase'"
+        :loading="loading"
+      />
+      <HStatCard
+        :icon="CheckCircleOutlined"
+        icon-bg="linear-gradient(135deg, #05CD99 0%, #52c41a 100%)"
+        label="On-Time Delivery"
+        :value="`${kpis.on_time_delivery_rate}%`"
+        :change="`${delivery.total_deliveries} pengiriman tepat waktu`"
+        change-type="increase"
+        :loading="loading"
+      />
+    </div>
 
-    <div class="dashboard-content">
-      <a-spin :spinning="loading" tip="Memuat data dashboard...">
-        <!-- KPI Cards -->
-        <a-row :gutter="[16, 16]" style="margin-bottom: 24px;">
-          <a-col :xs="24" :sm="12" :md="6">
-            <a-card 
-              class="kpi-card clickable" 
-              @click="drillDown('production')"
-              hoverable
+    <!-- Charts Row -->
+    <div class="charts-row">
+      <HChartCard
+        title="Status Produksi"
+        subtitle="Resep & Packing hari ini"
+        :height="320"
+        :loading="loading"
+        class="chart-card"
+      >
+        <div ref="productionChartRef" class="chart-container"></div>
+      </HChartCard>
+
+      <HChartCard
+        title="Status Pengiriman & Pengambilan"
+        subtitle="Progress delivery hari ini"
+        :height="320"
+        :loading="loading"
+        class="chart-card"
+      >
+        <div ref="deliveryChartRef" class="chart-container"></div>
+      </HChartCard>
+
+      <HChartCard
+        title="Status Pencucian"
+        subtitle="Progress kebersihan hari ini"
+        :height="320"
+        :loading="loading"
+        class="chart-card"
+      >
+        <div ref="cleaningChartRef" class="chart-container"></div>
+      </HChartCard>
+    </div>
+
+    <!-- Production, Delivery & Cleaning Detail Tables -->
+    <div class="tables-row">
+      <div class="table-section">
+        <h3 class="section-title">Detail Produksi</h3>
+        <HDataTable
+          :columns="productionColumns"
+          :data-source="productionTableData"
+          :loading="loading"
+          :pagination="false"
+          :mobile-card-view="true"
+          class="data-table"
+        >
+          <template #cell-status="{ text }">
+            <span class="status-badge" :class="`status-badge--${getStatusType(text)}`">
+              <span class="status-dot"></span>
+              <span>{{ text }}</span>
+            </span>
+          </template>
+        </HDataTable>
+      </div>
+
+      <div class="table-section">
+        <h3 class="section-title">Detail Pengiriman & Pengambilan</h3>
+        <HDataTable
+          :columns="deliveryColumns"
+          :data-source="deliveryTableData"
+          :loading="loading"
+          :pagination="false"
+          :mobile-card-view="true"
+          class="data-table"
+        >
+          <template #cell-status="{ text }">
+            <span class="status-badge" :class="`status-badge--${getStatusType(text)}`">
+              <span class="status-dot"></span>
+              <span>{{ text }}</span>
+            </span>
+          </template>
+        </HDataTable>
+      </div>
+
+      <div class="table-section">
+        <h3 class="section-title">Detail Pencucian</h3>
+        <HDataTable
+          :columns="cleaningColumns"
+          :data-source="cleaningTableData"
+          :loading="loading"
+          :pagination="false"
+          :mobile-card-view="true"
+          class="data-table"
+        >
+          <template #cell-status="{ text }">
+            <span class="status-badge" :class="`status-badge--${getStatusType(text)}`">
+              <span class="status-dot"></span>
+              <span>{{ text }}</span>
+            </span>
+          </template>
+        </HDataTable>
+      </div>
+    </div>
+
+    <!-- Critical Stock Section -->
+    <div v-if="criticalStockItems.length > 0" class="critical-stock-section">
+      <div class="section-header">
+        <h3 class="section-title">
+          <WarningOutlined style="color: #EE5D50; margin-right: 8px;" />
+          Stok Kritis ({{ criticalStockItems.length }} item)
+        </h3>
+        <a-button 
+          v-if="criticalStockItems.length > 6"
+          type="link" 
+          @click="goToInventory"
+          style="color: #5A4372;"
+        >
+          Lihat Lainnya
+          <RightOutlined />
+        </a-button>
+      </div>
+      <div class="critical-stock-grid">
+        <div
+          v-for="item in displayedCriticalStock"
+          :key="item.ingredient_id"
+          class="critical-stock-card h-card"
+        >
+          <div class="critical-stock-header">
+            <span class="critical-stock-name">{{ item.ingredient_name }}</span>
+            <span
+              class="critical-stock-badge"
+              :class="item.current_stock <= item.min_threshold * 0.5 ? 'critical-stock-badge--danger' : 'critical-stock-badge--warning'"
             >
-              <a-statistic
-                title="Porsi Disiapkan Hari Ini"
-                :value="dashboard?.today_kpis?.portions_prepared || 0"
-                :value-style="{ color: '#1890ff' }"
-                suffix="porsi"
-              />
-              <div class="kpi-subtitle">
-                Target: {{ productionTarget }} porsi
-              </div>
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :sm="12" :md="6">
-            <a-card 
-              class="kpi-card clickable" 
-              @click="drillDown('delivery')"
-              hoverable
-            >
-              <a-statistic
-                title="Tingkat Pengiriman"
-                :value="dashboard?.today_kpis?.delivery_rate || 0"
-                :precision="1"
-                :value-style="{ color: getDeliveryRateColor(dashboard?.today_kpis?.delivery_rate) }"
-                suffix="%"
-              />
-              <div class="kpi-subtitle">
-                {{ dashboard?.delivery_status?.deliveries_completed || 0 }} dari {{ dashboard?.delivery_status?.total_deliveries || 0 }} sekolah
-              </div>
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :sm="12" :md="6">
-            <a-card 
-              class="kpi-card clickable" 
-              @click="drillDown('inventory')"
-              hoverable
-            >
-              <a-statistic
-                title="Ketersediaan Stok"
-                :value="dashboard?.today_kpis?.stock_availability || 0"
-                :precision="1"
-                :value-style="{ color: getStockAvailabilityColor(dashboard?.today_kpis?.stock_availability) }"
-                suffix="%"
-              />
-              <div class="kpi-subtitle">
-                {{ criticalStockCount }} item stok kritis
-              </div>
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :sm="12" :md="6">
-            <a-card 
-              class="kpi-card clickable" 
-              @click="drillDown('on-time')"
-              hoverable
-            >
-              <a-statistic
-                title="Ketepatan Waktu"
-                :value="dashboard?.today_kpis?.on_time_delivery_rate || 0"
-                :precision="1"
-                :value-style="{ color: '#52c41a' }"
-                suffix="%"
-              />
-              <div class="kpi-subtitle">
-                Pengiriman tepat waktu
-              </div>
-            </a-card>
-          </a-col>
-        </a-row>
+              {{ item.current_stock <= item.min_threshold * 0.5 ? 'Kritis' : 'Rendah' }}
+            </span>
+          </div>
+          <div class="critical-stock-info">
+            <div class="critical-stock-value">
+              <span class="critical-stock-current">{{ item.current_stock }}</span>
+              <span class="critical-stock-unit">{{ item.unit }}</span>
+            </div>
+            <div class="critical-stock-minimum">
+              Min: {{ item.min_threshold }} {{ item.unit }}
+            </div>
+          </div>
+          <a-progress
+            :percent="Math.min(100, Math.round((item.current_stock / item.min_threshold) * 100))"
+            :stroke-color="item.current_stock <= item.min_threshold * 0.5 ? '#EE5D50' : '#FFB547'"
+            :show-info="false"
+            size="small"
+          />
+          <div v-if="item.days_remaining" class="critical-stock-days">
+            ~{{ item.days_remaining.toFixed(1) }} hari tersisa
+          </div>
+        </div>
+      </div>
+    </div>
 
-        <!-- Production Status -->
-        <a-row :gutter="[16, 16]" style="margin-bottom: 24px;">
-          <a-col :xs="24" :lg="12">
-            <a-card title="Status Produksi" class="status-card">
-              <template #extra>
-                <a-button 
-                  type="link" 
-                  size="small" 
-                  @click="drillDown('production')"
-                >
-                  Lihat Detail
-                </a-button>
-              </template>
-              
-              <div class="production-overview">
-                <a-row :gutter="16">
-                  <a-col :span="8">
-                    <div class="status-item">
-                      <div class="status-number">{{ dashboard?.production_status?.total_recipes || 0 }}</div>
-                      <div class="status-label">Total Menu</div>
-                    </div>
-                  </a-col>
-                  <a-col :span="8">
-                    <div class="status-item">
-                      <div class="status-number cooking">{{ dashboard?.production_status?.recipes_cooking || 0 }}</div>
-                      <div class="status-label">Sedang Dimasak</div>
-                    </div>
-                  </a-col>
-                  <a-col :span="8">
-                    <div class="status-item">
-                      <div class="status-number ready">{{ dashboard?.production_status?.recipes_ready || 0 }}</div>
-                      <div class="status-label">Siap Packing</div>
-                    </div>
-                  </a-col>
-                </a-row>
-              </div>
-
-              <a-divider />
-
-              <div class="progress-section">
-                <div class="progress-label">
-                  Progress Memasak: {{ (dashboard?.production_status?.completion_rate || 0).toFixed(1) }}%
-                </div>
-                <a-progress 
-                  :percent="dashboard?.production_status?.completion_rate || 0" 
-                  :stroke-color="getProgressColor(dashboard?.production_status?.completion_rate)"
-                />
-              </div>
-
-              <div class="packing-status">
-                <a-row :gutter="16">
-                  <a-col :span="8">
-                    <a-tag color="default">Pending: {{ dashboard?.production_status?.packing_pending || 0 }}</a-tag>
-                  </a-col>
-                  <a-col :span="8">
-                    <a-tag color="processing">Packing: {{ dashboard?.production_status?.packing_in_progress || 0 }}</a-tag>
-                  </a-col>
-                  <a-col :span="8">
-                    <a-tag color="success">Siap Kirim: {{ dashboard?.production_status?.packing_ready || 0 }}</a-tag>
-                  </a-col>
-                </a-row>
-              </div>
-            </a-card>
-          </a-col>
-
-          <a-col :xs="24" :lg="12">
-            <a-card title="Status Pengiriman" class="status-card">
-              <template #extra>
-                <a-button 
-                  type="link" 
-                  size="small" 
-                  @click="drillDown('delivery')"
-                >
-                  Lihat Detail
-                </a-button>
-              </template>
-
-              <div class="delivery-overview">
-                <a-row :gutter="16">
-                  <a-col :span="8">
-                    <div class="status-item">
-                      <div class="status-number">{{ dashboard?.delivery_status?.total_deliveries || 0 }}</div>
-                      <div class="status-label">Total Sekolah</div>
-                    </div>
-                  </a-col>
-                  <a-col :span="8">
-                    <div class="status-item">
-                      <div class="status-number in-progress">{{ dashboard?.delivery_status?.deliveries_in_progress || 0 }}</div>
-                      <div class="status-label">Dalam Perjalanan</div>
-                    </div>
-                  </a-col>
-                  <a-col :span="8">
-                    <div class="status-item">
-                      <div class="status-number completed">{{ dashboard?.delivery_status?.deliveries_completed || 0 }}</div>
-                      <div class="status-label">Selesai</div>
-                    </div>
-                  </a-col>
-                </a-row>
-              </div>
-
-              <a-divider />
-
-              <div class="progress-section">
-                <div class="progress-label">
-                  Progress Pengiriman: {{ (dashboard?.delivery_status?.completion_rate || 0).toFixed(1) }}%
-                </div>
-                <a-progress 
-                  :percent="dashboard?.delivery_status?.completion_rate || 0" 
-                  :stroke-color="getProgressColor(dashboard?.delivery_status?.completion_rate)"
-                />
-              </div>
-
-              <div class="delivery-real-time" v-if="realtimeDeliveryUpdates.length > 0">
-                <a-divider>Update Terbaru</a-divider>
-                <a-timeline size="small">
-                  <a-timeline-item 
-                    v-for="update in realtimeDeliveryUpdates.slice(0, 3)" 
-                    :key="update.id"
-                    :color="getUpdateColor(update.status)"
-                  >
-                    <div class="update-content">
-                      <div class="update-school">{{ update.school_name }}</div>
-                      <div class="update-status">{{ getUpdateStatusText(update.status) }}</div>
-                      <div class="update-time">{{ formatTime(update.timestamp) }}</div>
-                    </div>
-                  </a-timeline-item>
-                </a-timeline>
-              </div>
-            </a-card>
-          </a-col>
-        </a-row>
-
-        <!-- Critical Stock Items -->
-        <a-row :gutter="[16, 16]" style="margin-bottom: 24px;">
-          <a-col :span="24">
-            <a-card title="Stok Kritis" class="critical-stock-card">
-              <template #extra>
-                <a-space>
-                  <a-tag :color="criticalStockCount > 0 ? 'red' : 'green'">
-                    {{ criticalStockCount }} Item Kritis
-                  </a-tag>
-                  <a-button 
-                    type="link" 
-                    size="small" 
-                    @click="drillDown('inventory')"
-                  >
-                    Lihat Semua
-                  </a-button>
-                </a-space>
-              </template>
-
-              <div v-if="dashboard?.critical_stock && dashboard.critical_stock.length > 0">
-                <a-row :gutter="[16, 16]">
-                  <a-col 
-                    v-for="item in dashboard.critical_stock.slice(0, 6)" 
-                    :key="item.ingredient_id"
-                    :xs="24" :sm="12" :md="8" :lg="6"
-                  >
-                    <a-card 
-                      size="small" 
-                      class="critical-item-card"
-                      :class="{ 'very-critical': item.days_remaining <= 1 }"
-                    >
-                      <div class="critical-item">
-                        <div class="item-name">{{ item.ingredient_name }}</div>
-                        <div class="item-stock">
-                          <span class="current-stock">{{ item.current_stock }}</span>
-                          <span class="unit">{{ item.unit }}</span>
-                        </div>
-                        <div class="item-threshold">
-                          Min: {{ item.min_threshold }} {{ item.unit }}
-                        </div>
-                        <div class="item-days" :class="getDaysRemainingClass(item.days_remaining)">
-                          {{ item.days_remaining.toFixed(1) }} hari tersisa
-                        </div>
-                      </div>
-                    </a-card>
-                  </a-col>
-                </a-row>
-              </div>
-              <a-empty 
-                v-else 
-                description="Tidak ada stok kritis" 
-                :image="false"
-                style="margin: 20px 0;"
-              />
-            </a-card>
-          </a-col>
-        </a-row>
-
-        <!-- Last Updated Info -->
-        <a-row>
-          <a-col :span="24">
-            <a-card size="small" class="update-info">
-              <a-space>
-                <span>Terakhir diperbarui: {{ formatDateTime(dashboard?.updated_at) }}</span>
-                <a-divider type="vertical" />
-                <span>Auto-refresh: {{ autoRefreshEnabled ? 'Aktif' : 'Nonaktif' }}</span>
-                <a-switch 
-                  v-model:checked="autoRefreshEnabled" 
-                  size="small"
-                  @change="toggleAutoRefresh"
-                />
-              </a-space>
-            </a-card>
-          </a-col>
-        </a-row>
-      </a-spin>
+    <!-- Empty state if no critical stock -->
+    <div v-else-if="!loading" class="no-critical-stock">
+      <CheckCircleOutlined style="font-size: 24px; color: #05CD99; margin-right: 8px;" />
+      <span>Semua stok dalam kondisi aman</span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
-  WifiOutlined,
-  DisconnectOutlined,
-  ReloadOutlined,
-  DownloadOutlined
+  AppstoreOutlined,
+  CarOutlined,
+  InboxOutlined,
+  CheckCircleOutlined,
+  WarningOutlined,
+  RightOutlined
 } from '@ant-design/icons-vue'
-import { getKepalaSSPGDashboard, exportDashboardData } from '@/services/dashboardService'
+import HStatCard from '@/components/horizon/HStatCard.vue'
+import HChartCard from '@/components/horizon/HChartCard.vue'
+import HDataTable from '@/components/horizon/HDataTable.vue'
+import { useHorizonChart } from '@/composables/useHorizonChart'
+import { getKepalaSSPGDashboard } from '@/services/dashboardService'
 import { database } from '@/services/firebase'
 import { ref as dbRef, onValue, off } from 'firebase/database'
-import dayjs from 'dayjs'
 
 const router = useRouter()
-
-// Reactive data
 const dashboard = ref(null)
-const loading = ref(false)
-const exporting = ref(false)
-const isConnected = ref(true)
-const autoRefreshEnabled = ref(true)
-const realtimeDeliveryUpdates = ref([])
+const loading = ref(true)
 
-// Firebase listeners
+const productionChartRef = ref(null)
+const deliveryChartRef = ref(null)
+const cleaningChartRef = ref(null)
+
 let dashboardListener = null
-let deliveryListener = null
-let autoRefreshInterval = null
 
-// Computed properties
-const criticalStockCount = computed(() => {
-  return dashboard.value?.critical_stock?.length || 0
+// Computed helpers for safe access
+const kpis = computed(() => dashboard.value?.today_kpis || {
+  portions_prepared: 0, delivery_rate: 0, stock_availability: 0, on_time_delivery_rate: 0
 })
 
-const productionTarget = computed(() => {
-  // Calculate target based on total recipes * average portions
-  const totalRecipes = dashboard.value?.production_status?.total_recipes || 0
-  return totalRecipes * 50 // Assuming 50 portions per recipe on average
+const production = computed(() => dashboard.value?.production_status || {
+  total_recipes: 0, recipes_pending: 0, recipes_cooking: 0, recipes_ready: 0,
+  packing_pending: 0, packing_in_progress: 0, packing_ready: 0, completion_rate: 0
 })
 
-// Load dashboard data from API
+const delivery = computed(() => dashboard.value?.delivery_status || {
+  total_deliveries: 0, status_breakdown: [], completion_rate: 0
+})
+
+const cleaning = computed(() => dashboard.value?.cleaning_status || {
+  total_items: 0, items_pending: 0, items_in_progress: 0, items_completed: 0, completion_rate: 0
+})
+
+const criticalStockItems = computed(() => dashboard.value?.critical_stock || [])
+
+// Display only first 6 critical stock items
+const displayedCriticalStock = computed(() => criticalStockItems.value.slice(0, 6))
+
+// Navigate to inventory with low stock filter
+const goToInventory = () => {
+  router.push('/inventory')
+}
+
+// Production table data from real API
+const productionColumns = [
+  { title: 'Sekolah', dataIndex: 'school', key: 'school' },
+  { title: 'Porsi', dataIndex: 'portions', key: 'portions' },
+  { title: 'Status', dataIndex: 'status', key: 'status', type: 'status' }
+]
+
+const productionTableData = computed(() => {
+  const details = dashboard.value?.production_details || []
+  return details.map((detail, index) => ({
+    key: String(index + 1),
+    school: detail.school_name,
+    portions: detail.portions,
+    status: detail.status
+  }))
+})
+
+// Delivery table data from real API
+const deliveryColumns = [
+  { title: 'Sekolah', dataIndex: 'school', key: 'school' },
+  { title: 'Porsi', dataIndex: 'portions', key: 'portions' },
+  { title: 'Status', dataIndex: 'status', key: 'status', type: 'status' }
+]
+
+const deliveryTableData = computed(() => {
+  const details = dashboard.value?.delivery_details || []
+  return details.map((detail, index) => ({
+    key: String(index + 1),
+    school: detail.school_name,
+    portions: detail.portions,
+    status: detail.status
+  }))
+})
+
+// Cleaning table data from real API
+const cleaningColumns = [
+  { title: 'Sekolah', dataIndex: 'school', key: 'school' },
+  { title: 'Porsi', dataIndex: 'portions', key: 'portions' },
+  { title: 'Status', dataIndex: 'status', key: 'status', type: 'status' }
+]
+
+const cleaningTableData = computed(() => {
+  const details = dashboard.value?.cleaning_details || []
+  return details.map((detail, index) => ({
+    key: String(index + 1),
+    school: detail.school_name,
+    portions: detail.portions, // Backend already returns portions field
+    status: detail.status
+  }))
+})
+
+// Chart composables
+const { setOption: setProductionOption } = useHorizonChart(productionChartRef, {})
+const { setOption: setDeliveryOption } = useHorizonChart(deliveryChartRef, {})
+const { setOption: setCleaningOption } = useHorizonChart(cleaningChartRef, {})
+
+const updateCharts = () => {
+  const p = production.value
+  const d = delivery.value
+
+  // Production donut chart
+  const pieData = [
+    { value: p.recipes_pending, name: 'Menunggu', itemStyle: { color: '#A3AED0' } },
+    { value: p.recipes_cooking, name: 'Sedang Dimasak', itemStyle: { color: '#FFB547' } },
+    { value: p.recipes_ready, name: 'Selesai Dimasak', itemStyle: { color: '#05CD99' } },
+    { value: p.packing_pending, name: 'Siap Packing', itemStyle: { color: '#9F7AEA' } },
+    { value: p.packing_in_progress, name: 'Sedang Packing', itemStyle: { color: '#5A4372' } },
+    { value: p.packing_ready, name: 'Selesai Packing', itemStyle: { color: '#3D2B53' } },
+  ].filter(item => item.value > 0)
+
+  // If no data, show a "no data" placeholder
+  const finalPieData = pieData.length > 0 ? pieData : [{ value: 1, name: 'Belum ada data', itemStyle: { color: '#E9EDF7' } }]
+
+  setProductionOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, data: finalPieData.map(i => i.name) },
+    series: [{
+      name: 'Produksi',
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['50%', '45%'],
+      avoidLabelOverlap: true,
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{c}' },
+      data: finalPieData
+    }]
+  })
+
+  // Delivery bar chart - use status_breakdown from API
+  const deliveryBreakdown = d.status_breakdown || []
+  const deliveryLabels = deliveryBreakdown.map(item => item.status_label)
+  const deliveryData = deliveryBreakdown.map((item, index) => {
+    // Assign colors based on status
+    const colors = ['#A3AED0', '#FFB547', '#9F7AEA', '#05CD99', '#5A4372', '#3D2B53']
+    return {
+      value: item.count,
+      itemStyle: { color: colors[index % colors.length], borderRadius: [0, 4, 4, 0] }
+    }
+  })
+
+  // If no data, show placeholder
+  const finalDeliveryLabels = deliveryLabels.length > 0 ? deliveryLabels : ['Belum ada data']
+  const finalDeliveryData = deliveryData.length > 0 ? deliveryData : [{ value: 0, itemStyle: { color: '#E9EDF7', borderRadius: [0, 4, 4, 0] } }]
+
+  setDeliveryOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '8%', bottom: '3%', containLabel: true },
+    xAxis: {
+      type: 'value',
+      axisLabel: { formatter: '{value}' }
+    },
+    yAxis: {
+      type: 'category',
+      data: finalDeliveryLabels
+    },
+    series: [{
+      name: 'Pengiriman',
+      type: 'bar',
+      data: finalDeliveryData,
+      barWidth: '40%',
+      label: { show: true, position: 'right', formatter: '{c}' }
+    }]
+  })
+
+  // Cleaning pie chart (same style as production)
+  const c = cleaning.value
+  const cleaningPieData = [
+    { value: c.items_pending, name: 'Menunggu', itemStyle: { color: '#A3AED0' } },
+    { value: c.items_in_progress, name: 'Sedang Dicuci', itemStyle: { color: '#FFB547' } },
+    { value: c.items_completed, name: 'Selesai', itemStyle: { color: '#05CD99' } },
+  ].filter(item => item.value > 0)
+
+  // If no data, show a "no data" placeholder
+  const finalCleaningData = cleaningPieData.length > 0 ? cleaningPieData : [{ value: 1, name: 'Belum ada data', itemStyle: { color: '#E9EDF7' } }]
+
+  setCleaningOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, data: finalCleaningData.map(i => i.name) },
+    series: [{
+      name: 'Pencucian',
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['50%', '45%'],
+      avoidLabelOverlap: true,
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{c}' },
+      data: finalCleaningData
+    }]
+  })
+}
+
 const loadDashboardData = async () => {
   loading.value = true
   try {
     const response = await getKepalaSSPGDashboard()
     if (response.success) {
       dashboard.value = response.dashboard
-    } else {
-      message.error(response.message || 'Gagal memuat data dashboard')
     }
   } catch (error) {
     console.error('Error loading dashboard:', error)
     message.error('Gagal memuat data dashboard')
   } finally {
     loading.value = false
+    await nextTick()
+    updateCharts()
   }
 }
 
-// Refresh data
-const refreshData = () => {
-  loadDashboardData()
-}
-
-// Export dashboard
-const exportDashboard = async () => {
-  exporting.value = true
-  try {
-    const response = await exportDashboardData('kepala_sppg', 'json')
-    if (response.success) {
-      // Create download link
-      const dataStr = JSON.stringify(response.data, null, 2)
-      const dataBlob = new Blob([dataStr], { type: 'application/json' })
-      const url = URL.createObjectURL(dataBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `dashboard-kepala-sppg-${dayjs().format('YYYY-MM-DD-HH-mm')}.json`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      
-      message.success('Dashboard berhasil diexport')
-    } else {
-      message.error(response.message || 'Gagal mengexport dashboard')
-    }
-  } catch (error) {
-    console.error('Error exporting dashboard:', error)
-    message.error('Gagal mengexport dashboard')
-  } finally {
-    exporting.value = false
-  }
-}
-
-// Drill down to detail pages
-const drillDown = (type) => {
-  switch (type) {
-    case 'production':
-      router.push('/kds/cooking')
-      break
-    case 'delivery':
-      router.push('/delivery-tasks')
-      break
-    case 'inventory':
-      router.push('/inventory')
-      break
-    case 'on-time':
-      router.push('/delivery-tasks')
-      break
-    default:
-      console.log('Unknown drill down type:', type)
-  }
-}
-
-// Setup Firebase real-time listeners
 const setupFirebaseListeners = () => {
-  // Dashboard data listener
-  const dashboardRef = dbRef(database, '/dashboard/kepala_sppg')
-  dashboardListener = onValue(
-    dashboardRef,
-    (snapshot) => {
-      isConnected.value = true
+  try {
+    const dashRef = dbRef(database, '/dashboard/kepala_sppg')
+    dashboardListener = onValue(dashRef, (snapshot) => {
       const data = snapshot.val()
       if (data) {
         dashboard.value = data
+        updateCharts()
       }
-    },
-    (error) => {
-      console.error('Firebase dashboard listener error:', error)
-      isConnected.value = false
-    }
-  )
-
-  // Delivery updates listener for real-time notifications
-  const today = dayjs().format('YYYY-MM-DD')
-  const deliveryRef = dbRef(database, `/delivery_updates/${today}`)
-  deliveryListener = onValue(
-    deliveryRef,
-    (snapshot) => {
-      const data = snapshot.val()
-      if (data) {
-        const updates = Object.values(data)
-          .sort((a, b) => b.timestamp - a.timestamp)
-        realtimeDeliveryUpdates.value = updates
-      }
-    },
-    (error) => {
-      console.error('Firebase delivery listener error:', error)
-    }
-  )
+    }, (error) => {
+      console.error('Firebase listener error:', error)
+    })
+  } catch (e) {
+    console.warn('Firebase not available:', e)
+  }
 }
 
-// Cleanup Firebase listeners
 const cleanupFirebaseListeners = () => {
   if (dashboardListener) {
-    const dashboardRef = dbRef(database, '/dashboard/kepala_sppg')
-    off(dashboardRef)
+    try { off(dbRef(database, '/dashboard/kepala_sppg')) } catch (e) { /* ignore */ }
     dashboardListener = null
   }
-  
-  if (deliveryListener) {
-    const today = dayjs().format('YYYY-MM-DD')
-    const deliveryRef = dbRef(database, `/delivery_updates/${today}`)
-    off(deliveryRef)
-    deliveryListener = null
-  }
 }
 
-// Auto refresh functionality
-const toggleAutoRefresh = (enabled) => {
-  if (enabled) {
-    autoRefreshInterval = setInterval(() => {
-      loadDashboardData()
-    }, 5 * 60 * 1000) // Refresh every 5 minutes
-  } else {
-    if (autoRefreshInterval) {
-      clearInterval(autoRefreshInterval)
-      autoRefreshInterval = null
-    }
-  }
+const getStatusType = (status) => {
+  const s = String(status).toLowerCase()
+  if (s.includes('selesai') || s.includes('completed')) return 'success'
+  if (s.includes('packing') || s.includes('memasak') || s.includes('%')) return 'warning'
+  return 'default'
 }
 
-// Helper functions for styling
-const getDeliveryRateColor = (rate) => {
-  if (rate >= 90) return '#52c41a'
-  if (rate >= 70) return '#faad14'
-  return '#ff4d4f'
-}
-
-const getStockAvailabilityColor = (availability) => {
-  if (availability >= 80) return '#52c41a'
-  if (availability >= 60) return '#faad14'
-  return '#ff4d4f'
-}
-
-const getProgressColor = (percent) => {
-  if (percent >= 80) return '#52c41a'
-  if (percent >= 50) return '#faad14'
-  return '#ff4d4f'
-}
-
-const getDaysRemainingClass = (days) => {
-  if (days <= 1) return 'critical'
-  if (days <= 3) return 'warning'
-  return 'normal'
-}
-
-const getUpdateColor = (status) => {
-  const colors = {
-    completed: 'green',
-    in_progress: 'blue',
-    pending: 'gray'
-  }
-  return colors[status] || 'gray'
-}
-
-const getUpdateStatusText = (status) => {
-  const texts = {
-    completed: 'Pengiriman selesai',
-    in_progress: 'Dalam perjalanan',
-    pending: 'Menunggu pengiriman'
-  }
-  return texts[status] || status
-}
-
-const formatTime = (timestamp) => {
-  if (!timestamp) return '-'
-  return dayjs(timestamp * 1000).format('HH:mm')
-}
-
-const formatDateTime = (datetime) => {
-  if (!datetime) return '-'
-  return dayjs(datetime).format('DD/MM/YYYY HH:mm')
-}
-
-// Lifecycle hooks
 onMounted(() => {
   loadDashboardData()
   setupFirebaseListeners()
-  toggleAutoRefresh(autoRefreshEnabled.value)
 })
 
 onUnmounted(() => {
   cleanupFirebaseListeners()
-  if (autoRefreshInterval) {
-    clearInterval(autoRefreshInterval)
-  }
 })
 </script>
 
 <style scoped>
-.dashboard-kepala-sppg {
-  padding: 24px;
-  background-color: #f0f2f5;
-  min-height: 100vh;
+.dashboard-sspg {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 
-.dashboard-content {
-  margin-top: 16px;
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
 }
+@media (max-width: 1024px) { .stats-row { grid-template-columns: repeat(2, 1fr); gap: 16px; } }
+@media (max-width: 768px) { .stats-row { grid-template-columns: 1fr; gap: 12px; } }
 
-.kpi-card {
-  text-align: center;
-  transition: all 0.3s ease;
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
 }
+@media (max-width: 1024px) { .charts-row { grid-template-columns: repeat(2, 1fr); gap: 16px; } }
+@media (max-width: 768px) { .charts-row { grid-template-columns: 1fr; gap: 16px; } }
 
-.kpi-card.clickable {
-  cursor: pointer;
-}
-
-.kpi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.kpi-subtitle {
-  margin-top: 8px;
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
-}
-
-.status-card {
+.chart-container {
+  width: 100%;
   height: 100%;
+  min-height: 280px;
 }
+@media (max-width: 768px) { .chart-container { min-height: 240px; } }
 
-.production-overview,
-.delivery-overview {
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
 }
 
-.status-item {
-  text-align: center;
-}
-
-.status-number {
-  font-size: 24px;
-  font-weight: bold;
-  color: #1890ff;
-}
-
-.status-number.cooking {
-  color: #faad14;
-}
-
-.status-number.ready {
-  color: #52c41a;
-}
-
-.status-number.in-progress {
-  color: #1890ff;
-}
-
-.status-number.completed {
-  color: #52c41a;
-}
-
-.status-label {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.65);
-  margin-top: 4px;
-}
-
-.progress-section {
-  margin-bottom: 16px;
-}
-
-.progress-label {
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-.packing-status {
-  margin-top: 16px;
-}
-
-.critical-stock-card {
-  border-left: 4px solid #ff4d4f;
-}
-
-.critical-item-card {
-  height: 100%;
-  transition: all 0.3s ease;
-}
-
-.critical-item-card.very-critical {
-  border-color: #ff4d4f;
-  background-color: #fff2f0;
-}
-
-.critical-item-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.critical-item {
-  text-align: center;
-}
-
-.item-name {
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: #262626;
-}
-
-.item-stock {
-  margin-bottom: 4px;
-}
-
-.current-stock {
+.section-title {
   font-size: 18px;
-  font-weight: bold;
-  color: #ff4d4f;
+  font-weight: 700;
+  color: var(--h-text-primary, #322837);
+  margin: 0;
+  display: flex;
+  align-items: center;
 }
+.dark .section-title { color: var(--h-text-primary-dark, #F8FDEA); }
 
-.unit {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
-  margin-left: 4px;
+.tables-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
 }
+@media (max-width: 1024px) { .tables-row { grid-template-columns: repeat(2, 1fr); gap: 16px; } }
+@media (max-width: 768px) { .tables-row { grid-template-columns: 1fr; gap: 16px; } }
 
-.item-threshold {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
-  margin-bottom: 4px;
+.table-section { display: flex; flex-direction: column; }
+
+.critical-stock-section { margin-top: 4px; }
+
+.critical-stock-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
 }
+@media (max-width: 1024px) { .critical-stock-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) { .critical-stock-grid { grid-template-columns: 1fr; } }
 
-.item-days {
-  font-size: 12px;
-  font-weight: 500;
-}
+.critical-stock-card { display: flex; flex-direction: column; gap: 10px; }
 
-.item-days.critical {
-  color: #ff4d4f;
-}
+.critical-stock-header { display: flex; justify-content: space-between; align-items: center; }
 
-.item-days.warning {
-  color: #faad14;
-}
+.critical-stock-name { font-size: 14px; font-weight: 600; color: var(--h-text-primary, #322837); }
+.dark .critical-stock-name { color: var(--h-text-primary-dark, #F8FDEA); }
 
-.item-days.normal {
-  color: #52c41a;
-}
+.critical-stock-badge { font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 12px; }
+.critical-stock-badge--danger { background: rgba(238, 93, 80, 0.15); color: #EE5D50; }
+.critical-stock-badge--warning { background: rgba(255, 181, 71, 0.15); color: #FFB547; }
 
-.delivery-real-time {
-  margin-top: 16px;
-}
+.critical-stock-info { display: flex; justify-content: space-between; align-items: baseline; }
+.critical-stock-value { display: flex; align-items: baseline; gap: 4px; }
+.critical-stock-current { font-size: 24px; font-weight: 700; color: var(--h-text-primary, #322837); }
+.dark .critical-stock-current { color: var(--h-text-primary-dark, #F8FDEA); }
+.critical-stock-unit { font-size: 13px; color: var(--h-text-secondary, #74788C); }
+.critical-stock-minimum { font-size: 12px; color: var(--h-text-secondary, #74788C); }
+.critical-stock-days { font-size: 11px; color: var(--h-text-secondary, #74788C); font-style: italic; }
 
-.update-content {
-  font-size: 12px;
-}
-
-.update-school {
-  font-weight: 500;
-  color: #262626;
-}
-
-.update-status {
-  color: rgba(0, 0, 0, 0.65);
-  margin: 2px 0;
-}
-
-.update-time {
-  color: rgba(0, 0, 0, 0.45);
-}
-
-.update-info {
-  text-align: center;
-  background-color: #fafafa;
-}
-
-:deep(.ant-statistic-title) {
+.no-critical-stock {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  background: rgba(5, 205, 153, 0.08);
+  border-radius: 12px;
   font-size: 14px;
-  margin-bottom: 8px;
+  color: #05CD99;
+  font-weight: 500;
 }
 
-:deep(.ant-statistic-content) {
-  font-size: 20px;
-}
-
-:deep(.ant-progress-text) {
-  font-size: 12px;
-}
-
-:deep(.ant-timeline-item-content) {
-  margin-left: 20px;
-}
+.status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; }
+.status-badge--success { background: rgba(5, 205, 153, 0.1); color: #05CD99; }
+.status-badge--success .status-dot { background: #05CD99; }
+.status-badge--warning { background: rgba(255, 181, 71, 0.1); color: #FFB547; }
+.status-badge--warning .status-dot { background: #FFB547; }
+.status-badge--default { background: rgba(163, 174, 208, 0.1); color: #74788C; }
+.status-badge--default .status-dot { background: #74788C; }
 </style>

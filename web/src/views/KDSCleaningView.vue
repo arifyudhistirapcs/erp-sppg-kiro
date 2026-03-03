@@ -1,147 +1,181 @@
 <template>
-  <div class="kds-cleaning-view">
-    <div class="kds-header">
-      <div class="header-content">
-        <div class="header-left">
-          <h2 class="header-title">Kebersihan - Pencucian Ompreng</h2>
-          <p class="header-subtitle">Kelola pencucian ompreng yang kembali dari sekolah</p>
-        </div>
-        <div class="header-right">
-          <a-space :size="12">
-            <KDSDatePicker
-              v-model="selectedDate"
-              :loading="loading"
-              @change="handleDateChange"
-            />
-            <a-tag :color="isConnected ? 'green' : 'red'" class="connection-tag">
-              <template #icon>
-                <wifi-outlined v-if="isConnected" />
-                <disconnect-outlined v-else />
-              </template>
-              {{ isConnected ? 'Terhubung' : 'Terputus' }}
-            </a-tag>
-            <a-button @click="refreshData" :loading="loading" type="default">
-              <template #icon><reload-outlined /></template>
-              Refresh
-            </a-button>
-          </a-space>
-        </div>
+  <div>
+    <!-- Header Actions -->
+    <div class="kds-cleaning-header">
+      <div class="header-controls">
+        <KDSDatePicker
+          v-model="selectedDate"
+          :loading="loading"
+          @change="handleDateChange"
+        />
+        <a-tag :color="isConnected ? 'green' : 'red'" class="connection-tag">
+          <template #icon>
+            <wifi-outlined v-if="isConnected" />
+            <disconnect-outlined v-else />
+          </template>
+          {{ isConnected ? 'Terhubung' : 'Terputus' }}
+        </a-tag>
+        <a-button @click="refreshData" :loading="loading" type="default">
+          <template #icon><reload-outlined /></template>
+          Refresh
+        </a-button>
       </div>
     </div>
 
-    <div class="content-wrapper">
-      <a-alert
-        v-if="error"
-        type="error"
-        :message="error"
-        closable
-        show-icon
-        @close="error = null"
-        style="margin-bottom: 16px"
-      >
-        <template #action>
-          <a-button size="small" type="primary" @click="retryLoad">
-            Coba Lagi
-          </a-button>
-        </template>
-      </a-alert>
 
-      <a-alert
-        v-if="!loading && allOmprengCompleted"
-        type="success"
-        message="Semua Ompreng Selesai Dicuci!"
-        description="Semua ompreng telah selesai dicuci dan siap untuk digunakan kembali."
-        show-icon
-        closable
-        style="margin-bottom: 16px"
+
+    <!-- Error Alert -->
+    <a-alert
+      v-if="error"
+      type="error"
+      :message="error"
+      closable
+      show-icon
+      @close="error = null"
+      class="cleaning-alert"
+    >
+      <template #action>
+        <a-button size="small" type="primary" @click="retryLoad">
+          Coba Lagi
+        </a-button>
+      </template>
+    </a-alert>
+
+    <!-- Kanban Board -->
+    <a-spin :spinning="loading" tip="Memuat data...">
+      <a-empty
+        v-if="!loading && pendingOmpreng.length === 0"
+        description="Tidak ada ompreng yang perlu dicuci"
       />
 
-      <a-spin :spinning="loading" tip="Memuat data...">
-        <a-empty 
-          v-if="!loading && pendingOmpreng.length === 0" 
-          description="Tidak ada ompreng yang perlu dicuci"
-        />
-        
-        <a-row :gutter="[16, 16]" v-else>
-          <a-col
-            v-for="record in pendingOmpreng"
-            :key="record.id"
-            :xs="24"
-            :sm="24"
-            :md="12"
-            :lg="8"
-            :xl="6"
-          >
-            <a-card
-              :class="['cleaning-card', `status-${record.cleaning_status}`]"
-            >
-              <div class="card-header">
-                <div class="school-name">{{ record.school_name || record.delivery_record?.school?.name || '-' }}</div>
-                <a-tag :color="getStatusColor(record.cleaning_status)" class="status-tag">
-                  {{ getStatusText(record.cleaning_status) }}
-                </a-tag>
+      <div v-else class="kanban-board">
+        <!-- Menunggu Column -->
+        <div class="kanban-column">
+          <div class="kanban-column-header">
+            <h3 class="kanban-column-title">
+              <ClockCircleOutlined class="column-icon" />
+              Menunggu
+            </h3>
+            <span class="kanban-column-count">{{ pendingItems.length }}</span>
+          </div>
+          <div class="kanban-column-content">
+            <div v-for="record in pendingItems" :key="record.id" class="h-card cleaning-card status-pending">
+              <div class="cleaning-card__header">
+                <div class="cleaning-card__school">
+                  {{ record.school_name || record.delivery_record?.school?.name || '-' }}
+                </div>
+                <div class="cleaning-card__status-badge status-pending">
+                  <span class="status-dot"></span>
+                  Menunggu
+                </div>
               </div>
-
-              <div class="cleaning-info">
-                <a-statistic
-                  title="Jumlah Ompreng"
-                  :value="record.ompreng_count"
-                  suffix="unit"
-                  :value-style="{ color: '#1890ff', fontSize: '28px', fontWeight: 'bold' }"
-                />
-
-                <a-divider>Informasi Pengiriman</a-divider>
-                
+              <div class="cleaning-card__count">
+                <div class="count-value">{{ record.ompreng_count }}</div>
+                <div class="count-label">Unit Ompreng</div>
+              </div>
+              <div class="cleaning-card__info">
                 <div class="info-item">
-                  <span class="info-label">Tanggal Pengiriman:</span>
+                  <span class="info-label">Tanggal Pengiriman</span>
                   <span class="info-value">{{ formatDate(record.delivery_date || record.delivery_record?.delivery_date) }}</span>
                 </div>
+              </div>
+              <a-button type="primary" block @click="handleStartCleaning(record)" :loading="updatingId === record.id" class="action-button action-button--start">
+                <template #icon><play-circle-outlined /></template>
+                Mulai Cuci
+              </a-button>
+            </div>
+          </div>
+        </div>
 
+        <!-- Sedang Dicuci Column -->
+        <div class="kanban-column">
+          <div class="kanban-column-header">
+            <h3 class="kanban-column-title">
+              <SyncOutlined class="column-icon" />
+              Sedang Dicuci
+            </h3>
+            <span class="kanban-column-count">{{ inProgressItems.length }}</span>
+          </div>
+          <div class="kanban-column-content">
+            <div v-for="record in inProgressItems" :key="record.id" class="h-card cleaning-card status-in_progress">
+              <div class="cleaning-card__header">
+                <div class="cleaning-card__school">
+                  {{ record.school_name || record.delivery_record?.school?.name || '-' }}
+                </div>
+                <div class="cleaning-card__status-badge status-in_progress">
+                  <span class="status-dot"></span>
+                  Sedang Dicuci
+                </div>
+              </div>
+              <div class="cleaning-card__count">
+                <div class="count-value">{{ record.ompreng_count }}</div>
+                <div class="count-label">Unit Ompreng</div>
+              </div>
+              <div class="cleaning-card__info">
+                <div class="info-item">
+                  <span class="info-label">Tanggal Pengiriman</span>
+                  <span class="info-value">{{ formatDate(record.delivery_date || record.delivery_record?.delivery_date) }}</span>
+                </div>
                 <div v-if="record.started_at" class="info-item">
-                  <span class="info-label">Mulai Cuci:</span>
+                  <span class="info-label">Mulai Cuci</span>
                   <span class="info-value">{{ formatDateTime(record.started_at) }}</span>
                 </div>
+              </div>
+              <a-button type="primary" block @click="handleCompleteCleaning(record)" :loading="updatingId === record.id" class="action-button action-button--complete">
+                <template #icon><check-circle-outlined /></template>
+                Selesai
+              </a-button>
+            </div>
+          </div>
+        </div>
 
+        <!-- Selesai Column -->
+        <div class="kanban-column">
+          <div class="kanban-column-header">
+            <h3 class="kanban-column-title">
+              <CheckCircleOutlined class="column-icon" />
+              Selesai
+            </h3>
+            <span class="kanban-column-count">{{ completedItems.length }}</span>
+          </div>
+          <div class="kanban-column-content">
+            <div v-for="record in completedItems" :key="record.id" class="h-card cleaning-card status-completed">
+              <div class="cleaning-card__header">
+                <div class="cleaning-card__school">
+                  {{ record.school_name || record.delivery_record?.school?.name || '-' }}
+                </div>
+                <div class="cleaning-card__status-badge status-completed">
+                  <span class="status-dot"></span>
+                  Selesai
+                </div>
+              </div>
+              <div class="cleaning-card__count">
+                <div class="count-value">{{ record.ompreng_count }}</div>
+                <div class="count-label">Unit Ompreng</div>
+              </div>
+              <div class="cleaning-card__info">
+                <div class="info-item">
+                  <span class="info-label">Tanggal Pengiriman</span>
+                  <span class="info-value">{{ formatDate(record.delivery_date || record.delivery_record?.delivery_date) }}</span>
+                </div>
+                <div v-if="record.started_at" class="info-item">
+                  <span class="info-label">Mulai Cuci</span>
+                  <span class="info-value">{{ formatDateTime(record.started_at) }}</span>
+                </div>
                 <div v-if="record.completed_at" class="info-item">
-                  <span class="info-label">Selesai:</span>
+                  <span class="info-label">Selesai</span>
                   <span class="info-value">{{ formatDateTime(record.completed_at) }}</span>
                 </div>
               </div>
-
-              <template #actions>
-                <a-button
-                  v-if="record.cleaning_status === 'pending'"
-                  type="primary"
-                  block
-                  @click="handleStartCleaning(record)"
-                  :loading="updatingId === record.id"
-                >
-                  <template #icon><play-circle-outlined /></template>
-                  Mulai Cuci
-                </a-button>
-                
-                <a-button
-                  v-else-if="record.cleaning_status === 'in_progress'"
-                  type="primary"
-                  block
-                  @click="handleCompleteCleaning(record)"
-                  :loading="updatingId === record.id"
-                  style="background-color: #52c41a; border-color: #52c41a"
-                >
-                  <template #icon><check-circle-outlined /></template>
-                  Selesai
-                </a-button>
-                
-                <a-tag v-else color="success" style="width: 100%; text-align: center; padding: 8px 0;">
-                  <template #icon><check-outlined /></template>
-                  Sudah Selesai
-                </a-tag>
-              </template>
-            </a-card>
-          </a-col>
-        </a-row>
-      </a-spin>
-    </div>
+              <div class="completed-badge">
+                <check-outlined />
+                Sudah Selesai
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </a-spin>
   </div>
 </template>
 
@@ -154,18 +188,19 @@ import {
   ReloadOutlined,
   PlayCircleOutlined,
   CheckCircleOutlined,
-  CheckOutlined
+  CheckOutlined,
+  ClockCircleOutlined,
+  SyncOutlined
 } from '@ant-design/icons-vue'
 import { getPendingOmpreng, startCleaning, completeCleaning } from '@/services/cleaningService'
 import KDSDatePicker from '@/components/KDSDatePicker.vue'
+import HStatCard from '@/components/horizon/HStatCard.vue'
 
-// Try to import Firebase, but make it optional
 let database = null
 let dbRef = null
 let onValue = null
 let off = null
 
-// Dynamically import Firebase modules
 const initFirebase = async () => {
   try {
     const firebaseModule = await import('@/services/firebase')
@@ -174,115 +209,67 @@ const initFirebase = async () => {
     dbRef = firebaseDatabase.ref
     onValue = firebaseDatabase.onValue
     off = firebaseDatabase.off
-    console.log('[KDS Cleaning] Firebase modules loaded successfully')
     return true
   } catch (error) {
-    console.warn('[KDS Cleaning] Firebase not configured, real-time updates disabled:', error.message)
+    console.warn('[KDS Cleaning] Firebase not configured:', error.message)
     return false
   }
 }
 
-// State
 const pendingOmpreng = ref([])
 const loading = ref(false)
 const updatingId = ref(null)
 const isConnected = ref(true)
 const error = ref(null)
-const selectedDate = ref(new Date().toISOString().split('T')[0]) // Format: YYYY-MM-DD
+const selectedDate = ref(new Date().toISOString().split('T')[0])
 let firebaseListener = null
 
-// Check if all ompreng are completed
-const allOmprengCompleted = computed(() => {
-  if (pendingOmpreng.value.length === 0) return false
-  return pendingOmpreng.value.every(ompreng => ompreng.cleaning_status === 'completed')
-})
+// Filter by status
+const pendingItems = computed(() => pendingOmpreng.value.filter(o => o.cleaning_status === 'pending'))
+const inProgressItems = computed(() => pendingOmpreng.value.filter(o => o.cleaning_status === 'in_progress'))
+const completedItems = computed(() => pendingOmpreng.value.filter(o => o.cleaning_status === 'completed'))
 
-// Get status color
-const getStatusColor = (status) => {
-  const colors = {
-    pending: 'default',
-    in_progress: 'processing',
-    completed: 'success'
-  }
-  return colors[status] || 'default'
-}
+const statusCounts = computed(() => ({
+  pending: pendingItems.value.length,
+  in_progress: inProgressItems.value.length,
+  completed: completedItems.value.length
+}))
 
-// Get status text in Indonesian
-const getStatusText = (status) => {
-  const texts = {
-    pending: 'Menunggu',
-    in_progress: 'Sedang Dicuci',
-    completed: 'Selesai'
-  }
-  return texts[status] || status
-}
-
-// Format date to readable format
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
-  
-  // Parse the date string directly without timezone conversion
   let date
   if (typeof dateStr === 'number') {
     date = new Date(dateStr < 10000000000 ? dateStr * 1000 : dateStr)
   } else {
-    // Parse as UTC and display as-is (no timezone conversion)
     date = new Date(dateStr)
   }
-  
   if (isNaN(date.getTime())) return '-'
-  
-  // Format using UTC to avoid timezone conversion
-  const year = date.getUTCFullYear()
-  const month = date.getUTCMonth()
-  const day = date.getUTCDate()
-  const dayOfWeek = date.getUTCDay()
-  
   const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
   const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
-  
-  return `${dayNames[dayOfWeek]}, ${day} ${monthNames[month]} ${year}`
+  return `${dayNames[date.getUTCDay()]}, ${date.getUTCDate()} ${monthNames[date.getUTCMonth()]} ${date.getUTCFullYear()}`
 }
 
-// Format date time to readable format
 const formatDateTime = (dateStr) => {
   if (!dateStr) return '-'
-  
-  // Parse the date string directly without timezone conversion
   let date
   if (typeof dateStr === 'number') {
     date = new Date(dateStr < 10000000000 ? dateStr * 1000 : dateStr)
   } else {
-    // Parse as UTC and display as-is (no timezone conversion)
     date = new Date(dateStr)
   }
-  
   if (isNaN(date.getTime())) return '-'
-  
-  // Format using UTC to avoid timezone conversion
-  const year = date.getUTCFullYear()
-  const month = date.getUTCMonth()
-  const day = date.getUTCDate()
-  const hours = date.getUTCHours()
-  const minutes = date.getUTCMinutes()
-  
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
-  
-  return `${day} ${monthNames[month]} ${year}, ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+  return `${date.getUTCDate()} ${monthNames[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${date.getUTCHours().toString().padStart(2, '0')}:${date.getUTCMinutes().toString().padStart(2, '0')}`
 }
 
-// Load data from API
 const loadData = async (date = null) => {
   loading.value = true
   error.value = null
   const dateToLoad = date || selectedDate.value
-  console.log('[KDS Cleaning] Loading pending ompreng data for date:', dateToLoad)
   try {
     const response = await getPendingOmpreng(dateToLoad)
-    console.log('[KDS Cleaning] API Response:', response)
     if (response.success) {
       pendingOmpreng.value = response.data || []
-      console.log('[KDS Cleaning] Loaded ompreng:', pendingOmpreng.value.length)
     } else {
       error.value = response.message || 'Gagal memuat data'
     }
@@ -294,30 +281,21 @@ const loadData = async (date = null) => {
   }
 }
 
-// Handle date change
 const handleDateChange = (newDate) => {
   selectedDate.value = newDate
+  pendingOmpreng.value = []
   loadData(newDate)
 }
 
-// Retry loading data
-const retryLoad = () => {
-  loadData()
-}
+const retryLoad = () => loadData()
+const refreshData = () => loadData()
 
-// Refresh data
-const refreshData = () => {
-  loadData()
-}
-
-// Handle start cleaning
 const handleStartCleaning = async (record) => {
   updatingId.value = record.id
   try {
     const response = await startCleaning(record.id)
     if (response.success) {
       message.success('Pencucian dimulai')
-      // Reload data from API to get updated status
       await loadData()
     } else {
       message.error(response.message || 'Gagal memulai pencucian')
@@ -330,14 +308,12 @@ const handleStartCleaning = async (record) => {
   }
 }
 
-// Handle complete cleaning
 const handleCompleteCleaning = async (record) => {
   updatingId.value = record.id
   try {
     const response = await completeCleaning(record.id)
     if (response.success) {
       message.success('Pencucian selesai')
-      // Reload data from API to get updated status
       await loadData()
     } else {
       message.error(response.message || 'Gagal menyelesaikan pencucian')
@@ -350,60 +326,33 @@ const handleCompleteCleaning = async (record) => {
   }
 }
 
-// Setup Firebase real-time listener
 const setupFirebaseListener = () => {
-  // Skip if Firebase is not available
   if (!database || !dbRef || !onValue) {
-    console.warn('[KDS Cleaning] Firebase not available, skipping real-time listener setup')
     isConnected.value = false
     return
   }
-  
   try {
-    // Clean up existing listener first
     cleanupFirebaseListener()
-    
     const cleaningRef = dbRef(database, '/cleaning/pending')
-    
-    console.log('[KDS Cleaning] Setting up Firebase listener for path: /cleaning/pending')
-    
     firebaseListener = onValue(
       cleaningRef,
       (snapshot) => {
         isConnected.value = true
         const data = snapshot.val()
-        
-        console.log('[KDS Cleaning] Firebase data received:', data)
-        
         if (data) {
-          // Update ompreng list with Firebase data
           const firebaseOmpreng = Object.values(data)
-          
-          console.log('[KDS Cleaning] Firebase ompreng:', firebaseOmpreng)
-          
-          // Merge with existing data to preserve all fields
           pendingOmpreng.value = pendingOmpreng.value.map(ompreng => {
-            const firebaseRecord = firebaseOmpreng.find(fo => fo.id === ompreng.id)
-            if (firebaseRecord) {
-              console.log('[KDS Cleaning] Updating ompreng', ompreng.id, 'with status:', firebaseRecord.status)
-              return {
-                ...ompreng,
-                cleaning_status: firebaseRecord.status,
-                started_at: firebaseRecord.started_at,
-                completed_at: firebaseRecord.completed_at
-              }
+            const fr = firebaseOmpreng.find(fo => fo.id === ompreng.id)
+            if (fr) {
+              return { ...ompreng, cleaning_status: fr.status, started_at: fr.started_at, completed_at: fr.completed_at }
             }
             return ompreng
           })
-          
-          console.log('[KDS Cleaning] Updated ompreng:', pendingOmpreng.value)
         }
       },
       (error) => {
-        console.warn('[KDS Cleaning] Firebase listener error (permission denied - this is expected):', error.code)
-        // Don't show error to user, just disable real-time updates
+        console.warn('[KDS Cleaning] Firebase listener error:', error.code)
         isConnected.value = false
-        // Clean up the listener to prevent repeated errors
         cleanupFirebaseListener()
       }
     )
@@ -413,22 +362,18 @@ const setupFirebaseListener = () => {
   }
 }
 
-// Cleanup Firebase listener
 const cleanupFirebaseListener = () => {
   if (firebaseListener && database && dbRef && off) {
     try {
       const cleaningRef = dbRef(database, '/cleaning/pending')
       off(cleaningRef)
       firebaseListener = null
-    } catch (error) {
-      console.error('[KDS Cleaning] Error cleaning up Firebase listener:', error)
-    }
+    } catch (error) { /* ignore */ }
   }
 }
 
 onMounted(async () => {
   loadData()
-  // Initialize Firebase and setup listener
   await initFirebase()
   setupFirebaseListener()
 })
@@ -439,166 +384,264 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.kds-cleaning-view {
-  background-color: #f0f2f5;
-  min-height: 100vh;
-}
-
-.kds-header {
-  background: white;
-  padding: 20px 24px;
-  border-bottom: 1px solid #f0f0f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.header-content {
+/* Header */
+.kds-cleaning-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  max-width: 1600px;
-  margin: 0 auto;
+  margin-bottom: var(--h-spacing-4);
 }
 
-.header-left {
-  flex: 1;
-}
-
-.header-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #262626;
-  line-height: 1.4;
-}
-
-.header-subtitle {
-  margin: 4px 0 0 0;
-  font-size: 14px;
-  color: #8c8c8c;
-}
-
-.header-right {
+.header-controls {
   display: flex;
   align-items: center;
+  gap: var(--h-spacing-3);
 }
 
 .connection-tag {
-  font-size: 13px;
+  font-size: var(--h-text-sm);
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: var(--h-radius-sm);
 }
 
-.content-wrapper {
-  max-width: 1600px;
-  margin: 24px auto;
-  padding: 0 24px;
+.cleaning-alert {
+  margin-bottom: var(--h-spacing-5);
 }
 
-/* Card Styles */
+/* Stat Cards */
+.stat-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--h-spacing-5);
+  margin-bottom: var(--h-spacing-6);
+}
+
+/* Kanban Board */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--h-spacing-5);
+  align-items: start;
+}
+
+.kanban-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-4);
+  min-height: 400px;
+}
+
+.kanban-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--h-spacing-4);
+  background: var(--h-bg-card);
+  border-radius: var(--h-radius-lg);
+  box-shadow: var(--h-shadow-sm);
+}
+
+.kanban-column-title {
+  display: flex;
+  align-items: center;
+  gap: var(--h-spacing-2);
+  margin: 0;
+  font-size: var(--h-text-lg);
+  font-weight: var(--h-font-bold);
+  color: var(--h-text-primary);
+}
+
+.column-icon {
+  font-size: var(--h-text-xl);
+  color: var(--h-primary);
+}
+
+.kanban-column-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 var(--h-spacing-2);
+  background: var(--h-primary);
+  color: white;
+  border-radius: var(--h-radius-full);
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-bold);
+}
+
+.kanban-column-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-4);
+}
+
+/* Cleaning Card */
 .cleaning-card {
-  height: 100%;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-4);
+  transition: all var(--h-transition-base);
+  border-left: 4px solid var(--h-border-color);
 }
 
 .cleaning-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-.cleaning-card.status-pending {
-  border-left: 4px solid #d9d9d9;
-}
+.cleaning-card.status-pending { border-left-color: #FFB547; }
+.cleaning-card.status-in_progress { border-left-color: #4481EB; }
+.cleaning-card.status-completed { border-left-color: #05CD99; }
 
-.cleaning-card.status-in_progress {
-  border-left: 4px solid #1890ff;
-}
-
-.cleaning-card.status-completed {
-  border-left: 4px solid #52c41a;
-}
-
-.card-header {
+.cleaning-card__header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 16px;
+  gap: var(--h-spacing-3);
 }
 
-.school-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #262626;
+.cleaning-card__school {
   flex: 1;
-  margin-right: 12px;
-  line-height: 1.4;
+  font-size: var(--h-text-base);
+  font-weight: var(--h-font-bold);
+  color: var(--h-text-primary);
+  line-height: var(--h-leading-tight);
 }
 
-.status-tag {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 4px;
+.cleaning-card__status-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--h-spacing-2);
+  padding: 4px 12px;
+  border-radius: var(--h-radius-sm);
+  font-size: var(--h-text-xs);
+  font-weight: var(--h-font-medium);
   flex-shrink: 0;
 }
 
-.cleaning-info {
-  margin-top: 16px;
+.cleaning-card__status-badge.status-pending { background: rgba(255, 181, 71, 0.1); color: #FFB547; }
+.cleaning-card__status-badge.status-in_progress { background: rgba(68, 129, 235, 0.1); color: #4481EB; }
+.cleaning-card__status-badge.status-completed { background: rgba(5, 205, 153, 0.1); color: #05CD99; }
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Count */
+.cleaning-card__count {
+  text-align: center;
+  padding: var(--h-spacing-4) 0;
+  background: var(--h-bg-light);
+  border-radius: var(--h-radius-md);
+}
+
+.count-value {
+  font-size: 36px;
+  font-weight: var(--h-font-bold);
+  color: var(--h-primary);
+  line-height: 1;
+  margin-bottom: var(--h-spacing-2);
+}
+
+.count-label {
+  font-size: var(--h-text-sm);
+  color: var(--h-text-secondary);
+  font-weight: var(--h-font-medium);
+}
+
+/* Info */
+.cleaning-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-3);
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: var(--h-spacing-3);
+  border-bottom: 1px solid var(--h-border-light);
 }
 
 .info-item:last-child {
   border-bottom: none;
+  padding-bottom: 0;
 }
 
 .info-label {
-  font-size: 13px;
-  color: #8c8c8c;
-  font-weight: 500;
+  font-size: var(--h-text-sm);
+  color: var(--h-text-secondary);
+  font-weight: var(--h-font-medium);
 }
 
 .info-value {
-  font-size: 13px;
-  color: #262626;
-  font-weight: 600;
+  font-size: var(--h-text-sm);
+  color: var(--h-text-primary);
+  font-weight: var(--h-font-semibold);
+  text-align: right;
 }
 
-:deep(.ant-statistic-title) {
-  font-size: 13px;
-  color: #8c8c8c;
-  margin-bottom: 4px;
+/* Action */
+.action-button {
+  margin-top: var(--h-spacing-2);
+  height: var(--h-touch-target-min);
+  font-weight: var(--h-font-semibold);
+  border-radius: var(--h-radius-md);
 }
 
-:deep(.ant-statistic-content) {
-  font-size: 28px;
-  line-height: 1.2;
+.action-button--start {
+  background: var(--h-primary) !important;
+  border-color: var(--h-primary) !important;
 }
 
-:deep(.ant-divider) {
-  margin: 16px 0;
-  font-size: 13px;
-  color: #8c8c8c;
+.action-button--complete {
+  background: #05CD99 !important;
+  border-color: #05CD99 !important;
 }
 
-:deep(.ant-card-actions) {
-  background-color: #fafafa;
-  border-top: 1px solid #f0f0f0;
+.action-button--complete:hover {
+  background: #01B574 !important;
+  border-color: #01B574 !important;
 }
 
-:deep(.ant-card-actions > li) {
-  margin: 8px 0;
+.completed-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--h-spacing-2);
+  padding: var(--h-spacing-3);
+  background: rgba(5, 205, 153, 0.1);
+  border-radius: var(--h-radius-md);
+  color: #05CD99;
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-semibold);
 }
 
-:deep(.ant-card-actions > li > span) {
-  display: block;
-  padding: 0 12px;
+/* Dark Mode */
+.dark .kanban-column-header { background: var(--h-bg-card); }
+.dark .kanban-column-title { color: var(--h-text-primary); }
+.dark .cleaning-card__school { color: var(--h-text-primary); }
+.dark .cleaning-card__count { background: rgba(163, 174, 208, 0.05); }
+.dark .count-value { color: var(--h-primary-light); }
+.dark .info-value { color: var(--h-text-primary); }
+.dark .info-item { border-bottom-color: var(--h-border-color); }
+.dark .completed-badge { background: rgba(5, 205, 153, 0.2); }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .stat-cards-row { grid-template-columns: repeat(3, 1fr); gap: var(--h-spacing-3); }
+  .kanban-board { grid-template-columns: 1fr; gap: var(--h-spacing-6); }
+  .kanban-column { min-height: auto; }
+}
+
+@media (max-width: 768px) {
+  .header-controls { flex-wrap: wrap; gap: var(--h-spacing-2); }
+  .stat-cards-row { grid-template-columns: 1fr; gap: var(--h-spacing-3); }
+  .count-value { font-size: 28px; }
 }
 </style>

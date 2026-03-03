@@ -120,24 +120,40 @@ const getStatusText = (status) => {
   if (!status) return '-'
   
   const statusTexts = {
+    // Cooking stages
     'sedang_dimasak': 'Sedang Dimasak',
     'selesai_dimasak': 'Selesai Dimasak',
+    // Packing stages
     'siap_dipacking': 'Siap Dipacking',
     'selesai_dipacking': 'Selesai Dipacking',
+    // Delivery stages
     'siap_dikirim': 'Siap Dikirim',
     'diperjalanan': 'Diperjalanan',
     'sudah_sampai_sekolah': 'Sudah Sampai Sekolah',
     'sudah_diterima_pihak_sekolah': 'Sudah Diterima',
+    // Pickup task stages
     'driver_ditugaskan_mengambil_ompreng': 'Driver Ditugaskan',
     'driver_menuju_sekolah': 'Driver Menuju Sekolah',
-    'driver_sampai_di_sekolah': 'Driver Sampai',
+    'driver_sampai_di_sekolah': 'Driver Sampai di Sekolah',
     'ompreng_telah_diambil': 'Ompreng Diambil',
-    'ompreng_sampai_di_sppg': 'Ompreng Sampai SPPG',
+    'ompreng_sampai_di_sppg': 'Ompreng Sampai di SPPG',
     'ompreng_proses_pencucian': 'Proses Pencucian',
-    'ompreng_selesai_dicuci': 'Selesai Dicuci'
+    'ompreng_selesai_dicuci': 'Selesai Dicuci',
+    // Pickup task - driver stages
+    'driver_menuju_lokasi_pengambilan': 'Driver Menuju Lokasi Pengambilan',
+    'driver_tiba_di_lokasi_pengambilan': 'Driver Tiba di Lokasi Pengambilan',
+    'driver_kembali_ke_sppg': 'Driver Kembali ke SPPG',
+    'driver_tiba_di_sppg': 'Driver Tiba di SPPG',
+    // General
+    'pending': 'Pending',
+    'assigned': 'Ditugaskan',
+    'in_progress': 'Sedang Berjalan',
+    'completed': 'Selesai',
+    'cancelled': 'Dibatalkan',
   }
   
-  return statusTexts[status] || status
+  // If not found in map, convert snake_case to Title Case
+  return statusTexts[status] || status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 // Get status color

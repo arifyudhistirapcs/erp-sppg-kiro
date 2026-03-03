@@ -25,6 +25,7 @@
                   placeholder="['Tanggal Mulai', 'Tanggal Akhir']"
                   format="DD/MM/YYYY"
                   @change="handleSearch"
+                  size="large"
                 />
               </a-form-item>
             </a-col>
@@ -38,6 +39,7 @@
                   allow-clear
                   show-search
                   :filter-option="filterUserOption"
+                  size="large"
                 >
                   <a-select-option 
                     v-for="user in users" 
@@ -57,6 +59,7 @@
                   style="width: 100%"
                   @change="handleSearch"
                   allow-clear
+                  size="large"
                 >
                   <a-select-option value="create">Membuat</a-select-option>
                   <a-select-option value="update">Mengubah</a-select-option>
@@ -77,6 +80,7 @@
                   style="width: 100%"
                   @change="handleSearch"
                   allow-clear
+                  size="large"
                 >
                   <a-select-option value="user">Pengguna</a-select-option>
                   <a-select-option value="recipe">Resep</a-select-option>
@@ -93,12 +97,17 @@
             </a-col>
             <a-col :span="6">
               <a-form-item label="Pencarian">
-                <a-input-search
+                <a-input
                   v-model:value="searchText"
                   placeholder="Cari dalam deskripsi..."
-                  @search="handleSearch"
+                  @change="handleSearch"
                   allow-clear
-                />
+                  size="large"
+                >
+                  <template #prefix>
+                    <SearchOutlined />
+                  </template>
+                </a-input>
               </a-form-item>
             </a-col>
           </a-row>

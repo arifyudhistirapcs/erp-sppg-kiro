@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Role-specific dashboard redirect for Kepala SPPG -->
-    <div v-if="authStore.user?.role === 'kepala_sppg'">
+    <div v-if="authStore.user?.role === 'kepala_sppg'" class="redirect-container">
       <a-spin :spinning="redirecting" tip="Mengarahkan ke dashboard Kepala SPPG...">
         <a-result
           status="info"
@@ -9,7 +9,7 @@
           sub-title="Anda akan diarahkan ke dashboard khusus Kepala SPPG dengan monitoring real-time."
         >
           <template #extra>
-            <a-button type="primary" @click="goToKepalaSSPGDashboard">
+            <a-button type="primary" @click="goToKepalaSSPGDashboard" class="h-button">
               Buka Dashboard Kepala SPPG
             </a-button>
           </template>
@@ -18,72 +18,54 @@
     </div>
 
     <!-- General dashboard for other roles -->
-    <div v-else>
-      <a-row :gutter="[16, 16]">
-        <a-col :span="24">
-          <a-alert
-            message="Selamat Datang di Sistem ERP SPPG"
-            :description="`Halo, ${userName}! Anda login sebagai ${roleLabel}.`"
-            type="info"
-            show-icon
-            closable
-          />
-        </a-col>
-      </a-row>
+    <template v-else>
+      <div class="h-card welcome-card">
+        <h2 class="welcome-title">Selamat Datang, {{ userName }}!</h2>
+        <p class="welcome-subtitle">Anda login sebagai {{ roleLabel }}</p>
+      </div>
 
-      <a-row :gutter="[16, 16]" style="margin-top: 24px;">
-        <a-col :xs="24" :sm="12" :lg="6">
-          <a-card>
-            <a-statistic
-              title="Total Resep"
-              :value="0"
-              :prefix="h(BookOutlined)"
-            />
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :sm="12" :lg="6">
-          <a-card>
-            <a-statistic
-              title="Menu Aktif"
-              :value="0"
-              :prefix="h(CalendarOutlined)"
-            />
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :sm="12" :lg="6">
-          <a-card>
-            <a-statistic
-              title="Pengiriman Hari Ini"
-              :value="0"
-              :prefix="h(CarOutlined)"
-            />
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :sm="12" :lg="6">
-          <a-card>
-            <a-statistic
-              title="Stok Menipis"
-              :value="0"
-              :prefix="h(WarningOutlined)"
-              :value-style="{ color: '#cf1322' }"
-            />
-          </a-card>
-        </a-col>
-      </a-row>
+      <div class="stats-row">
+        <HStatCard
+          :icon="BookOutlined"
+          icon-bg="linear-gradient(135deg, #5A4372 0%, #3D2B53 100%)"
+          label="Total Resep"
+          value="0"
+          :loading="false"
+        />
+        <HStatCard
+          :icon="CalendarOutlined"
+          icon-bg="linear-gradient(135deg, #05CD99 0%, #04b587 100%)"
+          label="Menu Aktif"
+          value="0"
+          :loading="false"
+        />
+        <HStatCard
+          :icon="CarOutlined"
+          icon-bg="linear-gradient(135deg, #FFB547 0%, #ff9f1a 100%)"
+          label="Pengiriman Hari Ini"
+          value="0"
+          :loading="false"
+        />
+        <HStatCard
+          :icon="WarningOutlined"
+          icon-bg="linear-gradient(135deg, #EE5D50 0%, #e84438 100%)"
+          label="Stok Menipis"
+          value="0"
+          :loading="false"
+        />
+      </div>
 
-      <a-row :gutter="[16, 16]" style="margin-top: 24px;">
-        <a-col :xs="24" :lg="16">
-          <a-card title="Status Produksi Hari Ini">
-            <a-empty description="Data akan ditampilkan setelah modul KDS diimplementasikan" />
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :lg="8">
-          <a-card title="Aktivitas Terbaru">
-            <a-empty description="Data akan ditampilkan setelah modul audit trail diimplementasikan" />
-          </a-card>
-        </a-col>
-      </a-row>
-    </div>
+      <div class="content-row">
+        <div class="h-card content-card">
+          <h3 class="card-title">Status Produksi Hari Ini</h3>
+          <a-empty description="Data akan ditampilkan setelah modul KDS diimplementasikan" />
+        </div>
+        <div class="h-card content-card">
+          <h3 class="card-title">Aktivitas Terbaru</h3>
+          <a-empty description="Data akan ditampilkan setelah modul audit trail diimplementasikan" />
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -97,6 +79,7 @@ import {
   CarOutlined,
   WarningOutlined
 } from '@ant-design/icons-vue'
+import HStatCard from '@/components/horizon/HStatCard.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -126,16 +109,88 @@ const goToKepalaSSPGDashboard = () => {
   router.push('/dashboard/kepala-sppg')
 }
 
-// Auto-redirect Kepala SPPG users to their specific dashboard
 onMounted(() => {
   if (authStore.user?.role === 'kepala_sppg') {
     setTimeout(() => {
       goToKepalaSSPGDashboard()
-    }, 2000) // Auto-redirect after 2 seconds
+    }, 2000)
   }
 })
 </script>
 
 <style scoped>
-/* Dashboard specific styles */
+.redirect-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.welcome-card {
+  text-align: center;
+  padding: var(--h-spacing-8, 32px);
+}
+
+.welcome-title {
+  font-size: var(--h-text-2xl, 24px);
+  font-weight: var(--h-font-bold, 700);
+  color: var(--h-text-primary, #322837);
+  margin: 0 0 var(--h-spacing-2, 8px) 0;
+}
+
+.welcome-subtitle {
+  font-size: var(--h-text-sm, 14px);
+  color: var(--h-text-secondary, #74788C);
+  margin: 0;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.content-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .content-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.content-card {
+  padding: var(--h-spacing-6, 24px);
+}
+
+.card-title {
+  font-size: var(--h-text-lg, 18px);
+  font-weight: var(--h-font-bold, 700);
+  color: var(--h-text-primary, #322837);
+  margin: 0 0 var(--h-spacing-4, 16px) 0;
+}
+
+.h-button {
+  background: linear-gradient(135deg, #5A4372 0%, #3D2B53 100%);
+  border: none;
+  border-radius: var(--h-radius-md, 12px);
+  height: 44px;
+  font-weight: var(--h-font-semibold, 600);
+}
 </style>

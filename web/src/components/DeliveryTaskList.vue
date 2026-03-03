@@ -72,7 +72,7 @@
             </template>
             <template v-else-if="column.key === 'gps'">
               <div class="text-small">
-                {{ deliveryRecord.school?.latitude?.toFixed(6) || deliveryRecord.latitude?.toFixed(6) }}, 
+                {{ deliveryRecord.school?.latitude?.toFixed(6) || deliveryRecord.latitude?.toFixed(6) }},
                 {{ deliveryRecord.school?.longitude?.toFixed(6) || deliveryRecord.longitude?.toFixed(6) }}
                 <a-button 
                   type="link" 
@@ -223,10 +223,10 @@ const deliveryRecordColumns = [
   }
 ]
 
-// Expandable configuration
+// Expandable configuration - hide the expand icon column
 const expandableConfig = {
-  expandedRowRender: (record) => record,
-  rowExpandable: (record) => (record.delivery_records?.length || 0) > 0
+  expandRowByClick: false,
+  expandIcon: () => null
 }
 
 // Methods
@@ -407,6 +407,7 @@ const getDriverInitials = (name) => {
 }
 
 const viewTask = (task) => {
+  // Toggle expand row instead of navigating
   const index = expandedRowKeys.value.indexOf(task.id)
   if (index > -1) {
     expandedRowKeys.value.splice(index, 1)
@@ -535,5 +536,34 @@ defineExpose({
 
 .text-small {
   font-size: 12px;
+}
+
+/* Hide expand column and icon - use visibility to maintain alignment */
+:deep(.ant-table-row-expand-icon-cell),
+:deep(th.ant-table-row-expand-icon-cell),
+:deep(td.ant-table-row-expand-icon-cell) {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+}
+
+:deep(.ant-table-expand-icon-col) {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+}
+
+:deep(colgroup col.ant-table-expand-icon-col) {
+  width: 0 !important;
+  min-width: 0 !important;
+}
+
+:deep(button.ant-table-row-expand-icon),
+:deep(button.ant-table-row-expand-icon-collapsed),
+:deep(button.ant-table-row-expand-icon-expanded) {
+  display: none !important;
 }
 </style>

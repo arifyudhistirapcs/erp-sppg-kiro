@@ -1,0 +1,25 @@
+/**
+ * Horizon UI Theme - Entry Point
+ * 
+ * This file imports all Horizon UI styles in the correct order:
+ * 1. Variables - CSS custom properties
+ * 2. Dark mode - Theme overrides
+ * 3. Base - Reset and base styling
+ */
+
+/* CSS Variables - Colors, spacing, typography, shadows, etc. */
+@import './variables.css';
+
+/* Dark Mode Overrides - Applied when .dark class is present */
+@import './dark-mode.css';
+
+/* Base Styles - Reset and foundational styling */
+@import './base.css';
+
+/* Utility Classes - Common reusable classes */
+@import './utilities.css';
+/* Responsive Utilities - Mobile, tablet, desktop utilities */
+@import './responsive.css';
+
+/* Ant Design Component Overrides - Purple theme */
+@import './overrides.css';

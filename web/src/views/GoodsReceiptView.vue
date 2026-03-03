@@ -15,13 +15,18 @@
     <a-card>
       <a-space direction="vertical" style="width: 100%" :size="16">
         <!-- Search -->
-        <a-input-search
+        <a-input
           v-model:value="searchText"
           placeholder="Cari nomor GRN atau PO..."
-          @search="handleSearch"
+          @change="handleSearch"
           allow-clear
+          size="large"
           style="width: 400px"
-        />
+        >
+          <template #prefix>
+            <SearchOutlined />
+          </template>
+        </a-input>
 
         <!-- Table -->
         <a-table

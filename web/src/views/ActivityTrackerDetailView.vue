@@ -1,61 +1,88 @@
 <template>
-  <div class="activity-tracker-detail">
-    <div class="back-button">
-      <a-button @click="goBack">
-        <template #icon><arrow-left-outlined /></template>
-        Kembali
-      </a-button>
-    </div>
-
-    <div v-if="loading" class="loading-container">
-      <a-spin size="large" />
-    </div>
-
-    <div v-else-if="order" class="detail-content">
-      <div class="order-header">
-        <div class="header-image">
-          <img
-            v-if="order.menu.photo_url"
-            :src="order.menu.photo_url"
-            :alt="order.menu.name"
-          />
-          <div v-else class="no-image">
-            <picture-outlined style="font-size: 64px" />
-          </div>
-        </div>
-        <div class="header-info">
-          <h1>Aktivitas Pelacakan</h1>
-          <h2 class="menu-name">{{ order.menu.name }}</h2>
-          <div class="info-row">
-            <div class="info-item">
-              <environment-outlined />
-              <span>{{ order.school.name }}</span>
-            </div>
-            <div class="info-item">
-              <calendar-outlined />
-              <span>{{ formatDate(order.order_date) }}</span>
-            </div>
-          </div>
-          <div class="info-row">
-            <div class="info-item">
-              <team-outlined />
-              <span>{{ order.portions }} porsi</span>
-            </div>
-            <div class="info-item">
-              <user-outlined />
-              <span>{{ order.driver.name }}</span>
-            </div>
-          </div>
-          <div class="current-status">
-            <a-tag :color="getStatusColor(order.current_status)" style="font-size: 14px; padding: 4px 12px;">
-              Stage {{ order.current_stage }}: {{ getStatusLabel(order.current_status) }}
-            </a-tag>
-          </div>
-        </div>
+  <div>
+    <div class="activity-tracker-detail">
+      <!-- Back Button -->
+      <div class="back-button">
+        <a-button @click="goBack" class="h-button-secondary">
+          <template #icon><arrow-left-outlined /></template>
+          Kembali
+        </a-button>
       </div>
 
-      <div class="timeline-container">
-        <VerticalTimeline :timeline="order.timeline" :current-stage="order.current_stage" />
+      <!-- Loading State -->
+      <div v-if="loading" class="loading-container h-card">
+        <a-spin size="large" />
+      </div>
+
+      <!-- Order Details -->
+      <div v-else-if="order" class="detail-content">
+        <!-- Order Header Card -->
+        <div class="order-header-card h-card">
+          <div class="order-header">
+            <div class="header-image">
+              <img
+                v-if="order.menu.photo_url"
+                :src="order.menu.photo_url"
+                :alt="order.menu.name"
+              />
+              <div v-else class="no-image">
+                <picture-outlined style="font-size: 64px" />
+              </div>
+            </div>
+            <div class="header-info">
+              <div class="info-label">Aktivitas Pelacakan</div>
+              <h2 class="menu-name">{{ order.menu.name }}</h2>
+              
+              <div class="info-grid">
+                <div class="info-item">
+                  <environment-outlined class="info-icon" />
+                  <div class="info-content">
+                    <div class="info-label-small">Sekolah</div>
+                    <div class="info-value">{{ order.school.name }}</div>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <calendar-outlined class="info-icon" />
+                  <div class="info-content">
+                    <div class="info-label-small">Tanggal</div>
+                    <div class="info-value">{{ formatDate(order.order_date) }}</div>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <team-outlined class="info-icon" />
+                  <div class="info-content">
+                    <div class="info-label-small">Porsi</div>
+                    <div class="info-value">{{ order.portions }} porsi</div>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <user-outlined class="info-icon" />
+                  <div class="info-content">
+                    <div class="info-label-small">Driver</div>
+                    <div class="info-value">{{ order.driver.name }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="current-status">
+                <div class="status-badge" :class="getStatusClass(order.current_status)">
+                  <div class="status-dot"></div>
+                  <span>Stage {{ order.current_stage }}: {{ getStatusLabel(order.current_status) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline Card -->
+        <div class="timeline-card h-card">
+          <div class="card-header">
+            <h3 class="card-title">Timeline Aktivitas</h3>
+          </div>
+          <div class="timeline-container">
+            <VerticalTimeline :timeline="order.timeline" :current-stage="order.current_stage" />
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -144,26 +171,26 @@ const formatDate = (dateStr) => {
   return dayjs(dateStr).format('DD MMMM YYYY');
 };
 
-const getStatusColor = (status) => {
-  const stageColors = {
-    order_disiapkan: 'default',
-    order_dimasak: 'processing',
-    order_dikemas: 'processing',
-    order_siap_diambil: 'success',
-    pesanan_dalam_perjalanan: 'processing',
-    pesanan_sudah_tiba: 'success',
-    pesanan_sudah_diterima: 'success',
-    driver_menuju_lokasi: 'processing',
-    driver_tiba_di_lokasi: 'success',
-    driver_kembali: 'processing',
-    driver_tiba_di_sppg: 'success',
-    ompreng_siap_dicuci: 'default',
-    ompreng_sedang_dicuci: 'processing',
-    ompreng_selesai_dicuci: 'success',
-    ompreng_siap_digunakan: 'success',
-    order_selesai: 'success',
+const getStatusClass = (status) => {
+  const stageClasses = {
+    order_disiapkan: 'status-pending',
+    order_dimasak: 'status-processing',
+    order_dikemas: 'status-processing',
+    order_siap_diambil: 'status-success',
+    pesanan_dalam_perjalanan: 'status-processing',
+    pesanan_sudah_tiba: 'status-success',
+    pesanan_sudah_diterima: 'status-success',
+    driver_menuju_lokasi: 'status-processing',
+    driver_tiba_di_lokasi: 'status-success',
+    driver_kembali: 'status-processing',
+    driver_tiba_di_sppg: 'status-success',
+    ompreng_siap_dicuci: 'status-pending',
+    ompreng_sedang_dicuci: 'status-processing',
+    ompreng_selesai_dicuci: 'status-success',
+    ompreng_siap_digunakan: 'status-success',
+    order_selesai: 'status-success',
   };
-  return stageColors[status] || 'default';
+  return stageClasses[status] || 'status-pending';
 };
 
 const getStatusLabel = (status) => {
@@ -195,13 +222,25 @@ onMounted(() => {
 
 <style scoped>
 .activity-tracker-detail {
-  padding: 24px;
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .back-button {
-  margin-bottom: 24px;
+  margin-bottom: var(--h-spacing-6, 24px);
+}
+
+.h-button-secondary {
+  border-radius: var(--h-radius-md, 12px);
+  height: 40px;
+  padding: 0 var(--h-spacing-4, 16px);
+  font-weight: 500;
+  transition: all var(--transition-base, 200ms);
+}
+
+.h-button-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--h-shadow-md, 0px 4px 6px rgba(0, 0, 0, 0.07));
 }
 
 .loading-container {
@@ -212,25 +251,36 @@ onMounted(() => {
 }
 
 .detail-content {
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-6, 24px);
+}
+
+/* Order Header Card */
+.order-header-card {
+  background: var(--h-bg-card, #FFFFFF);
+  border-radius: var(--h-radius-lg, 16px);
+  box-shadow: var(--h-shadow-card, 0px 18px 40px rgba(112, 144, 176, 0.12));
+  padding: var(--h-spacing-6, 24px);
+  transition: all var(--transition-base, 200ms);
+}
+
+.dark .order-header-card {
+  background: var(--h-bg-card-dark, #3D2B53);
 }
 
 .order-header {
   display: flex;
-  gap: 24px;
-  padding: 24px;
-  border-bottom: 1px solid #f0f0f0;
+  gap: var(--h-spacing-6, 24px);
 }
 
 .header-image {
-  width: 200px;
-  height: 200px;
+  width: 240px;
+  height: 240px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: var(--h-radius-lg, 16px);
   overflow: hidden;
-  background: #f5f5f5;
+  background: var(--h-bg-light, #ACA9B0);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -243,48 +293,207 @@ onMounted(() => {
 }
 
 .no-image {
-  color: #d9d9d9;
+  color: var(--h-text-light, #ACA9B0);
 }
 
 .header-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-4, 16px);
 }
 
-.header-info h1 {
-  font-size: 16px;
-  color: #8c8c8c;
-  margin-bottom: 8px;
-  font-weight: 400;
+.info-label {
+  font-size: var(--text-sm, 14px);
+  color: var(--h-text-secondary, #74788C);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dark .info-label {
+  color: var(--h-text-secondary-dark, #ACA9B0);
 }
 
 .menu-name {
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 16px;
+  font-size: var(--text-2xl, 24px);
+  font-weight: 700;
+  color: var(--h-text-primary, #322837);
+  margin: 0;
+  line-height: 1.3;
 }
 
-.info-row {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 12px;
+.dark .menu-name {
+  color: var(--h-text-primary-dark, #F8FDEA);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--h-spacing-4, 16px);
 }
 
 .info-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #595959;
-  font-size: 14px;
+  align-items: flex-start;
+  gap: var(--h-spacing-3, 12px);
+  padding: var(--h-spacing-3, 12px);
+  background: var(--h-bg-primary, #F8FDEA);
+  border-radius: var(--h-radius-md, 12px);
+  transition: all var(--transition-base, 200ms);
+}
+
+.dark .info-item {
+  background: rgba(90, 67, 114, 0.2);
+}
+
+.info-icon {
+  font-size: 20px;
+  color: var(--h-primary, #5A4372);
+  margin-top: 2px;
+}
+
+.dark .info-icon {
+  color: var(--h-primary-light, #6a5382);
+}
+
+.info-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label-small {
+  font-size: var(--text-xs, 12px);
+  color: var(--h-text-secondary, #74788C);
+  font-weight: 500;
+}
+
+.dark .info-label-small {
+  color: var(--h-text-secondary-dark, #ACA9B0);
+}
+
+.info-value {
+  font-size: var(--text-base, 16px);
+  color: var(--h-text-primary, #322837);
+  font-weight: 600;
+}
+
+.dark .info-value {
+  color: var(--h-text-primary-dark, #F8FDEA);
 }
 
 .current-status {
-  margin-top: 16px;
+  margin-top: var(--h-spacing-2, 8px);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--h-spacing-2, 8px);
+  padding: var(--h-spacing-2, 8px) var(--h-spacing-4, 16px);
+  border-radius: var(--h-radius-full, 9999px);
+  font-size: var(--text-sm, 14px);
+  font-weight: 600;
+  transition: all var(--transition-base, 200ms);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-pending {
+  background: rgba(172, 169, 176, 0.15);
+  color: var(--h-text-secondary, #74788C);
+}
+
+.status-pending .status-dot {
+  background: var(--h-text-secondary, #74788C);
+}
+
+.status-processing {
+  background: rgba(255, 181, 71, 0.15);
+  color: var(--warning, #FFB547);
+}
+
+.status-processing .status-dot {
+  background: var(--warning, #FFB547);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-success {
+  background: rgba(5, 205, 153, 0.15);
+  color: var(--success, #05CD99);
+}
+
+.status-success .status-dot {
+  background: var(--success, #05CD99);
+}
+
+.dark .status-pending {
+  background: rgba(172, 169, 176, 0.25);
+  color: var(--h-text-secondary-dark, #ACA9B0);
+}
+
+.dark .status-processing {
+  background: rgba(255, 181, 71, 0.25);
+}
+
+.dark .status-success {
+  background: rgba(5, 205, 153, 0.25);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Timeline Card */
+.timeline-card {
+  background: var(--h-bg-card, #FFFFFF);
+  border-radius: var(--h-radius-lg, 16px);
+  box-shadow: var(--h-shadow-card, 0px 18px 40px rgba(112, 144, 176, 0.12));
+  padding: var(--h-spacing-6, 24px);
+  transition: all var(--transition-base, 200ms);
+}
+
+.dark .timeline-card {
+  background: var(--h-bg-card-dark, #3D2B53);
+}
+
+.card-header {
+  margin-bottom: var(--h-spacing-6, 24px);
+  padding-bottom: var(--h-spacing-4, 16px);
+  border-bottom: 1px solid var(--h-border-color, #E9EDF7);
+}
+
+.dark .card-header {
+  border-bottom-color: var(--h-border-color-dark, #5A4372);
+}
+
+.card-title {
+  font-size: var(--text-lg, 18px);
+  font-weight: 700;
+  color: var(--h-text-primary, #322837);
+  margin: 0;
+}
+
+.dark .card-title {
+  color: var(--h-text-primary-dark, #F8FDEA);
 }
 
 .timeline-container {
-  padding: 24px;
+  padding: var(--h-spacing-4, 16px) 0;
 }
 
+/* Responsive Design */
 @media (max-width: 768px) {
   .order-header {
     flex-direction: column;
@@ -292,7 +501,32 @@ onMounted(() => {
 
   .header-image {
     width: 100%;
-    height: 250px;
+    height: 200px;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .back-button {
+    margin-bottom: var(--h-spacing-4, 16px);
+  }
+
+  .detail-content {
+    gap: var(--h-spacing-4, 16px);
+  }
+
+  .order-header-card,
+  .timeline-card {
+    padding: var(--h-spacing-4, 16px);
+  }
+}
+
+/* Touch targets for mobile */
+@media (max-width: 768px) {
+  .h-button-secondary {
+    min-height: 44px;
+    height: 44px;
   }
 }
 </style>

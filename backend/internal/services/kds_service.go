@@ -112,11 +112,13 @@ type SchoolAllocationResponse struct {
 
 // SemiFinishedQuantity represents semi-finished goods with quantity for display
 type SemiFinishedQuantity struct {
-	Name        string               `json:"name"`
-	Quantity    float64              `json:"quantity"`
-	Unit        string               `json:"unit"`
-	CurrentStock *float64             `json:"current_stock,omitempty"`
-	RawMaterials []RawMaterialQuantity `json:"raw_materials,omitempty"`
+	Name              string               `json:"name"`
+	Quantity          float64              `json:"quantity"`
+	Unit              string               `json:"unit"`
+	QuantityPerSmall  float64              `json:"quantity_per_small,omitempty"`  // Quantity per 1 small portion
+	QuantityPerLarge  float64              `json:"quantity_per_large,omitempty"`  // Quantity per 1 large portion
+	CurrentStock      *float64             `json:"current_stock,omitempty"`
+	RawMaterials      []RawMaterialQuantity `json:"raw_materials,omitempty"`
 }
 
 // RawMaterialQuantity represents raw materials needed for semi-finished goods

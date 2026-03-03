@@ -333,9 +333,11 @@ func (s *PackingAllocationService) GetPackingAllocations(ctx context.Context, da
 				}
 				
 				items = append(items, SemiFinishedQuantity{
-					Name:     ri.SemiFinishedGoods.Name,
-					Quantity: totalQuantity,
-					Unit:     ri.SemiFinishedGoods.Unit,
+					Name:             ri.SemiFinishedGoods.Name,
+					Quantity:         totalQuantity,
+					Unit:             ri.SemiFinishedGoods.Unit,
+					QuantityPerSmall: quantitySmall,
+					QuantityPerLarge: quantityLarge,
 				})
 			}
 			

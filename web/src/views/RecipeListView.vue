@@ -1,56 +1,66 @@
 <template>
-  <div class="recipe-list">
-    <div class="page-header">
-      <h2 class="page-title">Daftar Menu</h2>
+  <div>
+    <!-- Header Actions -->
+    <div class="recipe-list-header">
       <a-button type="primary" @click="showCreateModal" class="add-button">
         <template #icon><PlusOutlined /></template>
         Tambah Menu Baru
       </a-button>
     </div>
 
-    <!-- Search -->
-    <div class="search-section">
-      <a-input
-        v-model:value="searchText"
-        placeholder="Cari menu"
-        @change="handleSearch"
-        allow-clear
-        class="search-input"
-      />
-      <a-select
-        v-model:value="filterCategory"
-        placeholder="Semua Kategori"
-        style="width: 200px"
-        allow-clear
-        @change="handleSearch"
-      >
-        <a-select-option value="masakan_indonesia">Masakan Indonesia</a-select-option>
-        <a-select-option value="masakan_china">Masakan China</a-select-option>
-        <a-select-option value="masakan_western">Masakan Western</a-select-option>
-        <a-select-option value="masakan_india">Masakan India</a-select-option>
-        <a-select-option value="masakan_gabungan">Masakan Gabungan</a-select-option>
-        <a-select-option value="lainnya">Lainnya</a-select-option>
-      </a-select>
+    <!-- Search and Filter Bar -->
+    <div class="h-card search-filter-bar">
+      <a-row :gutter="[16, 16]">
+        <a-col :xs="24" :sm="24" :md="12" :lg="14">
+          <a-input
+            v-model:value="searchText"
+            placeholder="Cari menu..."
+            @change="handleSearch"
+            allow-clear
+            size="large"
+          >
+            <template #prefix>
+              <SearchOutlined />
+            </template>
+          </a-input>
+        </a-col>
+        <a-col :xs="24" :sm="24" :md="12" :lg="10">
+          <a-select
+            v-model:value="filterCategory"
+            placeholder="Semua Kategori"
+            style="width: 100%"
+            size="large"
+            allow-clear
+            @change="handleSearch"
+          >
+            <a-select-option value="masakan_indonesia">Masakan Indonesia</a-select-option>
+            <a-select-option value="masakan_china">Masakan China</a-select-option>
+            <a-select-option value="masakan_western">Masakan Western</a-select-option>
+            <a-select-option value="masakan_india">Masakan India</a-select-option>
+            <a-select-option value="masakan_gabungan">Masakan Gabungan</a-select-option>
+            <a-select-option value="lainnya">Lainnya</a-select-option>
+          </a-select>
+        </a-col>
+      </a-row>
     </div>
 
-    <!-- Grid Cards -->
+    <!-- Recipe Grid -->
     <a-spin :spinning="loading">
       <a-empty v-if="!loading && recipes.length === 0" description="Tidak ada menu" />
       
       <div v-else class="recipe-grid">
-        <a-card
+        <div
           v-for="recipe in recipes"
           :key="recipe.id"
-          class="recipe-card"
-          :body-style="{ padding: 0 }"
+          class="h-card recipe-card h-card-hover"
         >
-          <!-- Header with Category and Menu -->
-          <div class="card-header">
+          <!-- Card Header with Category and Actions -->
+          <div class="recipe-card__header">
             <a-tag :color="getCategoryColor(recipe.category)" class="category-tag">
               {{ getCategoryLabel(recipe.category) }}
             </a-tag>
             <a-dropdown :trigger="['click']">
-              <a class="ant-dropdown-link" @click.prevent>
+              <a class="action-menu-trigger" @click.prevent>
                 <MoreOutlined />
               </a>
               <template #overlay>
@@ -73,63 +83,61 @@
             </a-dropdown>
           </div>
 
-          <div class="card-content">
-            <!-- Title -->
-            <div class="card-title">
-              {{ recipe.name }}
-            </div>
+          <!-- Recipe Title -->
+          <div class="recipe-card__title">
+            {{ recipe.name }}
+          </div>
 
-            <!-- Photo -->
-            <div class="card-photo">
-              <img 
-                v-if="recipe.photo_url" 
-                :src="recipe.photo_url" 
-                :alt="recipe.name"
-              />
-              <div v-else class="no-photo">
-                <PictureOutlined style="font-size: 48px; color: #d9d9d9" />
-              </div>
+          <!-- Recipe Photo -->
+          <div class="recipe-card__photo">
+            <img 
+              v-if="recipe.photo_url" 
+              :src="recipe.photo_url" 
+              :alt="recipe.name"
+            />
+            <div v-else class="no-photo">
+              <PictureOutlined />
             </div>
+          </div>
 
-            <!-- Components -->
-            <div class="card-section">
-              <div class="section-title">Komponen Menu</div>
-              <div class="component-list">
-                <div
-                  v-for="item in recipe.recipe_items"
-                  :key="item.id"
-                  class="component-item"
-                >
-                  <span class="component-dot" :style="{ backgroundColor: getComponentColor(item.semi_finished_goods?.category) }"></span>
-                  <span class="component-name">{{ item.semi_finished_goods?.name }}</span>
-                  <a-tag :color="getComponentTagColor(item.semi_finished_goods?.category)" size="small">
-                    {{ getCategoryLabel(item.semi_finished_goods?.category) }}
-                  </a-tag>
-                </div>
-              </div>
-            </div>
-
-            <!-- Ingredients -->
-            <div class="card-section">
-              <div class="section-title">Bahan Baku</div>
-              <div class="ingredient-list">
-                <template v-for="item in recipe.recipe_items" :key="'ing-' + item.id">
-                  <div
-                    v-for="ingredient in item.semi_finished_goods?.recipe?.ingredients || []"
-                    :key="'raw-' + ingredient.id"
-                    class="ingredient-item"
-                  >
-                    <span class="ingredient-name">{{ ingredient.ingredient?.name || 'Unknown' }}</span>
-                    <span class="ingredient-quantity">{{ ingredient.quantity }} {{ ingredient.ingredient?.unit || 'gr' }}</span>
-                  </div>
-                </template>
-                <div v-if="!hasIngredients(recipe)" class="ingredient-item">
-                  <span class="ingredient-name" style="color: #8c8c8c;">Tidak ada bahan baku</span>
-                </div>
+          <!-- Components Section -->
+          <div class="recipe-card__section">
+            <div class="section-title">Komponen Menu</div>
+            <div class="component-list">
+              <div
+                v-for="item in recipe.recipe_items"
+                :key="item.id"
+                class="component-item"
+              >
+                <span class="component-dot" :style="{ backgroundColor: getComponentColor(item.semi_finished_goods?.category) }"></span>
+                <span class="component-name">{{ item.semi_finished_goods?.name }}</span>
+                <a-tag :color="getComponentTagColor(item.semi_finished_goods?.category)" size="small">
+                  {{ getCategoryLabel(item.semi_finished_goods?.category) }}
+                </a-tag>
               </div>
             </div>
           </div>
-        </a-card>
+
+          <!-- Ingredients Section -->
+          <div class="recipe-card__section">
+            <div class="section-title">Bahan Baku</div>
+            <div class="ingredient-list">
+              <template v-for="item in recipe.recipe_items" :key="'ing-' + item.id">
+                <div
+                  v-for="ingredient in item.semi_finished_goods?.recipe?.ingredients || []"
+                  :key="'raw-' + ingredient.id"
+                  class="ingredient-item"
+                >
+                  <span class="ingredient-name">{{ ingredient.ingredient?.name || 'Unknown' }}</span>
+                  <span class="ingredient-quantity">{{ ingredient.quantity }} {{ ingredient.ingredient?.unit || 'gr' }}</span>
+                </div>
+              </template>
+              <div v-if="!hasIngredients(recipe)" class="ingredient-item">
+                <span class="ingredient-name no-data">Tidak ada bahan baku</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </a-spin>
 
@@ -165,7 +173,8 @@ import {
   EditOutlined, 
   HistoryOutlined, 
   DeleteOutlined,
-  PictureOutlined
+  PictureOutlined,
+  SearchOutlined
 } from '@ant-design/icons-vue'
 import recipeService from '@/services/recipeService'
 import RecipeFormModal from '@/components/RecipeFormModal.vue'
@@ -239,7 +248,15 @@ const getComponentTagColor = (category) => {
     lauk: 'pink',
     sambal: 'red',
     sayur: 'cyan',
-    lauk_berkuah: 'green'
+    lauk_berkuah: 'green',
+    protein_hewani: 'volcano',
+    protein_nabati: 'lime',
+    karbohidrat: 'gold',
+    susu: 'blue',
+    buah: 'magenta',
+    minuman: 'geekblue',
+    snack: 'purple',
+    pelengkap: 'default'
   }
   return colors[category] || 'default'
 }
@@ -276,9 +293,22 @@ const getCategoryLabel = (category) => {
     lauk: 'Lauk',
     sambal: 'Sambal',
     sayur: 'Sayur',
-    lauk_berkuah: 'Lauk Berkuah'
+    lauk_berkuah: 'Lauk Berkuah',
+    protein_hewani: 'Protein Hewani',
+    protein_nabati: 'Protein Nabati',
+    karbohidrat: 'Karbohidrat',
+    susu: 'Susu',
+    buah: 'Buah',
+    minuman: 'Minuman',
+    snack: 'Snack',
+    pelengkap: 'Pelengkap'
   }
-  return labels[category] || category
+  if (labels[category]) return labels[category]
+  // Fallback: snake_case → Title Case
+  if (category && category.includes('_')) {
+    return category.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  }
+  return category || '-'
 }
 
 const fetchRecipes = async () => {
@@ -365,119 +395,117 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.recipe-list {
-  padding: 24px;
-  background-color: #f5f5f5;
-  min-height: 100vh;
-}
-
-.page-header {
+/* Header Actions */
+.recipe-list-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 600;
-  margin: 0;
-  color: #262626;
+  margin-bottom: 16px;
 }
 
 .add-button {
-  background-color: #d4af37;
-  border-color: #d4af37;
-  color: white;
-  font-weight: 500;
-  height: 40px;
-  padding: 0 24px;
-  border-radius: 4px;
+  background: var(--h-primary);
+  border-color: var(--h-primary);
+  height: var(--h-touch-target-min);
+  font-weight: var(--h-font-semibold);
+  border-radius: var(--h-radius-md);
+  transition: all var(--h-transition-base);
 }
 
 .add-button:hover {
-  background-color: #c19b2b;
-  border-color: #c19b2b;
+  background: var(--h-primary-dark);
+  border-color: var(--h-primary-dark);
+  transform: scale(1.02);
 }
 
-.search-section {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 24px;
+/* Search and Filter Bar */
+.search-filter-bar {
+  padding: var(--h-spacing-5);
+  margin-bottom: 16px;
 }
 
-.search-input {
-  flex: 1;
-  max-width: 400px;
-}
-
+/* Recipe Grid */
 .recipe-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 20px;
+  gap: var(--h-spacing-5);
 }
 
+/* Recipe Card */
 .recipe-card {
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-4);
+  transition: all var(--h-transition-base);
 }
 
-.recipe-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-}
-
-.card-header {
+/* Card Header */
+.recipe-card__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: var(--h-spacing-3);
+  border-bottom: 1px solid var(--h-border-light);
 }
 
 .category-tag {
   margin: 0;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
+  font-size: var(--h-text-xs);
+  padding: 4px 12px;
+  border-radius: var(--h-radius-sm);
+  font-weight: var(--h-font-semibold);
 }
 
-.card-content {
-  padding: 16px;
+.action-menu-trigger {
+  color: var(--h-text-secondary);
+  font-size: 18px;
+  padding: var(--h-spacing-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--h-radius-sm);
+  transition: all var(--h-transition-fast);
 }
 
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #262626;
-  margin-bottom: 12px;
-  line-height: 1.4;
-  min-height: 42px;
+.action-menu-trigger:hover {
+  color: var(--h-text-primary);
+  background: var(--h-bg-light);
+}
+
+/* Recipe Title */
+.recipe-card__title {
+  font-size: var(--h-text-base);
+  font-weight: var(--h-font-bold);
+  color: var(--h-text-primary);
+  line-height: var(--h-leading-tight);
+  min-height: 44px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.card-photo {
+/* Recipe Photo */
+.recipe-card__photo {
   width: 100%;
-  height: 180px;
-  background-color: #f5f5f5;
-  border-radius: 6px;
+  height: 200px;
+  background: var(--h-bg-light);
+  border-radius: var(--h-radius-md);
   overflow: hidden;
-  margin-bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.card-photo img {
+.recipe-card__photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform var(--h-transition-base);
+}
+
+.recipe-card:hover .recipe-card__photo img {
+  transform: scale(1.05);
 }
 
 .no-photo {
@@ -486,35 +514,38 @@ onMounted(() => {
   justify-content: center;
   width: 100%;
   height: 100%;
-  background-color: #fafafa;
+  background: var(--h-bg-secondary);
+  color: var(--h-text-light);
+  font-size: 48px;
 }
 
-.card-section {
-  margin-bottom: 16px;
-}
-
-.card-section:last-child {
-  margin-bottom: 0;
+/* Card Section */
+.recipe-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-3);
 }
 
 .section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #595959;
-  margin-bottom: 8px;
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-bold);
+  color: var(--h-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
+/* Component List */
 .component-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--h-spacing-2);
 }
 
 .component-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: var(--h-spacing-2);
+  font-size: var(--h-text-sm);
 }
 
 .component-dot {
@@ -526,46 +557,143 @@ onMounted(() => {
 
 .component-name {
   flex: 1;
-  color: #262626;
-  font-weight: 500;
+  color: var(--h-text-primary);
+  font-weight: var(--h-font-medium);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Ingredient List */
 .ingredient-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 120px;
+  gap: var(--h-spacing-2);
+  max-height: 140px;
   overflow-y: auto;
+  padding-right: var(--h-spacing-2);
+}
+
+.ingredient-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ingredient-list::-webkit-scrollbar-track {
+  background: var(--h-bg-light);
+  border-radius: var(--h-radius-sm);
+}
+
+.ingredient-list::-webkit-scrollbar-thumb {
+  background: var(--h-border-color);
+  border-radius: var(--h-radius-sm);
 }
 
 .ingredient-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
-  color: #595959;
-  padding: 2px 0;
+  font-size: var(--h-text-sm);
+  padding: var(--h-spacing-1) 0;
 }
 
 .ingredient-name {
   flex: 1;
+  color: var(--h-text-secondary);
+  font-weight: var(--h-font-normal);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ingredient-name.no-data {
+  color: var(--h-text-light);
+  font-style: italic;
 }
 
 .ingredient-quantity {
-  font-weight: 500;
-  color: #262626;
+  font-weight: var(--h-font-semibold);
+  color: var(--h-text-primary);
+  flex-shrink: 0;
+  margin-left: var(--h-spacing-2);
 }
 
-.ant-dropdown-link {
-  color: #595959;
-  font-size: 18px;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Responsive - Tablet */
+@media (max-width: 1024px) {
+  .recipe-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
 }
 
-.ant-dropdown-link:hover {
-  color: #262626;
+/* Responsive - Mobile */
+@media (max-width: 767px) {
+  .recipe-list-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .add-button {
+    width: 100%;
+  }
+  
+  .recipe-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .recipe-card__photo {
+    height: 180px;
+  }
+}
+
+/* Dark Mode Support */
+.dark .recipe-card__header {
+  border-bottom-color: var(--h-border-color);
+}
+
+.dark .action-menu-trigger {
+  color: var(--h-text-secondary);
+}
+
+.dark .action-menu-trigger:hover {
+  color: var(--h-text-primary);
+  background: rgba(163, 174, 208, 0.1);
+}
+
+.dark .recipe-card__title {
+  color: var(--h-text-primary);
+}
+
+.dark .recipe-card__photo {
+  background: rgba(163, 174, 208, 0.05);
+}
+
+.dark .no-photo {
+  background: rgba(163, 174, 208, 0.1);
+  color: var(--h-text-light);
+}
+
+.dark .section-title {
+  color: var(--h-text-secondary);
+}
+
+.dark .component-name {
+  color: var(--h-text-primary);
+}
+
+.dark .ingredient-name {
+  color: var(--h-text-secondary);
+}
+
+.dark .ingredient-quantity {
+  color: var(--h-text-primary);
+}
+
+.dark .ingredient-list::-webkit-scrollbar-track {
+  background: rgba(163, 174, 208, 0.05);
+}
+
+.dark .ingredient-list::-webkit-scrollbar-thumb {
+  background: var(--h-border-color);
 }
 </style>

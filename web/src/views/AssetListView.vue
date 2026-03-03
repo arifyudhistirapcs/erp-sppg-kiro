@@ -27,12 +27,17 @@
         <!-- Search and Filter -->
         <a-row :gutter="16">
           <a-col :span="8">
-            <a-input-search
+            <a-input
               v-model:value="searchText"
               placeholder="Cari nama aset atau kode aset..."
-              @search="handleSearch"
+              @change="handleSearch"
               allow-clear
-            />
+              size="large"
+            >
+              <template #prefix>
+                <SearchOutlined />
+              </template>
+            </a-input>
           </a-col>
           <a-col :span="6">
             <a-select
@@ -41,6 +46,7 @@
               style="width: 100%"
               @change="handleSearch"
               allow-clear
+              size="large"
             >
               <a-select-option value="Peralatan Masak">Peralatan Masak</a-select-option>
               <a-select-option value="Peralatan Packing">Peralatan Packing</a-select-option>
@@ -57,6 +63,7 @@
               style="width: 100%"
               @change="handleSearch"
               allow-clear
+              size="large"
             >
               <a-select-option value="good">Baik</a-select-option>
               <a-select-option value="fair">Cukup</a-select-option>

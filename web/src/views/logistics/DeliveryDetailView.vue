@@ -1,7 +1,7 @@
 <template>
   <div class="delivery-detail-view">
     <a-page-header
-      title="Detail Pengiriman"
+      title="Detail Aktivitas"
       @back="goBack"
     >
       <template #extra>
@@ -54,7 +54,7 @@
         </a-card>
 
         <!-- Timeline Section -->
-        <a-card title="Timeline Pengiriman" style="margin-bottom: 16px">
+        <a-card title="Timeline Aktivitas" style="margin-bottom: 16px">
           <DeliveryTimeline
             v-if="deliveryDetail"
             :current-status="deliveryDetail.current_status"
@@ -117,7 +117,7 @@ const fetchDeliveryDetail = async () => {
     if (response.success) {
       deliveryDetail.value = response.data
     } else {
-      message.error(response.message || 'Gagal memuat detail pengiriman')
+      message.error(response.message || 'Gagal memuat detail aktivitas')
     }
   } catch (error) {
     console.error('Error fetching delivery detail:', error)
@@ -125,7 +125,7 @@ const fetchDeliveryDetail = async () => {
       message.error('Data pengiriman tidak ditemukan')
       goBack()
     } else {
-      message.error(error.response?.data?.message || 'Gagal memuat detail pengiriman')
+      message.error(error.response?.data?.message || 'Gagal memuat detail aktivitas')
     }
   } finally {
     loading.value = false
@@ -156,9 +156,7 @@ onMounted(() => {
 
 <style scoped>
 .delivery-detail-view {
-  padding: 24px;
-  background-color: #f0f2f5;
-  min-height: 100vh;
+  /* HorizonLayout handles padding/bg */
 }
 
 .content-wrapper {

@@ -1,76 +1,63 @@
 <template>
-  <div class="inventory">
-    <a-page-header
-      title="Manajemen Inventory"
-      sub-title="Pantau stok bahan baku dan pergerakan inventory"
-    />
-
-    <a-row :gutter="16" style="margin-bottom: 16px">
-      <!-- Low Stock Alert Card -->
-      <a-col :span="8">
-        <a-card>
-          <a-statistic
-            title="Item Stok Menipis"
-            :value="lowStockCount"
-            :value-style="{ color: lowStockCount > 0 ? '#cf1322' : '#3f8600' }"
-          >
-            <template #prefix>
-              <WarningOutlined v-if="lowStockCount > 0" />
-              <CheckCircleOutlined v-else />
-            </template>
-          </a-statistic>
-        </a-card>
+  <div>
+    <!-- Stats Cards Row -->
+    <a-row :gutter="[20, 20]">
+      <a-col :xs="24" :sm="12" :md="8">
+        <HStatCard
+          :icon="WarningOutlined"
+          :icon-bg="lowStockCount > 0 ? 'linear-gradient(135deg, #EE5D50 0%, #D43F3A 100%)' : 'linear-gradient(135deg, #05CD99 0%, #01B574 100%)'"
+          label="Item Stok Menipis"
+          :value="lowStockCount"
+          :loading="loading"
+        />
       </a-col>
-
-      <!-- Total Items Card -->
-      <a-col :span="8">
-        <a-card>
-          <a-statistic
-            title="Total Item"
-            :value="totalItems"
-          >
-            <template #prefix>
-              <InboxOutlined />
-            </template>
-          </a-statistic>
-        </a-card>
+      <a-col :xs="24" :sm="12" :md="8">
+        <HStatCard
+          :icon="InboxOutlined"
+          icon-bg="linear-gradient(135deg, #4481EB 0%, #04BEFE 100%)"
+          label="Total Item"
+          :value="totalItems"
+          :loading="loading"
+        />
       </a-col>
-
-      <!-- Last Update Card -->
-      <a-col :span="8">
-        <a-card>
-          <a-statistic
-            title="Terakhir Diperbarui"
-            :value="lastUpdate"
-          >
-            <template #prefix>
-              <ClockCircleOutlined />
-            </template>
-          </a-statistic>
-        </a-card>
+      <a-col :xs="24" :sm="12" :md="8">
+        <HStatCard
+          :icon="ClockCircleOutlined"
+          icon-bg="linear-gradient(135deg, #5A4372 0%, #3D2B53 100%)"
+          label="Terakhir Diperbarui"
+          :value="lastUpdate"
+          :loading="loading"
+        />
       </a-col>
     </a-row>
 
-    <a-card>
+    <!-- Tabs Card -->
+    <div class="h-card">
       <a-tabs v-model:activeKey="activeTab">
         <!-- Inventory List Tab -->
-        <a-tab-pane key="inventory" tab="Daftar Inventory">
-          <a-space direction="vertical" style="width: 100%" :size="16">
+        <a-tab-pane key="inventory" tab="Daftar Bahan Baku">
+          <div class="tab-content">
             <!-- Search and Filter -->
-            <a-row :gutter="16">
-              <a-col :span="12">
+            <a-row :gutter="[16, 16]" style="margin-bottom: 20px">
+              <a-col :xs="24" :sm="24" :md="12">
                 <a-input-search
                   v-model:value="searchText"
                   placeholder="Cari nama bahan..."
                   @search="handleSearch"
                   allow-clear
-                />
+                  size="large"
+                >
+                  <template #prefix>
+                    <SearchOutlined />
+                  </template>
+                </a-input-search>
               </a-col>
-              <a-col :span="6">
+              <a-col :xs="24" :sm="12" :md="6">
                 <a-select
                   v-model:value="filterStockLevel"
                   placeholder="Level Stok"
                   style="width: 100%"
+                  size="large"
                   @change="handleSearch"
                   allow-clear
                 >
@@ -79,123 +66,92 @@
                   <a-select-option value="high">Stok Berlebih</a-select-option>
                 </a-select>
               </a-col>
-              <a-col :span="6">
+              <a-col :xs="24" :sm="12" :md="6">
                 <a-space style="width: 100%">
-                  <a-button type="default" @click="fetchInventory">
+                  <a-button type="default" @click="fetchInventory" size="large">
                     <template #icon><ReloadOutlined /></template>
                     Refresh
                   </a-button>
-                  <a-button type="primary" @click="initializeInventory">
+                  <a-button type="primary" @click="initializeInventory" size="large">
                     <template #icon><PlusOutlined /></template>
-                    Inisialisasi Bahan Baru
+                    Inisialisasi Bahan
                   </a-button>
                 </a-space>
               </a-col>
             </a-row>
 
             <!-- Table -->
-            <a-table
+            <HDataTable
               :columns="inventoryColumns"
               :data-source="inventory"
               :loading="loading"
               :pagination="pagination"
               @change="handleTableChange"
-              row-key="id"
-              :row-class-name="getRowClassName"
-            >
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'ingredient_code'">
-                  <a-tag color="blue">{{ record.ingredient?.code }}</a-tag>
-                </template>
-                <template v-else-if="column.key === 'ingredient_name'">
-                  <strong>{{ record.ingredient?.name }}</strong>
-                </template>
-                <template v-else-if="column.key === 'quantity'">
-                  {{ record.quantity }} {{ record.ingredient?.unit }}
-                </template>
-                <template v-else-if="column.key === 'min_threshold'">
-                  {{ record.min_threshold }} {{ record.ingredient?.unit }}
-                </template>
-                <template v-else-if="column.key === 'stock_status'">
-                  <a-tag :color="getStockStatusColor(record)">
-                    {{ getStockStatusText(record) }}
-                  </a-tag>
-                </template>
-                <template v-else-if="column.key === 'days_of_supply'">
-                  <span :class="{ 'text-danger': getDaysOfSupply(record) < 7 }">
-                    {{ getDaysOfSupply(record) }} hari
-                  </span>
-                </template>
-                <template v-else-if="column.key === 'last_updated'">
-                  {{ formatDateTime(record.last_updated) }}
-                </template>
-                <template v-else-if="column.key === 'actions'">
-                  <a-button type="link" size="small" @click="viewMovements(record)">
-                    Riwayat
-                  </a-button>
-                </template>
-              </template>
-            </a-table>
-          </a-space>
+              :mobile-card-view="true"
+            />
+          </div>
         </a-tab-pane>
 
         <!-- Low Stock Alerts Tab -->
         <a-tab-pane key="alerts" tab="Alert Stok Menipis">
-          <a-alert
-            v-if="lowStockAlerts.length === 0"
-            message="Tidak ada item dengan stok menipis"
-            type="success"
-            show-icon
-            style="margin-bottom: 16px"
-          />
-          <a-list
-            v-else
-            :data-source="lowStockAlerts"
-            :loading="loadingAlerts"
-          >
-            <template #renderItem="{ item }">
-              <a-list-item>
-                <a-list-item-meta>
-                  <template #title>
-                    <a-space>
-                      <WarningOutlined style="color: #cf1322" />
-                      <strong>{{ item.ingredient_name }}</strong>
-                    </a-space>
+          <div class="tab-content">
+            <a-alert
+              v-if="lowStockAlerts.length === 0"
+              message="Tidak ada item dengan stok menipis"
+              type="success"
+              show-icon
+              style="margin-bottom: 16px"
+            />
+            <a-list
+              v-else
+              :data-source="lowStockAlerts"
+              :loading="loadingAlerts"
+            >
+              <template #renderItem="{ item }">
+                <a-list-item>
+                  <a-list-item-meta>
+                    <template #title>
+                      <a-space>
+                        <WarningOutlined style="color: #cf1322" />
+                        <strong>{{ item.ingredient_name }}</strong>
+                      </a-space>
+                    </template>
+                    <template #description>
+                      <a-space direction="vertical" size="small">
+                        <span>
+                          Stok saat ini: <strong>{{ item.current_stock }} {{ item.unit }}</strong>
+                        </span>
+                        <span>
+                          Batas minimum: <strong>{{ item.min_threshold }} {{ item.unit }}</strong>
+                        </span>
+                        <span>
+                          Perkiraan habis dalam: <strong class="text-danger">{{ item.days_remaining }} hari</strong>
+                        </span>
+                      </a-space>
+                    </template>
+                  </a-list-item-meta>
+                  <template #actions>
+                    <a-button type="primary" size="small" @click="createPOForItem(item)">
+                      Buat PO
+                    </a-button>
                   </template>
-                  <template #description>
-                    <a-space direction="vertical" size="small">
-                      <span>
-                        Stok saat ini: <strong>{{ item.current_stock }} {{ item.unit }}</strong>
-                      </span>
-                      <span>
-                        Batas minimum: <strong>{{ item.min_threshold }} {{ item.unit }}</strong>
-                      </span>
-                      <span>
-                        Perkiraan habis dalam: <strong class="text-danger">{{ item.days_remaining }} hari</strong>
-                      </span>
-                    </a-space>
-                  </template>
-                </a-list-item-meta>
-                <template #actions>
-                  <a-button type="primary" size="small" @click="createPOForItem(item)">
-                    Buat PO
-                  </a-button>
-                </template>
-              </a-list-item>
-            </template>
-          </a-list>
+                </a-list-item>
+              </template>
+            </a-list>
+          </div>
         </a-tab-pane>
 
         <!-- Movement History Tab -->
         <a-tab-pane key="movements" tab="Riwayat Pergerakan">
-          <a-space direction="vertical" style="width: 100%" :size="16">
+          <div class="tab-content">
             <!-- Filters -->
-            <a-row :gutter="16">
-              <a-col :span="8">
+            <a-row :gutter="[16, 16]" style="margin-bottom: 20px">
+              <a-col :xs="24" :sm="24" :md="8">
                 <a-select
                   v-model:value="movementFilters.ingredient_id"
                   placeholder="Pilih bahan"
                   style="width: 100%"
+                  size="large"
                   show-search
                   :filter-option="filterIngredient"
                   allow-clear
@@ -210,19 +166,21 @@
                   </a-select-option>
                 </a-select>
               </a-col>
-              <a-col :span="8">
+              <a-col :xs="24" :sm="12" :md="8">
                 <a-range-picker
                   v-model:value="movementFilters.dateRange"
                   style="width: 100%"
+                  size="large"
                   format="DD/MM/YYYY"
                   @change="fetchMovements"
                 />
               </a-col>
-              <a-col :span="8">
+              <a-col :xs="24" :sm="12" :md="8">
                 <a-select
                   v-model:value="movementFilters.movement_type"
                   placeholder="Tipe Pergerakan"
                   style="width: 100%"
+                  size="large"
                   allow-clear
                   @change="fetchMovements"
                 >
@@ -234,13 +192,13 @@
             </a-row>
 
             <!-- Movements Table -->
-            <a-table
+            <HDataTable
               :columns="movementColumns"
               :data-source="movements"
               :loading="loadingMovements"
               :pagination="movementPagination"
               @change="handleMovementTableChange"
-              row-key="id"
+              :mobile-card-view="true"
             >
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'movement_type'">
@@ -257,16 +215,18 @@
                   {{ formatDateTime(record.movement_date) }}
                 </template>
               </template>
-            </a-table>
-          </a-space>
+            </HDataTable>
+          </div>
         </a-tab-pane>
 
         <!-- Stok Opname Tab -->
         <a-tab-pane key="stok-opname" tab="Stok Opname">
-          <StokOpnameList />
+          <div class="tab-content">
+            <StokOpnameList />
+          </div>
         </a-tab-pane>
       </a-tabs>
-    </a-card>
+    </div>
 
     <!-- Movement Detail Modal -->
     <a-modal
@@ -275,12 +235,12 @@
       :footer="null"
       width="800px"
     >
-      <a-table
+      <HDataTable
         :columns="movementColumns"
         :data-source="itemMovements"
         :loading="loadingItemMovements"
         :pagination="{ pageSize: 10 }"
-        size="small"
+        :mobile-card-view="true"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'movement_type'">
@@ -297,7 +257,7 @@
             {{ formatDateTime(record.movement_date) }}
           </template>
         </template>
-      </a-table>
+      </HDataTable>
     </a-modal>
 
     <!-- Initialize Ingredient Modal (Create New Ingredient) -->
@@ -381,11 +341,14 @@ import {
   InboxOutlined,
   ClockCircleOutlined,
   ReloadOutlined,
-  PlusOutlined
+  PlusOutlined,
+  SearchOutlined
 } from '@ant-design/icons-vue'
 import inventoryService from '@/services/inventoryService'
 import recipeService from '@/services/recipeService'
 import StokOpnameList from '@/components/StokOpnameList.vue'
+import HStatCard from '@/components/horizon/HStatCard.vue'
+import HDataTable from '@/components/horizon/HDataTable.vue'
 
 const router = useRouter()
 const activeTab = ref('inventory')
@@ -442,7 +405,7 @@ const initFormRules = {
 }
 
 const lowStockCount = computed(() => {
-  return inventory.value.filter(item => item.quantity < item.min_threshold).length
+  return inventory.value.filter(item => item.stock_status === 'Stok Rendah').length
 })
 
 const totalItems = computed(() => {
@@ -462,42 +425,40 @@ const inventoryColumns = [
   {
     title: 'Kode',
     key: 'ingredient_code',
+    dataIndex: 'ingredient_code',
     width: 100
   },
   {
     title: 'Nama Bahan',
     key: 'ingredient_name',
+    dataIndex: 'ingredient_name',
     sorter: true
   },
   {
     title: 'Stok Saat Ini',
     key: 'quantity',
+    dataIndex: 'quantity_display',
     width: 150
   },
   {
     title: 'Batas Minimum',
     key: 'min_threshold',
+    dataIndex: 'min_threshold_display',
     width: 150
+  },
+  {
+    title: 'Level Stok',
+    key: 'stock_level',
+    dataIndex: 'stock_level',
+    type: 'progress',
+    width: 180
   },
   {
     title: 'Status',
     key: 'stock_status',
+    dataIndex: 'stock_status',
+    type: 'status',
     width: 120
-  },
-  {
-    title: 'Perkiraan Habis',
-    key: 'days_of_supply',
-    width: 150
-  },
-  {
-    title: 'Terakhir Diperbarui',
-    key: 'last_updated',
-    width: 180
-  },
-  {
-    title: 'Aksi',
-    key: 'actions',
-    width: 100
   }
 ]
 
@@ -539,14 +500,59 @@ const fetchInventory = async () => {
   try {
     const params = {
       page: pagination.current,
-      page_size: pagination.pageSize,
-      search: searchText.value || undefined,
-      stock_level: filterStockLevel.value
+      page_size: pagination.pageSize
     }
+    
+    // Add search parameter if exists
+    if (searchText.value && searchText.value.trim() !== '') {
+      params.search = searchText.value.trim()
+    }
+    
+    // Add stock level filter if exists
+    if (filterStockLevel.value) {
+      params.stock_level = filterStockLevel.value
+    }
+    
     const response = await inventoryService.getInventory(params)
+    
     // Backend sends inventory_items, not data
-    inventory.value = response.data.inventory_items || []
-    pagination.total = inventory.value.length
+    let items = response.data.inventory_items || []
+    
+    // Client-side filtering if backend doesn't support it
+    if (searchText.value && searchText.value.trim() !== '') {
+      const searchLower = searchText.value.toLowerCase().trim()
+      items = items.filter(item => 
+        item.ingredient?.name?.toLowerCase().includes(searchLower) ||
+        item.ingredient?.code?.toLowerCase().includes(searchLower)
+      )
+    }
+    
+    // Client-side stock level filtering if backend doesn't support it
+    if (filterStockLevel.value) {
+      items = items.filter(item => {
+        const ratio = item.quantity / item.min_threshold
+        if (filterStockLevel.value === 'low') {
+          return ratio < 1
+        } else if (filterStockLevel.value === 'normal') {
+          return ratio >= 1 && ratio < 2
+        } else if (filterStockLevel.value === 'high') {
+          return ratio >= 2
+        }
+        return true
+      })
+    }
+    
+    inventory.value = items.map(item => ({
+      ...item,
+      key: item.id || item.ingredient_id,
+      ingredient_code: item.ingredient?.code || '-',
+      ingredient_name: item.ingredient?.name || '-',
+      quantity_display: `${item.quantity} ${item.ingredient?.unit || ''}`,
+      min_threshold_display: `${item.min_threshold} ${item.ingredient?.unit || ''}`,
+      stock_level: item.min_threshold > 0 ? Math.round((item.quantity / item.min_threshold) * 100) : 100,
+      stock_status: item.quantity < item.min_threshold ? 'Stok Rendah' : 'Normal'
+    }))
+    pagination.total = items.length
   } catch (error) {
     message.error('Gagal memuat data inventory')
     console.error(error)
@@ -698,6 +704,19 @@ const createPOForItem = (item) => {
   })
 }
 
+const getStockLevelPercent = (record) => {
+  if (!record.min_threshold || record.min_threshold === 0) return 100
+  const ratio = (record.quantity / record.min_threshold) * 100
+  return Math.min(Math.round(ratio), 100)
+}
+
+const getStockLevelColor = (record) => {
+  const ratio = record.quantity / record.min_threshold
+  if (ratio < 1) return '#EE5D50' // Red - low stock
+  if (ratio < 1.5) return '#FFB547' // Orange - warning
+  return '#05CD99' // Green - good stock
+}
+
 const getRowClassName = (record) => {
   if (record.quantity < record.min_threshold) {
     return 'low-stock-row'
@@ -778,25 +797,50 @@ watch(() => initModalVisible.value, (newVal) => {
 </script>
 
 <style scoped>
-.inventory {
-  padding: 24px;
+/* Stats to Tabs spacing */
+.h-card {
+  margin-top: 16px;
 }
 
-:deep(.low-stock-row) {
-  background-color: #fff1f0;
+/* Tab Content */
+.tab-content {
+  padding: var(--h-spacing-5) 0;
 }
 
-:deep(.low-stock-row:hover) {
-  background-color: #ffe7e6 !important;
-}
-
+/* Text Utilities */
 .text-danger {
-  color: #cf1322;
-  font-weight: 500;
+  color: var(--h-error);
+  font-weight: var(--h-font-semibold);
 }
 
 .text-success {
-  color: #3f8600;
-  font-weight: 500;
+  color: var(--h-success);
+  font-weight: var(--h-font-semibold);
+}
+
+/* Low Stock Row Highlight */
+:deep(.low-stock-row) {
+  background-color: rgba(238, 93, 80, 0.05);
+}
+
+:deep(.low-stock-row:hover) {
+  background-color: rgba(238, 93, 80, 0.1) !important;
+}
+
+/* Dark Mode Support */
+.dark :deep(.low-stock-row) {
+  background-color: rgba(238, 93, 80, 0.1);
+}
+
+.dark :deep(.low-stock-row:hover) {
+  background-color: rgba(238, 93, 80, 0.15) !important;
+}
+
+.dark .text-danger {
+  color: #EE5D50;
+}
+
+.dark .text-success {
+  color: #05CD99;
 }
 </style>

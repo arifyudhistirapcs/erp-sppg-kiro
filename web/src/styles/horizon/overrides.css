@@ -1,0 +1,539 @@
+/**
+ * Horizon UI - Ant Design Component Overrides
+ * Global overrides to match Horizon purple theme
+ * These ensure ALL pages look consistent even if they still use raw Ant Design components
+ */
+
+/* ========================================
+   PRIMARY BUTTON - Purple instead of blue/red
+   ======================================== */
+.ant-btn-primary {
+  background-color: #5A4372 !important;
+  border-color: #5A4372 !important;
+  border-radius: 10px;
+}
+
+.ant-btn-primary:hover,
+.ant-btn-primary:focus {
+  background-color: #4a3562 !important;
+  border-color: #4a3562 !important;
+}
+
+.ant-btn-primary:active {
+  background-color: #3a2752 !important;
+  border-color: #3a2752 !important;
+}
+
+/* Danger button - keep red but softer */
+.ant-btn-dangerous.ant-btn-primary {
+  background-color: #EE5D50 !important;
+  border-color: #EE5D50 !important;
+}
+
+.ant-btn-dangerous.ant-btn-primary:hover {
+  background-color: #e84438 !important;
+  border-color: #e84438 !important;
+}
+
+/* Default button */
+.ant-btn-default {
+  border-radius: 10px;
+  border-color: #E9EDF7;
+  color: var(--h-text-primary, #322837);
+}
+
+.ant-btn-default:hover {
+  color: #5A4372 !important;
+  border-color: #5A4372 !important;
+}
+
+/* Link button */
+.ant-btn-link {
+  color: #5A4372;
+}
+
+.ant-btn-link:hover {
+  color: #4a3562;
+}
+
+/* ========================================
+   PAGE HEADER - Horizon styled
+   ======================================== */
+.ant-page-header {
+  background: transparent !important;
+  padding: 0 0 20px 0 !important;
+  border-bottom: none !important;
+}
+
+.ant-page-header-heading-title {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: var(--h-text-primary, #322837) !important;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+.ant-page-header-heading-sub-title {
+  font-size: 14px !important;
+  color: var(--h-text-secondary, #74788C) !important;
+}
+
+/* ========================================
+   TABLE OVERRIDES
+   ======================================== */
+.ant-table {
+  border-radius: 12px;
+}
+
+.ant-table-wrapper {
+  border-radius: 12px;
+}
+
+.ant-table-thead > tr > th {
+  background: transparent !important;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--h-text-secondary, #74788C) !important;
+  border-bottom: 1px solid var(--h-border-color, #E9EDF7);
+  padding: 14px 16px;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--h-border-light, #F4F7FE);
+  font-size: 14px;
+  padding: 14px 16px;
+  color: var(--h-text-primary, #322837);
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(90, 67, 114, 0.04) !important;
+}
+
+.ant-table-tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+/* ========================================
+   CARD OVERRIDES
+   ======================================== */
+.ant-card {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0px 18px 40px rgba(112, 144, 176, 0.12);
+}
+
+.ant-card-head {
+  border-bottom: 1px solid var(--h-border-light, #F4F7FE);
+  padding: 16px 24px;
+  min-height: auto;
+}
+
+.ant-card-head-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--h-text-primary, #322837);
+  padding: 0;
+}
+
+.ant-card-body {
+  padding: 24px;
+}
+
+/* Nested small cards (filter cards) */
+.ant-card .ant-card {
+  box-shadow: none;
+  border: 1px solid var(--h-border-light, #F4F7FE);
+  border-radius: 12px;
+}
+
+/* ========================================
+   STATISTIC - Horizon styled
+   ======================================== */
+.ant-statistic-title {
+  font-size: 14px !important;
+  color: var(--h-text-secondary, #74788C) !important;
+  font-weight: 500 !important;
+  margin-bottom: 8px !important;
+}
+
+.ant-statistic-content-value {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* ========================================
+   PAGINATION
+   ======================================== */
+.ant-pagination-item-active {
+  background: #5A4372 !important;
+  border-color: #5A4372 !important;
+}
+
+.ant-pagination-item-active a {
+  color: #fff !important;
+}
+
+.ant-pagination-item:hover {
+  border-color: #5A4372 !important;
+}
+
+.ant-pagination-item:hover a {
+  color: #5A4372 !important;
+}
+
+/* ========================================
+   TABS
+   ======================================== */
+.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #5A4372 !important;
+}
+
+.ant-tabs-ink-bar {
+  background: #5A4372 !important;
+}
+
+.ant-tabs-tab:hover {
+  color: #5A4372 !important;
+}
+
+/* Card tabs */
+.ant-card-head-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #5A4372 !important;
+}
+
+/* ========================================
+   TAG OVERRIDES
+   ======================================== */
+.ant-tag-blue {
+  color: #5A4372;
+  background: rgba(90, 67, 114, 0.1);
+  border-color: rgba(90, 67, 114, 0.2);
+}
+
+/* ========================================
+   MODAL
+   ======================================== */
+.ant-modal-content {
+  border-radius: 16px;
+}
+
+.ant-modal-header {
+  border-radius: 16px 16px 0 0;
+}
+
+.ant-modal-title {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--h-text-primary, #322837);
+}
+
+/* ========================================
+   INPUT / SELECT
+   ======================================== */
+.ant-input,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number {
+  border-radius: 10px !important;
+}
+
+.ant-input-lg,
+.ant-select-lg .ant-select-selector,
+.ant-picker-large,
+.ant-input-number-lg {
+  border-radius: 10px !important;
+}
+
+/* Match select height to input height */
+.ant-select-lg .ant-select-selector {
+  height: 38px !important;
+}
+
+.ant-select-lg .ant-select-selection-item,
+.ant-select-lg .ant-select-selection-placeholder {
+  line-height: 36px !important;
+}
+
+.ant-select-lg .ant-select-selection-search-input {
+  height: 36px !important;
+}
+
+.ant-input:hover,
+.ant-input:focus,
+.ant-input-affix-wrapper:hover,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused {
+  border-color: #5A4372 !important;
+  box-shadow: 0 0 0 2px rgba(90, 67, 114, 0.1) !important;
+}
+
+.ant-select:not(.ant-select-disabled):hover .ant-select-selector {
+  border-color: #5A4372 !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: #5A4372 !important;
+  box-shadow: 0 0 0 2px rgba(90, 67, 114, 0.1) !important;
+}
+
+.ant-input-search .ant-input-search-button {
+  border-radius: 0 10px 10px 0 !important;
+}
+
+.ant-input-search .ant-input {
+  border-radius: 10px 0 0 10px !important;
+}
+
+/* ========================================
+   FORM ITEMS
+   ======================================== */
+.ant-form-item-label > label {
+  font-weight: 500;
+  color: var(--h-text-primary, #322837);
+}
+
+/* ========================================
+   DESCRIPTIONS
+   ======================================== */
+.ant-descriptions-bordered .ant-descriptions-item-label {
+  background: var(--h-bg-light, #F4F7FE);
+  font-weight: 500;
+  color: var(--h-text-secondary, #74788C);
+}
+
+/* ========================================
+   ALERT
+   ======================================== */
+.ant-alert {
+  border-radius: 12px;
+}
+
+/* ========================================
+   COLLAPSE
+   ======================================== */
+.ant-collapse {
+  border-radius: 12px;
+}
+
+.ant-collapse-item:last-child {
+  border-radius: 0 0 12px 12px;
+}
+
+.ant-collapse-item:first-child {
+  border-radius: 12px 12px 0 0;
+}
+
+/* ========================================
+   SPACE - Better spacing for page layouts
+   ======================================== */
+.ant-space-vertical {
+  gap: 20px !important;
+}
+
+/* ========================================
+   DARK MODE OVERRIDES
+   ======================================== */
+.dark .ant-page-header-heading-title {
+  color: var(--h-text-primary-dark, #F8FDEA) !important;
+}
+
+.dark .ant-page-header-heading-sub-title {
+  color: #ACA9B0 !important;
+}
+
+.dark .ant-btn-default {
+  border-color: #5A4372;
+  color: #F8FDEA;
+  background: transparent;
+}
+
+.dark .ant-table {
+  background: transparent;
+}
+
+.dark .ant-table-thead > tr > th {
+  color: #ACA9B0 !important;
+  border-bottom-color: #5A4372;
+  background: transparent !important;
+}
+
+.dark .ant-table-tbody > tr > td {
+  color: #F8FDEA;
+  border-bottom-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-table-tbody > tr:hover > td {
+  background: rgba(90, 67, 114, 0.15) !important;
+}
+
+.dark .ant-table-placeholder {
+  background: transparent !important;
+}
+
+.dark .ant-empty-description {
+  color: #ACA9B0;
+}
+
+.dark .ant-input,
+.dark .ant-select-selector,
+.dark .ant-picker,
+.dark .ant-input-number {
+  background: #1B254B !important;
+  border-color: #5A4372 !important;
+  color: #F8FDEA !important;
+}
+
+.dark .ant-input-search .ant-input-search-button {
+  background: #5A4372 !important;
+  border-color: #5A4372 !important;
+}
+
+.dark .ant-select-arrow,
+.dark .ant-picker-suffix {
+  color: #ACA9B0 !important;
+}
+
+.dark .ant-select-selection-placeholder,
+.dark .ant-input::placeholder {
+  color: #74788C !important;
+}
+
+.dark .ant-modal-content {
+  background: #111C44;
+}
+
+.dark .ant-modal-header {
+  background: #111C44;
+  border-bottom-color: #5A4372;
+}
+
+.dark .ant-modal-title {
+  color: #F8FDEA;
+}
+
+.dark .ant-modal-close-x {
+  color: #ACA9B0;
+}
+
+.dark .ant-card {
+  background: var(--h-bg-card);
+  box-shadow: 0px 18px 40px rgba(0, 0, 0, 0.4);
+}
+
+.dark .ant-card-head {
+  border-bottom-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-card-head-title {
+  color: #F8FDEA;
+}
+
+.dark .ant-card .ant-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-statistic-title {
+  color: #ACA9B0 !important;
+}
+
+.dark .ant-statistic-content-value {
+  color: #F8FDEA !important;
+}
+
+.dark .ant-form-item-label > label {
+  color: #F8FDEA;
+}
+
+.dark .ant-descriptions-bordered .ant-descriptions-item-label {
+  background: rgba(90, 67, 114, 0.15);
+  color: #ACA9B0;
+}
+
+.dark .ant-descriptions-bordered .ant-descriptions-item-content {
+  color: #F8FDEA;
+}
+
+.dark .ant-alert {
+  border-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-collapse {
+  background: transparent;
+  border-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-collapse-header {
+  color: #F8FDEA !important;
+}
+
+.dark .ant-collapse-content {
+  background: transparent;
+  border-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-list-item {
+  border-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-list-item-meta-title {
+  color: #F8FDEA;
+}
+
+.dark .ant-list-item-meta-description {
+  color: #ACA9B0;
+}
+
+.dark .ant-pagination-item {
+  background: transparent;
+  border-color: #5A4372;
+}
+
+.dark .ant-pagination-item a {
+  color: #ACA9B0;
+}
+
+.dark .ant-pagination-item-active a {
+  color: #fff !important;
+}
+
+.dark .ant-pagination-prev .ant-pagination-item-link,
+.dark .ant-pagination-next .ant-pagination-item-link {
+  background: transparent;
+  border-color: #5A4372;
+  color: #ACA9B0;
+}
+
+.dark .ant-spin-text {
+  color: #ACA9B0;
+}
+
+.dark .ant-tabs-tab {
+  color: #ACA9B0;
+}
+
+.dark .ant-tabs-tab:hover {
+  color: #F8FDEA !important;
+}
+
+.dark .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #F8FDEA !important;
+}
+
+.dark .ant-form-item-explain-error {
+  color: #EE5D50;
+}
+
+.dark .ant-tag {
+  border-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-divider {
+  border-color: rgba(90, 67, 114, 0.3);
+}
+
+.dark .ant-range-picker-separator {
+  color: #ACA9B0;
+}

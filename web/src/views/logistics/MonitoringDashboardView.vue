@@ -432,9 +432,7 @@ onMounted(() => {
 
 <style scoped>
 .monitoring-dashboard-view {
-  padding: 24px;
-  background-color: #f0f2f5;
-  min-height: 100vh;
+  /* no extra padding/bg — HorizonLayout handles it */
 }
 
 .content-wrapper {

@@ -1,223 +1,324 @@
 <template>
-  <div class="kds-packing-view">
-    <div class="kds-header">
-      <div class="header-content">
-        <div class="header-left">
-          <h2 class="header-title">Packing - Pengemasan</h2>
-          <p class="header-subtitle">Alokasi porsi per sekolah</p>
-        </div>
-        <div class="header-right">
-          <a-space :size="12">
-            <KDSDatePicker
-              v-model="selectedDate"
-              :loading="loading"
-              @change="handleDateChange"
-            />
-            <a-tag :color="isConnected ? 'green' : 'red'" class="connection-tag">
-              <template #icon>
-                <wifi-outlined v-if="isConnected" />
-                <disconnect-outlined v-else />
-              </template>
-              {{ isConnected ? 'Terhubung' : 'Terputus' }}
-            </a-tag>
-            <a-badge :count="readyCount" :number-style="{ backgroundColor: '#52c41a' }">
-              <a-button @click="refreshData" :loading="loading" type="default">
-                <template #icon><reload-outlined /></template>
-                Refresh
-              </a-button>
-            </a-badge>
-          </a-space>
-        </div>
+  <div>
+    <!-- Header Controls -->
+    <div class="packing-header">
+      <div class="header-controls">
+        <KDSDatePicker
+          v-model="selectedDate"
+          :loading="loading"
+          @change="handleDateChange"
+        />
+        <a-tag :color="isConnected ? 'green' : 'red'" class="connection-tag">
+          <template #icon>
+            <wifi-outlined v-if="isConnected" />
+            <disconnect-outlined v-else />
+          </template>
+          {{ isConnected ? 'Terhubung' : 'Terputus' }}
+        </a-tag>
+        <a-button @click="refreshData" :loading="loading" type="default">
+          <template #icon><reload-outlined /></template>
+          Refresh
+        </a-button>
       </div>
     </div>
-    <!-- All Ready Notification -->
+
+
+
+    <!-- Error Alert -->
     <a-alert
-      v-if="allSchoolsReady && schools.length > 0"
-      message="Semua Sekolah Siap Kirim!"
-      description="Semua sekolah telah selesai dikemas dan siap untuk pengiriman."
-      type="success"
-      show-icon
+      v-if="error"
+      type="error"
+      :message="error"
       closable
-      style="margin-bottom: 16px"
+      show-icon
+      @close="error = null"
+      class="error-alert"
     >
-      <template #icon>
-        <check-circle-outlined />
+      <template #action>
+        <a-button size="small" type="primary" @click="retryLoad">
+          Coba Lagi
+        </a-button>
       </template>
     </a-alert>
 
-    <div class="content-wrapper">
-      <a-alert
-        v-if="error"
-        type="error"
-        :message="error"
-        closable
-        show-icon
-        @close="error = null"
-        style="margin-bottom: 16px"
-      >
-        <template #action>
-          <a-button size="small" type="primary" @click="retryLoad">
-            Coba Lagi
-          </a-button>
-        </template>
-      </a-alert>
 
-      <a-spin :spinning="loading" tip="Memuat data...">
-        <a-empty v-if="!loading && schools.length === 0" :description="emptyMessage" />
-        
-        <a-row :gutter="[16, 16]" v-else>
-          <a-col
-            v-for="school in schools"
-            :key="school.school_id"
-            :xs="24"
-            :sm="24"
-            :md="12"
-            :lg="8"
-            :xl="6"
-          >
-            <a-card
-              :class="['school-card', `status-${school.status}`]"
+
+    <!-- Kanban Board -->
+    <a-spin :spinning="loading" tip="Memuat data...">
+      <a-empty v-if="!loading && schools.length === 0" :description="emptyMessage" />
+      
+      <div v-else class="kanban-board">
+        <!-- Pending Column -->
+        <div class="kanban-column">
+          <div class="kanban-column-header">
+            <h3 class="kanban-column-title">
+              <ClockCircleOutlined class="column-icon" />
+              Belum Mulai
+            </h3>
+            <span class="kanban-column-count">{{ pendingSchools.length }}</span>
+          </div>
+          <div class="kanban-column-content">
+            <HKanbanCard
+              v-for="school in pendingSchools"
+              :key="school.school_id"
+              :title="school.school_name"
+              status="Belum Mulai"
+              class="packing-card"
             >
-              <div class="card-header">
-                <div class="school-name">{{ school.school_name }}</div>
-                <a-tag :color="getStatusColor(school.status)" class="status-tag">
-                  {{ getStatusText(school.status) }}
-                </a-tag>
-              </div>
-
-              <div class="school-info">
-                <a-statistic
-                  title="Total Porsi"
-                  :value="school.total_portions"
-                  suffix="porsi"
-                  :value-style="{ color: '#1890ff', fontSize: '28px', fontWeight: 'bold' }"
-                />
+              <div class="card-body">
+                <!-- Total Portions -->
+                <div class="total-portions">
+                  <span class="portions-label">Total Porsi</span>
+                  <span class="portions-value">{{ school.total_portions }}</span>
+                </div>
 
                 <!-- Portion Size Breakdown -->
                 <div v-if="school.portion_size_type === 'mixed'" class="portion-breakdown">
-                  <div class="portion-breakdown-title">Rincian Ukuran Porsi</div>
-                  <a-row :gutter="12">
-                    <a-col :span="12">
-                      <div class="portion-size-card small">
-                        <div class="portion-icon">S</div>
-                        <div class="portion-label">Kecil (Kelas 1-3)</div>
-                        <div class="portion-value">{{ school.portions_small }} porsi</div>
-                      </div>
-                    </a-col>
-                    <a-col :span="12">
-                      <div class="portion-size-card large">
-                        <div class="portion-icon">L</div>
-                        <div class="portion-label">Besar (Kelas 4-6)</div>
-                        <div class="portion-value">{{ school.portions_large }} porsi</div>
-                      </div>
-                    </a-col>
-                  </a-row>
-                </div>
-                <div v-else class="portion-breakdown">
-                  <div class="portion-breakdown-title">Rincian Ukuran Porsi</div>
-                  <div class="portion-size-card large single">
-                    <div class="portion-icon">L</div>
-                    <div class="portion-label">Porsi Besar</div>
-                    <div class="portion-value">{{ school.portions_large }} porsi</div>
+                  <div class="portion-size-item portion-small">
+                    <span class="size-badge">S</span>
+                    <span class="size-label">Kecil</span>
+                    <span class="size-value">{{ school.portions_small }}</span>
+                  </div>
+                  <div class="portion-size-item portion-large">
+                    <span class="size-badge">L</span>
+                    <span class="size-label">Besar</span>
+                    <span class="size-value">{{ school.portions_large }}</span>
                   </div>
                 </div>
 
-                <a-divider>Menu Items</a-divider>
-                <a-list
-                  size="small"
-                  :data-source="school.menu_items"
-                  :split="false"
-                >
-                  <template #renderItem="{ item }">
-                    <a-list-item>
-                      <a-list-item-meta>
-                        <template #avatar>
-                          <a-avatar
-                            v-if="item.photo_url"
-                            :src="item.photo_url"
-                            shape="square"
-                            :size="48"
-                          />
-                          <a-avatar
-                            v-else
-                            shape="square"
-                            :size="48"
-                            style="background-color: #f0f0f0; color: #999"
-                          >
-                            <template #icon><picture-outlined /></template>
-                          </a-avatar>
-                        </template>
-                        <template #title>
-                          {{ item.recipe_name }}
-                        </template>
-                        <template #description>
-                          <div class="menu-item-portions">
-                            <a-tag v-if="item.portions_small > 0" color="cyan" class="portion-tag">
-                              Kecil: {{ item.portions_small }}
-                            </a-tag>
-                            <a-tag v-if="item.portions_large > 0" color="blue" class="portion-tag">
-                              Besar: {{ item.portions_large }}
-                            </a-tag>
-                            <a-tag color="default" class="portion-tag">
-                              Total: {{ item.total_portions }}
-                            </a-tag>
+                <!-- Menu Items -->
+                <div class="menu-items-section">
+                  <div class="section-title">Menu Items</div>
+                  <div class="menu-items-list">
+                    <div v-for="item in school.menu_items" :key="item.recipe_id" class="menu-item">
+                      <img v-if="item.photo_url" :src="item.photo_url" :alt="item.recipe_name" class="menu-photo" />
+                      <div v-else class="menu-photo-placeholder">
+                        <picture-outlined />
+                      </div>
+                      <div class="menu-info">
+                        <div class="menu-name">{{ item.recipe_name }}</div>
+                        <div class="menu-portions">
+                          <span v-if="item.portions_small > 0" class="portion-tag small">S: {{ item.portions_small }}</span>
+                          <span v-if="item.portions_large > 0" class="portion-tag large">L: {{ item.portions_large }}</span>
+                        </div>
+                        
+                        <!-- Ingredients/Components -->
+                        <div v-if="item.items && item.items.length > 0" class="ingredients-list">
+                          <div v-for="(ingredient, idx) in item.items" :key="idx" class="ingredient-item">
+                            <span class="ingredient-name">{{ ingredient.name }}</span>
+                            <div class="ingredient-quantities">
+                              <span v-if="item.portions_small > 0 && ingredient.quantity_per_small > 0" class="ingredient-per-portion small">
+                                S: {{ ingredient.quantity_per_small.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                              <span v-if="item.portions_large > 0 && ingredient.quantity_per_large > 0" class="ingredient-per-portion large">
+                                L: {{ ingredient.quantity_per_large.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                              <span class="ingredient-total">
+                                Total: {{ ingredient.quantity.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                            </div>
                           </div>
-                          <div v-if="item.items && item.items.length > 0" class="menu-components">
-                            <a-collapse :bordered="false" size="small" style="background: transparent; margin-top: 8px;">
-                              <a-collapse-panel key="1" header="Komponen Menu">
-                                <div class="components-list">
-                                  <div v-for="(component, idx) in item.items" :key="idx" class="component-item">
-                                    <span class="component-name">{{ component.name }}</span>
-                                    <span class="component-quantity">{{ component.quantity.toFixed(2) }} {{ component.unit }}</span>
-                                  </div>
-                                </div>
-                              </a-collapse-panel>
-                            </a-collapse>
-                          </div>
-                        </template>
-                      </a-list-item-meta>
-                    </a-list-item>
-                  </template>
-                </a-list>
-              </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-              <template #actions>
+                <!-- Action Button -->
                 <a-button
-                  v-if="school.status === 'pending'"
                   type="primary"
                   block
                   @click="startPacking(school)"
                   :loading="updatingSchoolId === school.school_id"
+                  class="action-button"
                 >
                   <template #icon><play-circle-outlined /></template>
                   Mulai Packing
                 </a-button>
+              </div>
+            </HKanbanCard>
+          </div>
+        </div>
+
+        <!-- Packing Column -->
+        <div class="kanban-column">
+          <div class="kanban-column-header">
+            <h3 class="kanban-column-title">
+              <InboxOutlined class="column-icon" />
+              Siap Packing
+            </h3>
+            <span class="kanban-column-count">{{ packingSchools.length }}</span>
+          </div>
+          <div class="kanban-column-content">
+            <HKanbanCard
+              v-for="school in packingSchools"
+              :key="school.school_id"
+              :title="school.school_name"
+              status="Siap Packing"
+              class="packing-card"
+            >
+              <div class="card-body">
+                <!-- Total Portions -->
+                <div class="total-portions">
+                  <span class="portions-label">Total Porsi</span>
+                  <span class="portions-value">{{ school.total_portions }}</span>
+                </div>
+
+                <!-- Portion Size Breakdown -->
+                <div v-if="school.portion_size_type === 'mixed'" class="portion-breakdown">
+                  <div class="portion-size-item portion-small">
+                    <span class="size-badge">S</span>
+                    <span class="size-label">Kecil</span>
+                    <span class="size-value">{{ school.portions_small }}</span>
+                  </div>
+                  <div class="portion-size-item portion-large">
+                    <span class="size-badge">L</span>
+                    <span class="size-label">Besar</span>
+                    <span class="size-value">{{ school.portions_large }}</span>
+                  </div>
+                </div>
+
+                <!-- Menu Items -->
+                <div class="menu-items-section">
+                  <div class="section-title">Menu Items</div>
+                  <div class="menu-items-list">
+                    <div v-for="item in school.menu_items" :key="item.recipe_id" class="menu-item">
+                      <img v-if="item.photo_url" :src="item.photo_url" :alt="item.recipe_name" class="menu-photo" />
+                      <div v-else class="menu-photo-placeholder">
+                        <picture-outlined />
+                      </div>
+                      <div class="menu-info">
+                        <div class="menu-name">{{ item.recipe_name }}</div>
+                        <div class="menu-portions">
+                          <span v-if="item.portions_small > 0" class="portion-tag small">S: {{ item.portions_small }}</span>
+                          <span v-if="item.portions_large > 0" class="portion-tag large">L: {{ item.portions_large }}</span>
+                        </div>
+                        
+                        <!-- Ingredients/Components -->
+                        <div v-if="item.items && item.items.length > 0" class="ingredients-list">
+                          <div v-for="(ingredient, idx) in item.items" :key="idx" class="ingredient-item">
+                            <span class="ingredient-name">{{ ingredient.name }}</span>
+                            <div class="ingredient-quantities">
+                              <span v-if="item.portions_small > 0 && ingredient.quantity_per_small > 0" class="ingredient-per-portion small">
+                                S: {{ ingredient.quantity_per_small.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                              <span v-if="item.portions_large > 0 && ingredient.quantity_per_large > 0" class="ingredient-per-portion large">
+                                L: {{ ingredient.quantity_per_large.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                              <span class="ingredient-total">
+                                Total: {{ ingredient.quantity.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action Button -->
                 <a-button
-                  v-else-if="school.status === 'packing'"
                   type="primary"
                   block
                   @click="finishPacking(school)"
                   :loading="updatingSchoolId === school.school_id"
-                  style="background-color: #52c41a; border-color: #52c41a"
+                  class="action-button action-button-success"
                 >
                   <template #icon><check-circle-outlined /></template>
-                  Siap Kirim
+                  Selesai Packing
                 </a-button>
-                <a-button
-                  v-else
-                  type="default"
-                  block
-                  disabled
-                >
-                  <template #icon><check-outlined /></template>
+              </div>
+            </HKanbanCard>
+          </div>
+        </div>
+
+        <!-- Ready Column -->
+        <div class="kanban-column">
+          <div class="kanban-column-header">
+            <h3 class="kanban-column-title">
+              <CheckCircleOutlined class="column-icon" />
+              Selesai Packing
+            </h3>
+            <span class="kanban-column-count">{{ readySchools.length }}</span>
+          </div>
+          <div class="kanban-column-content">
+            <HKanbanCard
+              v-for="school in readySchools"
+              :key="school.school_id"
+              :title="school.school_name"
+              status="Selesai Packing"
+              class="packing-card"
+            >
+              <div class="card-body">
+                <!-- Total Portions -->
+                <div class="total-portions">
+                  <span class="portions-label">Total Porsi</span>
+                  <span class="portions-value">{{ school.total_portions }}</span>
+                </div>
+
+                <!-- Portion Size Breakdown -->
+                <div v-if="school.portion_size_type === 'mixed'" class="portion-breakdown">
+                  <div class="portion-size-item portion-small">
+                    <span class="size-badge">S</span>
+                    <span class="size-label">Kecil</span>
+                    <span class="size-value">{{ school.portions_small }}</span>
+                  </div>
+                  <div class="portion-size-item portion-large">
+                    <span class="size-badge">L</span>
+                    <span class="size-label">Besar</span>
+                    <span class="size-value">{{ school.portions_large }}</span>
+                  </div>
+                </div>
+
+                <!-- Menu Items -->
+                <div class="menu-items-section">
+                  <div class="section-title">Menu Items</div>
+                  <div class="menu-items-list">
+                    <div v-for="item in school.menu_items" :key="item.recipe_id" class="menu-item">
+                      <img v-if="item.photo_url" :src="item.photo_url" :alt="item.recipe_name" class="menu-photo" />
+                      <div v-else class="menu-photo-placeholder">
+                        <picture-outlined />
+                      </div>
+                      <div class="menu-info">
+                        <div class="menu-name">{{ item.recipe_name }}</div>
+                        <div class="menu-portions">
+                          <span v-if="item.portions_small > 0" class="portion-tag small">S: {{ item.portions_small }}</span>
+                          <span v-if="item.portions_large > 0" class="portion-tag large">L: {{ item.portions_large }}</span>
+                        </div>
+                        
+                        <!-- Ingredients/Components -->
+                        <div v-if="item.items && item.items.length > 0" class="ingredients-list">
+                          <div v-for="(ingredient, idx) in item.items" :key="idx" class="ingredient-item">
+                            <span class="ingredient-name">{{ ingredient.name }}</span>
+                            <div class="ingredient-quantities">
+                              <span v-if="item.portions_small > 0 && ingredient.quantity_per_small > 0" class="ingredient-per-portion small">
+                                S: {{ ingredient.quantity_per_small.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                              <span v-if="item.portions_large > 0 && ingredient.quantity_per_large > 0" class="ingredient-per-portion large">
+                                L: {{ ingredient.quantity_per_large.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                              <span class="ingredient-total">
+                                Total: {{ ingredient.quantity.toFixed(1) }} {{ ingredient.unit }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Completed Badge -->
+                <div class="completed-badge">
+                  <check-outlined />
                   Sudah Siap
-                </a-button>
-              </template>
-            </a-card>
-          </a-col>
-        </a-row>
-      </a-spin>
-    </div>
+                </div>
+              </div>
+            </HKanbanCard>
+          </div>
+        </div>
+      </div>
+    </a-spin>
   </div>
 </template>
 
@@ -231,8 +332,12 @@ import {
   PlayCircleOutlined,
   CheckCircleOutlined,
   CheckOutlined,
-  PictureOutlined
+  PictureOutlined,
+  ClockCircleOutlined,
+  InboxOutlined
 } from '@ant-design/icons-vue'
+import HStatCard from '@/components/horizon/HStatCard.vue'
+import HKanbanCard from '@/components/horizon/HKanbanCard.vue'
 import KDSDatePicker from '@/components/KDSDatePicker.vue'
 import { getPackingToday, updatePackingStatus } from '@/services/kdsService'
 import { database } from '@/services/firebase'
@@ -247,10 +352,15 @@ const error = ref(null)
 let firebaseListener = null
 let notificationListener = null
 
-// Computed: Count of ready schools
-const readyCount = computed(() => {
-  return schools.value.filter(s => s.status === 'ready').length
-})
+// Computed: Filter schools by status
+const pendingSchools = computed(() => schools.value.filter(s => s.status === 'pending'))
+const packingSchools = computed(() => schools.value.filter(s => s.status === 'packing'))
+const readySchools = computed(() => schools.value.filter(s => s.status === 'ready'))
+
+// Computed: Count by status
+const pendingCount = computed(() => pendingSchools.value.length)
+const packingCount = computed(() => packingSchools.value.length)
+const readyCount = computed(() => readySchools.value.length)
 
 // Computed: Check if all schools are ready
 const allSchoolsReady = computed(() => {
@@ -263,26 +373,6 @@ const emptyMessage = computed(() => {
   const isToday = selectedDate.value.toDateString() === today.toDateString()
   return isToday ? 'Tidak ada alokasi packing untuk hari ini' : 'Tidak ada alokasi packing untuk tanggal ini'
 })
-
-// Get status color
-const getStatusColor = (status) => {
-  const colors = {
-    pending: 'default',
-    packing: 'processing',
-    ready: 'success'
-  }
-  return colors[status] || 'default'
-}
-
-// Get status text in Indonesian
-const getStatusText = (status) => {
-  const texts = {
-    pending: 'Belum Dimulai',
-    packing: 'Sedang Packing',
-    ready: 'Siap Kirim'
-  }
-  return texts[status] || status
-}
 
 // Load data from API
 const loadData = async () => {
@@ -320,7 +410,6 @@ const startPacking = async (school) => {
     const response = await updatePackingStatus(school.school_id, 'packing')
     if (response.success) {
       message.success('Status berhasil diperbarui: Mulai Packing')
-      // Reload data from API to get updated status
       await loadData()
     } else {
       message.error(response.message || 'Gagal memperbarui status')
@@ -340,7 +429,6 @@ const finishPacking = async (school) => {
     const response = await updatePackingStatus(school.school_id, 'ready')
     if (response.success) {
       message.success(`${school.school_name} siap untuk pengiriman!`)
-      // Reload data from API to get updated status
       await loadData()
     } else {
       message.error(response.message || 'Gagal memperbarui status')
@@ -355,7 +443,6 @@ const finishPacking = async (school) => {
 
 // Setup Firebase real-time listener for packing data
 const setupFirebaseListener = () => {
-  // Clean up existing listener first
   cleanupFirebaseListener()
   
   const dateStr = selectedDate.value.toISOString().split('T')[0]
@@ -368,17 +455,13 @@ const setupFirebaseListener = () => {
       const data = snapshot.val()
       
       if (data) {
-        // Update schools with Firebase data
         const firebaseSchools = Object.values(data)
-        
-        // Merge with existing schools to preserve menu items and update portion size data
         schools.value = schools.value.map(school => {
           const firebaseSchool = firebaseSchools.find(fs => fs.school_id === school.school_id)
           if (firebaseSchool) {
             return {
               ...school,
               status: firebaseSchool.status,
-              // Update portion size data if present in Firebase
               portion_size_type: firebaseSchool.portion_size_type || school.portion_size_type,
               portions_small: firebaseSchool.portions_small !== undefined ? firebaseSchool.portions_small : school.portions_small,
               portions_large: firebaseSchool.portions_large !== undefined ? firebaseSchool.portions_large : school.portions_large,
@@ -406,7 +489,6 @@ const setupNotificationListener = () => {
       const data = snapshot.val()
       
       if (data) {
-        // Get the latest notification
         const notifications = Object.values(data)
         const latest = notifications[notifications.length - 1]
         
@@ -454,7 +536,6 @@ const handleDateChange = (date) => {
 
 // Watch for date changes
 watch(selectedDate, () => {
-  // This ensures Firebase listener is updated if date changes from other sources
   setupFirebaseListener()
 })
 
@@ -471,265 +552,529 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.kds-packing-view {
-  background-color: #f0f2f5;
-  min-height: 100vh;
-}
-
-.kds-header {
-  background: white;
-  padding: 20px 24px;
-  border-bottom: 1px solid #f0f0f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.header-content {
+/* Header Controls */
+.packing-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1600px;
-  margin: 0 auto;
+  justify-content: flex-end;
+  margin-bottom: var(--h-spacing-4);
 }
 
-.header-left {
-  flex: 1;
-}
-
-.header-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #262626;
-  line-height: 1.4;
-}
-
-.header-subtitle {
-  margin: 4px 0 0 0;
-  font-size: 14px;
-  color: #8c8c8c;
-}
-
-.header-right {
+.header-controls {
   display: flex;
   align-items: center;
+  gap: var(--h-spacing-3);
 }
 
 .connection-tag {
-  font-size: 13px;
+  font-size: var(--h-text-sm);
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: var(--h-radius-sm);
 }
 
-.content-wrapper {
-  max-width: 1600px;
-  margin: 24px auto;
-  padding: 0 24px;
+/* Alerts */
+.ready-alert,
+.error-alert {
+  margin-bottom: var(--h-spacing-5);
 }
 
-.school-card {
-  height: 100%;
-  transition: all 0.3s ease;
+/* Stat Cards Row */
+.stat-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--h-spacing-5);
+  margin-bottom: var(--h-spacing-6);
 }
 
-.school-card.status-pending {
-  border-left: 4px solid #d9d9d9;
+/* Kanban Board */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--h-spacing-5);
+  align-items: start;
 }
 
-.school-card.status-packing {
-  border-left: 4px solid #1890ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
-}
-
-.school-card.status-ready {
-  border-left: 4px solid #52c41a;
-  box-shadow: 0 2px 8px rgba(82, 196, 26, 0.2);
-}
-
-.card-header {
+/* Kanban Column */
+.kanban-column {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: var(--h-spacing-4);
+  min-height: 400px;
 }
 
-.school-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.85);
-  line-height: 1.4;
+.kanban-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--h-spacing-4);
+  background: var(--h-bg-card);
+  border-radius: var(--h-radius-lg);
+  box-shadow: var(--h-shadow-sm);
 }
 
-.status-tag {
-  align-self: flex-start;
+.kanban-column-title {
+  display: flex;
+  align-items: center;
+  gap: var(--h-spacing-2);
+  margin: 0;
+  font-size: var(--h-text-lg);
+  font-weight: var(--h-font-bold);
+  color: var(--h-text-primary);
 }
 
-.school-info {
-  margin-top: 16px;
+.column-icon {
+  font-size: var(--h-text-xl);
+  color: var(--h-primary);
 }
 
-:deep(.ant-statistic-title) {
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.45);
+.kanban-column-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 var(--h-spacing-2);
+  background: var(--h-primary);
+  color: white;
+  border-radius: var(--h-radius-full);
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-bold);
 }
 
-:deep(.ant-list-item) {
-  padding: 8px 0;
+.kanban-column-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-4);
 }
 
-:deep(.ant-list-item-meta-title) {
-  margin-bottom: 4px;
-  font-weight: 500;
+/* Packing Card Content */
+.packing-card {
+  cursor: default;
 }
 
-:deep(.ant-list-item-meta-description) {
-  margin-top: 4px;
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-4);
 }
 
+/* Total Portions */
+.total-portions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--h-spacing-4);
+  background: linear-gradient(135deg, #5A4372 0%, #3D2B53 100%);
+  border-radius: var(--h-radius-md);
+  color: white;
+}
+
+.portions-label {
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-medium);
+}
+
+.portions-value {
+  font-size: var(--h-text-2xl);
+  font-weight: var(--h-font-bold);
+}
+
+/* Portion Size Breakdown */
 .portion-breakdown {
-  margin: 16px 0;
+  display: flex;
+  gap: var(--h-spacing-3);
 }
 
-.portion-breakdown-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.75);
-  margin-bottom: 12px;
+.portion-size-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--h-spacing-2);
+  padding: var(--h-spacing-3);
+  border-radius: var(--h-radius-md);
+  transition: all var(--h-transition-base);
+}
+
+.portion-size-item:hover {
+  transform: translateY(-2px);
+}
+
+.portion-size-item.portion-small {
+  background: linear-gradient(135deg, #FFF4E6 0%, #FFE7BA 100%);
+  border: 2px solid #FFB547;
+}
+
+.portion-size-item.portion-large {
+  background: linear-gradient(135deg, #E6F7FF 0%, #BAE7FF 100%);
+  border: 2px solid #1890FF;
+}
+
+.portion-size-item.single {
+  background: linear-gradient(135deg, #E6F7FF 0%, #BAE7FF 100%);
+  border: 2px solid #1890FF;
+}
+
+.size-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: white;
+  border-radius: var(--h-radius-full);
+  font-size: var(--h-text-base);
+  font-weight: var(--h-font-bold);
+  color: var(--h-primary);
+  box-shadow: var(--h-shadow-sm);
+}
+
+.size-label {
+  font-size: var(--h-text-xs);
+  font-weight: var(--h-font-medium);
+  color: var(--h-text-secondary);
+}
+
+.size-value {
+  font-size: var(--h-text-xl);
+  font-weight: var(--h-font-bold);
+  color: var(--h-text-primary);
+}
+
+/* Menu Items Section */
+.menu-items-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-3);
+}
+
+.section-title {
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-bold);
+  color: var(--h-text-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.portion-size-card {
-  padding: 16px 12px;
-  border-radius: 8px;
-  text-align: center;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.portion-size-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.portion-size-card.small {
-  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
-  border: 2px solid #40a9ff;
-}
-
-.portion-size-card.large {
-  background: linear-gradient(135deg, #f0f5ff 0%, #d6e4ff 100%);
-  border: 2px solid #597ef7;
-}
-
-.portion-size-card.single {
-  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
-  border: 2px solid #40a9ff;
-}
-
-.portion-icon {
-  display: inline-block;
-  width: 32px;
-  height: 32px;
-  line-height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  color: #1890ff;
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.portion-size-card.large .portion-icon {
-  color: #597ef7;
-}
-
-.portion-label {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.75);
-  margin-bottom: 6px;
-  font-weight: 600;
-}
-
-.portion-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1890ff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  line-height: 1.2;
-}
-
-.portion-size-card.large .portion-value {
-  color: #597ef7;
-}
-
-.menu-item-portions {
+.menu-items-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
+  flex-direction: column;
+  gap: var(--h-spacing-2);
+}
+
+.menu-item {
+  display: flex;
+  gap: var(--h-spacing-3);
+  padding: var(--h-spacing-3);
+  background: var(--h-bg-light);
+  border-radius: var(--h-radius-md);
+  transition: all var(--h-transition-base);
+}
+
+.menu-item:hover {
+  background: var(--h-border-color);
+}
+
+.menu-photo {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--h-radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.menu-photo-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--h-radius-sm);
+  background: var(--h-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--h-text-light);
+  font-size: var(--h-text-xl);
+  flex-shrink: 0;
+}
+
+.menu-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-spacing-1);
+  min-width: 0;
+}
+
+.menu-name {
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-medium);
+  color: var(--h-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-portions {
+  display: flex;
+  gap: var(--h-spacing-1);
 }
 
 .portion-tag {
-  margin: 0;
-  font-size: 12px;
+  font-size: var(--h-text-xs);
+  font-weight: var(--h-font-medium);
+  padding: 2px 8px;
+  border-radius: var(--h-radius-sm);
 }
 
-.menu-components {
-  margin-top: 8px;
+.portion-tag.small {
+  background: #FFF4E6;
+  color: #FFB547;
+  border: 1px solid #FFD591;
 }
 
-:deep(.ant-collapse) {
-  background: transparent;
-  border: none;
+.portion-tag.large {
+  background: #E6F7FF;
+  color: #1890FF;
+  border: 1px solid #91D5FF;
 }
 
-:deep(.ant-collapse-item) {
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  margin-bottom: 0;
-}
-
-:deep(.ant-collapse-header) {
-  padding: 8px 12px;
-  font-weight: 500;
-  color: rgba(0, 0, 0, 0.85);
-  font-size: 12px;
-}
-
-:deep(.ant-collapse-content) {
-  border-top: 1px solid #f0f0f0;
-}
-
-:deep(.ant-collapse-content-box) {
-  padding: 8px 12px;
-}
-
-.components-list {
+/* Ingredients List */
+.ingredients-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-top: var(--h-spacing-2);
+  padding-top: var(--h-spacing-2);
+  border-top: 1px solid var(--h-border-color);
 }
 
-.component-item {
+.ingredient-item {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--h-text-xs);
+  padding: 4px 0;
+}
+
+.ingredient-name {
+  color: var(--h-text-secondary);
+  font-weight: var(--h-font-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ingredient-quantities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
-  padding: 6px 10px;
-  background: #fafafa;
+}
+
+.ingredient-per-portion {
+  font-size: 10px;
+  font-weight: var(--h-font-medium);
+  padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid #f0f0f0;
+  white-space: nowrap;
 }
 
-.component-name {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.65);
+.ingredient-per-portion.small {
+  background: #FFF4E6;
+  color: #FFB547;
+  border: 1px solid #FFD591;
 }
 
-.component-quantity {
-  font-size: 12px;
-  color: #1890ff;
-  font-weight: 600;
+.ingredient-per-portion.large {
+  background: #E6F7FF;
+  color: #1890FF;
+  border: 1px solid #91D5FF;
+}
+
+.ingredient-total {
+  color: var(--h-text-primary);
+  font-weight: var(--h-font-bold);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Action Button */
+.action-button {
+  margin-top: var(--h-spacing-2);
+  height: var(--h-touch-target-min);
+  font-weight: var(--h-font-semibold);
+  border-radius: var(--h-radius-md);
+}
+
+.action-button-success {
+  background-color: #05CD99;
+  border-color: #05CD99;
+}
+
+.action-button-success:hover {
+  background-color: #04b888;
+  border-color: #04b888;
+}
+
+/* Completed Badge */
+.completed-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--h-spacing-2);
+  padding: var(--h-spacing-3);
+  background: #E6FAF5;
+  color: #05CD99;
+  border-radius: var(--h-radius-md);
+  font-size: var(--h-text-sm);
+  font-weight: var(--h-font-semibold);
+  margin-top: var(--h-spacing-2);
+}
+
+/* Dark Mode Support */
+.dark .kanban-column-header {
+  background: var(--h-bg-card);
+}
+
+.dark .kanban-column-title {
+  color: var(--h-text-primary);
+}
+
+.dark .column-icon {
+  color: var(--h-primary-light);
+}
+
+.dark .total-portions {
+  background: linear-gradient(135deg, #6a5382 0%, #4d3b63 100%);
+}
+
+.dark .portion-size-item.portion-small {
+  background: rgba(255, 181, 71, 0.15);
+  border-color: #FFB547;
+}
+
+.dark .portion-size-item.portion-large,
+.dark .portion-size-item.single {
+  background: rgba(24, 144, 255, 0.15);
+  border-color: #1890FF;
+}
+
+.dark .size-badge {
+  background: var(--h-bg-card);
+}
+
+.dark .size-label {
+  color: var(--h-text-secondary);
+}
+
+.dark .size-value {
+  color: var(--h-text-primary);
+}
+
+.dark .menu-item {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .menu-photo-placeholder {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--h-text-light);
+}
+
+.dark .menu-name {
+  color: var(--h-text-primary);
+}
+
+.dark .portion-tag.small {
+  background: rgba(255, 181, 71, 0.2);
+  color: #FFB547;
+  border-color: rgba(255, 181, 71, 0.3);
+}
+
+.dark .portion-tag.large {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890FF;
+  border-color: rgba(24, 144, 255, 0.3);
+}
+
+.dark .ingredients-list {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .ingredient-name {
+  color: var(--h-text-secondary);
+}
+
+.dark .ingredient-per-portion.small {
+  background: rgba(255, 181, 71, 0.2);
+  color: #FFB547;
+  border-color: rgba(255, 181, 71, 0.3);
+}
+
+.dark .ingredient-per-portion.large {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890FF;
+  border-color: rgba(24, 144, 255, 0.3);
+}
+
+.dark .ingredient-total {
+  color: var(--h-text-primary);
+}
+
+.dark .completed-badge {
+  background: rgba(5, 205, 153, 0.2);
+  color: #05CD99;
+}
+
+/* Mobile Responsive */
+@media (max-width: 1024px) {
+  .stat-cards-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--h-spacing-3);
+  }
+  
+  .kanban-board {
+    grid-template-columns: 1fr;
+    gap: var(--h-spacing-6);
+  }
+  
+  .kanban-column {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-controls {
+    flex-wrap: wrap;
+    gap: var(--h-spacing-2);
+  }
+  
+  .stat-cards-row {
+    grid-template-columns: 1fr;
+    gap: var(--h-spacing-3);
+  }
+  
+  .portion-breakdown {
+    flex-direction: column;
+  }
+  
+  .portion-size-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .size-badge {
+    width: 28px;
+    height: 28px;
+    font-size: var(--h-text-sm);
+  }
+  
+  .menu-photo,
+  .menu-photo-placeholder {
+    width: 40px;
+    height: 40px;
+  }
 }
 </style>

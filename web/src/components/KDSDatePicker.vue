@@ -1,37 +1,22 @@
 <template>
   <div class="kds-date-picker">
-    <a-space :size="12">
-      <a-date-picker
-        v-model:value="internalDate"
-        :disabled="disabled"
-        :loading="loading"
-        format="DD/MM/YYYY"
-        placeholder="Pilih tanggal"
-        :allow-clear="false"
-        @change="handleDateChange"
-        @keydown="handleKeyDown"
-        :get-popup-container="(trigger) => trigger.parentElement"
-      >
-        <template #suffixIcon>
-          <calendar-outlined v-if="!loading" />
-          <loading-outlined v-else spin />
-        </template>
-      </a-date-picker>
-      
-      <a-button
-        type="primary"
-        :disabled="disabled || loading || isToday"
-        @click="selectToday"
-      >
-        <template #icon><home-outlined /></template>
-        Hari Ini
-      </a-button>
-    </a-space>
+    <a-date-picker
+      v-model:value="internalDate"
+      :disabled="disabled"
+      :loading="loading"
+      format="DD/MM/YYYY"
+      placeholder="Pilih tanggal"
+      :allow-clear="false"
+      @change="handleDateChange"
+      @keydown="handleKeyDown"
+      :get-popup-container="(trigger) => trigger.parentElement"
+    >
+      <template #suffixIcon>
+        <calendar-outlined v-if="!loading" />
+        <loading-outlined v-else spin />
+      </template>
+    </a-date-picker>
     
-    <div v-if="internalDate" class="selected-date-display">
-      <span class="date-label">Tanggal Terpilih:</span>
-      <strong class="date-value">{{ formatDisplayDate(internalDate) }}</strong>
-    </div>
   </div>
 </template>
 
@@ -194,27 +179,8 @@ watch(() => props.modelValue, (newValue) => {
 
 <style scoped>
 .kds-date-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.selected-date-display {
-  padding: 8px 12px;
-  background: #f0f5ff;
-  border: 1px solid #adc6ff;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.date-label {
-  color: #595959;
-  margin-right: 8px;
-}
-
-.date-value {
-  color: #1890ff;
-  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Loading state styling */

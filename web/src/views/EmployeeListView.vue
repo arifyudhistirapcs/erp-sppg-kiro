@@ -17,12 +17,17 @@
         <!-- Search and Filter -->
         <a-row :gutter="16">
           <a-col :span="8">
-            <a-input-search
+            <a-input
               v-model:value="searchText"
               placeholder="Cari NIK, nama, atau email..."
-              @search="handleSearch"
+              @change="handleSearch"
               allow-clear
-            />
+              size="large"
+            >
+              <template #prefix>
+                <SearchOutlined />
+              </template>
+            </a-input>
           </a-col>
           <a-col :span="6">
             <a-select
@@ -31,6 +36,7 @@
               style="width: 100%"
               @change="handleSearch"
               allow-clear
+              size="large"
             >
               <a-select-option value="active">Aktif</a-select-option>
               <a-select-option value="inactive">Tidak Aktif</a-select-option>
@@ -43,6 +49,7 @@
               style="width: 100%"
               @change="handleSearch"
               allow-clear
+              size="large"
             >
               <a-select-option value="Kepala SPPG">Kepala SPPG</a-select-option>
               <a-select-option value="Akuntan">Akuntan</a-select-option>

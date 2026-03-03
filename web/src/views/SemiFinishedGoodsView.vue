@@ -22,12 +22,17 @@
       <!-- Search & Filter -->
       <a-row :gutter="16" class="mb-4">
         <a-col :span="8">
-          <a-input-search
+          <a-input
             v-model:value="searchText"
             placeholder="Cari nama barang..."
-            @search="handleSearch"
+            @change="handleSearch"
             allow-clear
-          />
+            size="large"
+          >
+            <template #prefix>
+              <SearchOutlined />
+            </template>
+          </a-input>
         </a-col>
         <a-col :span="8">
           <a-select
@@ -36,6 +41,7 @@
             allow-clear
             style="width: 100%"
             @change="handleSearch"
+            size="large"
           >
             <a-select-option value="protein_hewani">Protein Hewani</a-select-option>
             <a-select-option value="sumber_lemak">Sumber Lemak</a-select-option>
@@ -111,7 +117,7 @@
                 title="Yakin ingin menghapus?"
                 @confirm="handleDelete(record.id)"
               >
-                <a-button type="danger" size="small">
+                <a-button type="primary" size="small" danger>
                   <template #icon><DeleteOutlined /></template>
                 </a-button>
               </a-popconfirm>

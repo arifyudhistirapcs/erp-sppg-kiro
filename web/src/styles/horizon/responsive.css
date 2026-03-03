@@ -1,0 +1,399 @@
+/**
+ * Horizon UI - Responsive Utilities
+ * 
+ * Responsive utility classes for showing/hiding elements at different breakpoints,
+ * touch targets for mobile, and mobile-specific spacing utilities.
+ * 
+ * Breakpoints:
+ * - xs: 375px (Small Mobile)
+ * - sm: 640px (Mobile)
+ * - md: 768px (Tablet)
+ * - lg: 1024px (Desktop)
+ * - xl: 1280px (Large Desktop)
+ * - 2xl: 1536px (Extra Large)
+ */
+
+/* ============================================
+   VISIBILITY UTILITIES
+   ============================================ */
+
+/* Hidden on mobile (< 768px) */
+.hidden-mobile {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .hidden-mobile {
+    display: block;
+  }
+}
+
+/* Show only on mobile (< 768px) */
+.show-mobile {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .show-mobile {
+    display: none;
+  }
+}
+
+/* Hidden on tablet (768px - 1024px) */
+.hidden-tablet {
+  display: block;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hidden-tablet {
+    display: none;
+  }
+}
+
+/* Show only on tablet (768px - 1024px) */
+.show-tablet {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .show-tablet {
+    display: block;
+  }
+}
+
+/* Hidden on desktop (>= 1024px) */
+.hidden-desktop {
+  display: block;
+}
+
+@media (min-width: 1024px) {
+  .hidden-desktop {
+    display: none;
+  }
+}
+
+/* Show only on desktop (>= 1024px) */
+.show-desktop {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .show-desktop {
+    display: block;
+  }
+}
+
+/* ============================================
+   TOUCH TARGET UTILITIES
+   ============================================ */
+
+/* Minimum 44x44px touch target (Apple HIG standard) */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Larger touch target for critical actions */
+.touch-target-lg {
+  min-width: 48px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tap highlight styling for mobile */
+.tap-highlight {
+  -webkit-tap-highlight-color: rgba(90, 67, 114, 0.2);
+  tap-highlight-color: rgba(90, 67, 114, 0.2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Remove tap highlight */
+.no-tap-highlight {
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+}
+
+/* ============================================
+   MOBILE SPACING UTILITIES
+   ============================================ */
+
+/* Mobile-specific padding utilities */
+.mobile-p-1 { padding: var(--spacing-1); }
+.mobile-p-2 { padding: var(--spacing-2); }
+.mobile-p-3 { padding: var(--spacing-3); }
+.mobile-p-4 { padding: var(--spacing-4); }
+.mobile-p-5 { padding: var(--spacing-5); }
+.mobile-p-6 { padding: var(--spacing-6); }
+
+/* Mobile-specific margin utilities */
+.mobile-m-1 { margin: var(--spacing-1); }
+.mobile-m-2 { margin: var(--spacing-2); }
+.mobile-m-3 { margin: var(--spacing-3); }
+.mobile-m-4 { margin: var(--spacing-4); }
+.mobile-m-5 { margin: var(--spacing-5); }
+.mobile-m-6 { margin: var(--spacing-6); }
+
+/* Mobile-specific gap utilities */
+.mobile-gap-1 { gap: var(--spacing-1); }
+.mobile-gap-2 { gap: var(--spacing-2); }
+.mobile-gap-3 { gap: var(--spacing-3); }
+.mobile-gap-4 { gap: var(--spacing-4); }
+.mobile-gap-5 { gap: var(--spacing-5); }
+.mobile-gap-6 { gap: var(--spacing-6); }
+
+/* Reset mobile spacing on larger screens */
+@media (min-width: 768px) {
+  .mobile-p-1, .mobile-p-2, .mobile-p-3, .mobile-p-4, .mobile-p-5, .mobile-p-6 {
+    padding: 0;
+  }
+  
+  .mobile-m-1, .mobile-m-2, .mobile-m-3, .mobile-m-4, .mobile-m-5, .mobile-m-6 {
+    margin: 0;
+  }
+  
+  .mobile-gap-1, .mobile-gap-2, .mobile-gap-3, .mobile-gap-4, .mobile-gap-5, .mobile-gap-6 {
+    gap: 0;
+  }
+}
+
+/* ============================================
+   RESPONSIVE LAYOUT UTILITIES
+   ============================================ */
+
+/* Stack on mobile, row on desktop */
+.mobile-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .mobile-stack {
+    flex-direction: row;
+  }
+}
+
+/* Full width on mobile */
+.mobile-full-width {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .mobile-full-width {
+    width: auto;
+  }
+}
+
+/* ============================================
+   BREAKPOINT-SPECIFIC MEDIA QUERIES
+   ============================================ */
+
+/* Extra Small Mobile (< 375px) */
+@media (max-width: 374px) {
+  .xs\:hidden { display: none; }
+  .xs\:block { display: block; }
+  .xs\:flex { display: flex; }
+  .xs\:text-xs { font-size: var(--text-xs); }
+  .xs\:p-2 { padding: var(--spacing-2); }
+  .xs\:m-2 { margin: var(--spacing-2); }
+}
+
+/* Small Mobile (375px - 639px) */
+@media (min-width: 375px) and (max-width: 639px) {
+  .sm\:hidden { display: none; }
+  .sm\:block { display: block; }
+  .sm\:flex { display: flex; }
+  .sm\:text-sm { font-size: var(--text-sm); }
+  .sm\:p-3 { padding: var(--spacing-3); }
+  .sm\:m-3 { margin: var(--spacing-3); }
+}
+
+/* Mobile (640px - 767px) */
+@media (min-width: 640px) and (max-width: 767px) {
+  .md\:hidden { display: none; }
+  .md\:block { display: block; }
+  .md\:flex { display: flex; }
+  .md\:text-base { font-size: var(--text-base); }
+  .md\:p-4 { padding: var(--spacing-4); }
+  .md\:m-4 { margin: var(--spacing-4); }
+}
+
+/* Tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .lg\:hidden { display: none; }
+  .lg\:block { display: block; }
+  .lg\:flex { display: flex; }
+  .lg\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .lg\:p-5 { padding: var(--spacing-5); }
+  .lg\:m-5 { margin: var(--spacing-5); }
+}
+
+/* Desktop (1024px - 1279px) */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .xl\:hidden { display: none; }
+  .xl\:block { display: block; }
+  .xl\:flex { display: flex; }
+  .xl\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .xl\:p-6 { padding: var(--spacing-6); }
+  .xl\:m-6 { margin: var(--spacing-6); }
+}
+
+/* Large Desktop (1280px - 1535px) */
+@media (min-width: 1280px) and (max-width: 1535px) {
+  .\32xl\:hidden { display: none; }
+  .\32xl\:block { display: block; }
+  .\32xl\:flex { display: flex; }
+  .\32xl\:grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .\32xl\:p-8 { padding: var(--spacing-8); }
+  .\32xl\:m-8 { margin: var(--spacing-8); }
+}
+
+/* Extra Large Desktop (>= 1536px) */
+@media (min-width: 1536px) {
+  .\33xl\:hidden { display: none; }
+  .\33xl\:block { display: block; }
+  .\33xl\:flex { display: flex; }
+  .\33xl\:grid-cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .\33xl\:p-10 { padding: var(--spacing-10); }
+  .\33xl\:m-10 { margin: var(--spacing-10); }
+}
+
+/* ============================================
+   RESPONSIVE GRID UTILITIES
+   ============================================ */
+
+/* Responsive grid columns */
+.grid-cols-1 { grid-template-columns: repeat(1, 1fr); }
+
+@media (min-width: 640px) {
+  .grid-cols-sm-2 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 768px) {
+  .grid-cols-md-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-cols-md-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .grid-cols-lg-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-cols-lg-4 { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width: 1280px) {
+  .grid-cols-xl-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-cols-xl-5 { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* ============================================
+   RESPONSIVE TEXT UTILITIES
+   ============================================ */
+
+/* Responsive font sizes */
+.text-responsive-sm {
+  font-size: var(--text-sm);
+}
+
+@media (min-width: 768px) {
+  .text-responsive-sm {
+    font-size: var(--text-base);
+  }
+}
+
+.text-responsive-base {
+  font-size: var(--text-base);
+}
+
+@media (min-width: 768px) {
+  .text-responsive-base {
+    font-size: var(--text-lg);
+  }
+}
+
+.text-responsive-lg {
+  font-size: var(--text-lg);
+}
+
+@media (min-width: 768px) {
+  .text-responsive-lg {
+    font-size: var(--text-xl);
+  }
+}
+
+.text-responsive-xl {
+  font-size: var(--text-xl);
+}
+
+@media (min-width: 768px) {
+  .text-responsive-xl {
+    font-size: var(--text-2xl);
+  }
+}
+
+/* ============================================
+   MOBILE-SPECIFIC UTILITIES
+   ============================================ */
+
+/* Safe area insets for iOS */
+.safe-area-inset-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-inset-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-inset-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Prevent text selection on mobile */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Enable smooth scrolling on mobile */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   ORIENTATION-SPECIFIC UTILITIES
+   ============================================ */
+
+/* Portrait orientation */
+@media (orientation: portrait) {
+  .portrait\:hidden { display: none; }
+  .portrait\:block { display: block; }
+  .portrait\:flex { display: flex; }
+}
+
+/* Landscape orientation */
+@media (orientation: landscape) {
+  .landscape\:hidden { display: none; }
+  .landscape\:block { display: block; }
+  .landscape\:flex { display: flex; }
+}

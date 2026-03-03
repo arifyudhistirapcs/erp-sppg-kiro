@@ -33,6 +33,7 @@
               placeholder="['Tanggal Mulai', 'Tanggal Akhir']"
               format="DD/MM/YYYY"
               @change="handleDateRangeChange"
+              size="large"
             />
           </a-col>
           <a-col :span="5">
@@ -42,6 +43,7 @@
               style="width: 100%"
               @change="handleSearch"
               allow-clear
+              size="large"
             >
               <a-select-option value="bahan_baku">Bahan Baku</a-select-option>
               <a-select-option value="gaji">Gaji</a-select-option>
@@ -56,18 +58,24 @@
               style="width: 100%"
               @change="handleSearch"
               allow-clear
+              size="large"
             >
               <a-select-option value="income">Pemasukan</a-select-option>
               <a-select-option value="expense">Pengeluaran</a-select-option>
             </a-select>
           </a-col>
           <a-col :span="6">
-            <a-input-search
+            <a-input
               v-model:value="searchText"
               placeholder="Cari deskripsi atau referensi..."
-              @search="handleSearch"
+              @change="handleSearch"
               allow-clear
-            />
+              size="large"
+            >
+              <template #prefix>
+                <SearchOutlined />
+              </template>
+            </a-input>
           </a-col>
           <a-col :span="3">
             <a-button @click="resetFilters" style="width: 100%">

@@ -1,0 +1,40 @@
+/**
+ * Horizon UI Design System - Dark Mode Overrides
+ * Applied when .dark class is present on document root
+ */
+
+.dark {
+  /* ========================================
+     BACKGROUND COLORS
+     ======================================== */
+  
+  --h-bg-primary: #322837;         /* Dark purple-gray background */
+  --h-bg-secondary: #3D2B53;       /* Dark purple */
+  --h-bg-card: #3D2B53;            /* Card background dark */
+  --h-bg-light: #1B254B;           /* Darker background for inputs/search */
+  
+  /* ========================================
+     TEXT COLORS
+     ======================================== */
+  
+  --h-text-primary: #F8FDEA;       /* Cream text on dark */
+  --h-text-secondary: #ACA9B0;     /* Light gray text */
+  --h-text-light: #74788C;         /* Medium gray for hints */
+  
+  /* ========================================
+     BORDER COLORS
+     ======================================== */
+  
+  --h-border-color: #5A4372;       /* Purple border */
+  --h-border-light: #4a3562;       /* Darker purple border */
+  
+  /* ========================================
+     SHADOWS (Adjusted for dark mode)
+     ======================================== */
+  
+  --h-shadow-sm: 0px 2px 4px rgba(0, 0, 0, 0.3);
+  --h-shadow-md: 0px 4px 6px rgba(0, 0, 0, 0.4);
+  --h-shadow-lg: 0px 10px 15px rgba(0, 0, 0, 0.5);
+  --h-shadow-xl: 0px 20px 25px rgba(0, 0, 0, 0.6);
+  --h-shadow-card: 0px 18px 40px rgba(0, 0, 0, 0.4);
+}
