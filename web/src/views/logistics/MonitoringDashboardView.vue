@@ -421,7 +421,7 @@ const getStatusText = (status) => {
 }
 
 const viewDetail = (id) => {
-  router.push(`/logistics/monitoring/deliveries/${id}`)
+  router.push(`/monitoring-activity/deliveries/${id}`)
 }
 
 // Lifecycle

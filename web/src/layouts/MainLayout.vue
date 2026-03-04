@@ -1,7 +1,7 @@
 <template>
   <HorizonLayout
     :page-title="pageTitle"
-    :breadcrumb="{ parent: 'Pages', current: pageTitle }"
+    :breadcrumb="{ parent: 'Gizera', current: pageTitle }"
     :notification-count="unreadCount"
     @notification-click="showNotifications"
   >

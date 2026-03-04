@@ -251,8 +251,8 @@ const router = createRouter({
           }
         },
         {
-          path: 'logistics/monitoring',
-          name: 'logistics-monitoring',
+          path: 'monitoring-activity',
+          name: 'monitoring-activity',
           component: () => import('@/views/logistics/MonitoringDashboardView.vue'),
           meta: {
             requiresAuth: true,
@@ -261,7 +261,7 @@ const router = createRouter({
           }
         },
         {
-          path: 'logistics/monitoring/deliveries/:id',
+          path: 'monitoring-activity/deliveries/:id',
           name: 'delivery-detail',
           component: () => import('@/views/logistics/DeliveryDetailView.vue'),
           meta: {

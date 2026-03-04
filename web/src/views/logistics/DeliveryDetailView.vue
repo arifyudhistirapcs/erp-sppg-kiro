@@ -94,7 +94,7 @@ const activityLog = ref([])
 
 // Methods
 const goBack = () => {
-  router.push('/logistics/monitoring')
+  router.push('/monitoring-activity')
 }
 
 const refreshData = () => {

@@ -53,11 +53,11 @@
 - [x] 14. Create HKanbanCard Component
   - [x] 14.1 Create `web/src/components/horizon/HKanbanCard.vue`: props (title, description, image, status, assignees, dueDate), width 100%, min-height 120px, radius 16px, shadow md, padding 20px, title 16px bold #322837, description 14px #74788C, optional image (full width, radius 12px), assignee avatars 32px overlapping (-8px margin), status badge (colored: Backlog gray, In Progress orange, Done green, Urgent red), drag handle optional, dark mode support
 
-- [~] 15. Mobile Table Card View Component
-  - [~] 15.1 Create `web/src/components/horizon/HMobileTableCard.vue`: converts table row data to card format, props (fields, data, actions), stack fields vertically dengan label + value pairs, action buttons at bottom, h-card styling, works as alternative view inside HDataTable when mobile
+- [ ] 15. Mobile Table Card View Component
+  - [ ] 15.1 Create `web/src/components/horizon/HMobileTableCard.vue`: converts table row data to card format, props (fields, data, actions), stack fields vertically dengan label + value pairs, action buttons at bottom, h-card styling, works as alternative view inside HDataTable when mobile
 
-- [~] 16. Mobile Bottom Navigation (Optional)
-  - [~] 16.1 Create `web/src/components/layout/MobileBottomNav.vue`: fixed bottom position, 4-5 main navigation items (Dashboard, KDS, Menu, Inventory, More), active state highlighting, icons + labels, safe area insets (iOS padding-bottom), only visible on mobile (< 768px), z-index above content below drawer
+- [ ] 16. Mobile Bottom Navigation (Optional)
+  - [ ] 16.1 Create `web/src/components/layout/MobileBottomNav.vue`: fixed bottom position, 4-5 main navigation items (Dashboard, KDS, Menu, Inventory, More), active state highlighting, icons + labels, safe area insets (iOS padding-bottom), only visible on mobile (< 768px), z-index above content below drawer
 
 ## Phase 3: Dashboard Pages (Week 5-6)
 

@@ -192,7 +192,7 @@ const menuItems = [
     key: 'monitoring',
     label: 'Monitoring Aktivitas',
     icon: MonitorOutlined,
-    route: '/logistics/monitoring',
+    route: '/monitoring-activity',
     roles: ['kepala_sppg', 'kepala_yayasan', 'akuntan', 'ahli_gizi', 'pengadaan', 'chef', 'packing', 'driver', 'asisten_lapangan']
   },
   {
