@@ -51,6 +51,12 @@ const router = createRouter({
           meta: { roles: ['kepala_sppg'] }
         },
         {
+          path: 'monitoring/:id',
+          name: 'monitoring-detail',
+          component: () => import('@/views/MonitoringDetailView.vue'),
+          meta: { roles: ['kepala_sppg'] }
+        },
+        {
           path: 'menu-planning',
           name: 'menu-planning',
           component: () => import('@/views/MenuPlanningView.vue'),

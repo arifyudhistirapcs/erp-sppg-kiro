@@ -15,7 +15,15 @@ export const useMonitoringStore = defineStore('monitoring', () => {
 
   function _formatDate(date) {
     const d = date instanceof Date ? date : new Date(date)
-    return d.toISOString().split('T')[0]
+    
+    // Use local date components to avoid timezone issues
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const formatted = `${year}-${month}-${day}`
+    
+    console.log('[Monitoring] Formatting date:', date, '→', formatted)
+    return formatted
   }
 
   async function fetchActivities() {
@@ -25,58 +33,51 @@ export const useMonitoringStore = defineStore('monitoring', () => {
     hasMore.value = true
 
     try {
+      const dateParam = _formatDate(selectedDate.value)
+      console.log('[Monitoring] Fetching activities for date:', dateParam)
+      
       const params = {
-        date: _formatDate(selectedDate.value),
-        page: 1,
-        limit: PAGE_LIMIT
-      }
-      if (filterType.value !== 'all') {
-        params.filter = filterType.value
+        date: dateParam
       }
 
-      const res = await api.get('/monitoring/activities', { params })
+      const res = await api.get('/activity-tracker/orders', { params })
+      
+      console.log('[Monitoring] Response:', res.data)
 
       if (res.data.success) {
-        activities.value = res.data.data ?? []
-        hasMore.value = activities.value.length >= PAGE_LIMIT
+        // Map orders to activities format
+        const orders = res.data.data?.orders ?? []
+        
+        activities.value = orders.map(order => ({
+          id: order.id,
+          employeeName: order.school?.name || 'Sekolah',
+          activityType: 'delivery',
+          timestamp: formatTimestamp(order.updated_at || order.created_at),
+          status: String(order.current_status || 'Pending'),
+          portions: order.portions || 0,
+          menuName: order.menu?.name || order.menu_name || null
+        }))
+        
+        console.log('[Monitoring] Mapped activities count:', activities.value.length)
+        hasMore.value = false
       }
     } catch (err) {
+      console.error('Monitoring error:', err)
       error.value = err.response?.data?.message || 'Gagal memuat data monitoring. Silakan coba lagi.'
     } finally {
       loading.value = false
     }
   }
 
+  function formatTimestamp(timestamp) {
+    if (!timestamp) return '-'
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  }
+
   async function loadMore() {
-    if (!hasMore.value || loading.value) return
-
-    loading.value = true
-    error.value = null
-
-    try {
-      const nextPage = page.value + 1
-      const params = {
-        date: _formatDate(selectedDate.value),
-        page: nextPage,
-        limit: PAGE_LIMIT
-      }
-      if (filterType.value !== 'all') {
-        params.filter = filterType.value
-      }
-
-      const res = await api.get('/monitoring/activities', { params })
-
-      if (res.data.success) {
-        const newItems = res.data.data ?? []
-        activities.value = [...activities.value, ...newItems]
-        page.value = nextPage
-        hasMore.value = newItems.length >= PAGE_LIMIT
-      }
-    } catch (err) {
-      error.value = err.response?.data?.message || 'Gagal memuat data monitoring. Silakan coba lagi.'
-    } finally {
-      loading.value = false
-    }
+    // Disabled for now - no pagination
+    return
   }
 
   function setFilter(type) {

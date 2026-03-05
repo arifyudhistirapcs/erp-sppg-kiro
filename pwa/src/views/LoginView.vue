@@ -2,14 +2,18 @@
   <div class="login-container">
     <div class="login-header">
       <div class="logo">
-        <van-icon name="logistics" size="60" color="#ffffff" />
+        <img src="@/logo/gizera-dark-mobile2.png" alt="GIZERA Logo" class="logo-image" />
       </div>
-      <h1>ERP SPPG</h1>
-      <p>Sistem Manajemen Pengiriman</p>
     </div>
 
-    <van-form @submit="handleLogin" class="login-form">
+    <van-form @submit.prevent="handleLogin" class="login-form">
       <div class="login-card">
+        <!-- Error Alert -->
+        <div v-if="errorMessage" class="error-alert">
+          <van-icon name="warning-o" />
+          <span>{{ errorMessage }}</span>
+        </div>
+        
         <van-field
           v-model="formData.identifier"
           name="identifier"
@@ -19,6 +23,7 @@
           left-icon="user-o"
           clearable
           :disabled="loading"
+          @focus="errorMessage = ''"
         />
         <van-field
           v-model="formData.password"
@@ -31,17 +36,19 @@
           :right-icon="showPassword ? 'eye-o' : 'closed-eye'"
           :disabled="loading"
           @click-right-icon="showPassword = !showPassword"
+          @focus="errorMessage = ''"
         />
 
         <div class="login-btn-wrapper">
           <van-button
             block
             type="primary"
-            native-type="submit"
+            native-type="button"
             :loading="loading"
             loading-text="Memproses..."
             :disabled="loading"
             class="login-btn"
+            @click="handleLogin"
           >
             Login
           </van-button>
@@ -60,7 +67,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { authAPI } from '@/services/api'
-import { showToast, showNotify } from 'vant'
+import { showToast, showNotify, showDialog } from 'vant'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -72,9 +79,17 @@ const formData = ref({
 
 const loading = ref(false)
 const showPassword = ref(false)
+const errorMessage = ref('')
 
 const handleLogin = async () => {
+  // Validate form first
+  if (!formData.value.identifier || !formData.value.password) {
+    errorMessage.value = 'NIK/Email dan Password wajib diisi'
+    return
+  }
+
   loading.value = true
+  errorMessage.value = ''
   
   try {
     const response = await authAPI.login({
@@ -95,7 +110,7 @@ const handleLogin = async () => {
       
       authStore.setAuth(userData, response.data.token)
       
-      showNotify({
+      showToast({
         type: 'success',
         message: 'Login berhasil!',
         duration: 2000
@@ -106,34 +121,39 @@ const handleLogin = async () => {
         router.push('/')
       }, 500)
     } else {
-      showNotify({
-        type: 'danger',
-        message: response.data.message || 'Login gagal'
+      errorMessage.value = response.data.message || 'Login gagal'
+      showDialog({
+        title: 'Login Gagal',
+        message: errorMessage.value,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#EE5D50'
       })
     }
   } catch (error) {
     console.error('Login error:', error)
     
-    let errorMessage = 'Terjadi kesalahan saat login'
+    let errMsg = 'Terjadi kesalahan saat login'
     
     if (error.response) {
       // Server responded with error
       if (error.response.status === 401) {
-        errorMessage = 'NIK/Email atau password salah'
+        errMsg = 'NIK/Email atau password salah'
       } else if (error.response.status === 403) {
-        errorMessage = 'Akun Anda tidak aktif. Silakan hubungi administrator'
+        errMsg = 'Akun Anda tidak aktif. Silakan hubungi administrator'
       } else if (error.response.data?.message) {
-        errorMessage = error.response.data.message
+        errMsg = error.response.data.message
       }
     } else if (error.request) {
       // Request made but no response
-      errorMessage = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.'
+      errMsg = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.'
     }
     
-    showNotify({
-      type: 'danger',
-      message: errorMessage,
-      duration: 3000
+    errorMessage.value = errMsg
+    showDialog({
+      title: 'Login Gagal',
+      message: errMsg,
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#EE5D50'
     })
   } finally {
     loading.value = false
@@ -187,7 +207,13 @@ const handleLogin = async () => {
 
 .logo {
   margin-bottom: var(--h-spacing-xl);
-  animation: float 3s ease-in-out infinite;
+}
+
+.logo-image {
+  width: 400px;
+  max-width: 90vw;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
 }
 
 @keyframes float {
@@ -222,6 +248,25 @@ const handleLogin = async () => {
   box-shadow: var(--h-shadow-card);
   padding: var(--h-spacing-2xl);
   overflow: hidden;
+}
+
+.error-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(238, 93, 80, 0.1);
+  border: 1px solid rgba(238, 93, 80, 0.3);
+  border-radius: var(--h-radius-md);
+  margin-bottom: 16px;
+  color: #EE5D50;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.error-alert .van-icon {
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
 .login-card :deep(.van-field) {

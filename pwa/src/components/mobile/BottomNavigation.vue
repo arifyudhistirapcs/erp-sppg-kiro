@@ -90,12 +90,29 @@ onMounted(() => {
 
 <style scoped>
 .bottom-navigation {
-  height: 56px;
-  background: var(--h-bg-secondary);
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  height: 64px;
+  background: #FFFFFF;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 24px 24px 0 0 !important;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
 }
 
 .bottom-navigation :deep(.van-tabbar-item__icon) {
   font-size: 22px;
+  margin-bottom: 2px;
+}
+
+.bottom-navigation :deep(.van-tabbar-item__text) {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.bottom-navigation :deep(.van-tabbar-item--active .van-tabbar-item__icon) {
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
 }
 </style>

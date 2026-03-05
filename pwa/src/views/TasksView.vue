@@ -455,12 +455,17 @@ onUnmounted(() => {
 .tasks-view {
   min-height: 100vh;
   background: var(--h-bg-primary);
-  padding-top: 46px;
+  padding-top: 56px;
 }
 
 .tasks-view__content {
-  padding: var(--h-spacing-lg);
+  padding: 0;
   padding-bottom: 80px;
+}
+
+.tasks-view__content > :not(.van-notice-bar) {
+  padding-left: var(--h-spacing-lg);
+  padding-right: var(--h-spacing-lg);
 }
 
 /* Refresh icon spin */

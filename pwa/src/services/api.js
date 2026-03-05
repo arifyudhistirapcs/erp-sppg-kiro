@@ -30,7 +30,8 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect to login if 401 and NOT on login page
+    if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
       const authStore = useAuthStore()
       authStore.clearAuth()
       window.location.href = '/login'

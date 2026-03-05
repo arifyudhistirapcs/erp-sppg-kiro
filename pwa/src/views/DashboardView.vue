@@ -6,7 +6,10 @@
 
       <!-- Loading State -->
       <template v-if="dashboardStore.loading">
-        <div class="summary-grid">
+        <div class="metrics-grid">
+          <SkeletonCard :rows="2" />
+          <SkeletonCard :rows="2" />
+          <SkeletonCard :rows="2" />
           <SkeletonCard :rows="2" />
           <SkeletonCard :rows="2" />
           <SkeletonCard :rows="2" />
@@ -14,9 +17,6 @@
         </div>
         <div class="section-block">
           <SkeletonCard :rows="4" />
-        </div>
-        <div class="section-block">
-          <SkeletonCard :rows="3" />
         </div>
       </template>
 
@@ -31,77 +31,180 @@
 
       <!-- Content -->
       <template v-else>
-        <!-- 2x2 Summary Grid -->
-        <div class="summary-grid">
-          <SummaryCard
-            icon="friends-o"
-            iconColor="#4CAF50"
-            label="Hadir"
-            :value="dashboardStore.summary.totalHadir"
+        <!-- Metrics Grid (7 cards in 2 rows) -->
+        <div class="metrics-grid">
+          <!-- Row 1: 4 cards -->
+          <MetricCard
+            icon="apps-o"
+            iconColor="#5A4372"
+            label="Porsi Disiapkan"
+            :value="dashboardStore.summary.porsiDisiapkan"
+            :trend="dashboardStore.summary.porsiDisiapkanTrend"
+            trendUp
           />
-          <SummaryCard
+          <MetricCard
             icon="logistics"
             iconColor="#5A4372"
-            label="Pengiriman"
-            :value="dashboardStore.summary.totalPengiriman"
+            label="Delivery Rate"
+            :value="`${dashboardStore.summary.deliveryRate}%`"
+            :trend="dashboardStore.summary.deliveryRateTrend"
+            trendUp
           />
-          <SummaryCard
+          <MetricCard
+            icon="bag-o"
+            iconColor="#5A4372"
+            label="Ketersediaan Stok"
+            :value="`${dashboardStore.summary.ketersediaanStok}%`"
+            :trend="dashboardStore.summary.stokKritisTrend"
+            trendDown
+          />
+          <MetricCard
             icon="success"
-            iconColor="#2196F3"
-            label="Selesai"
-            :value="dashboardStore.summary.totalSelesai"
+            iconColor="#4CAF50"
+            label="On-Time Delivery"
+            :value="`${dashboardStore.summary.onTimeDelivery}%`"
+            :trend="dashboardStore.summary.onTimeDeliveryTrend"
+            trendUp
           />
-          <SummaryCard
-            icon="shop-o"
-            iconColor="#FF9800"
-            label="Sekolah"
-            :value="dashboardStore.summary.totalSekolah"
+          
+          <!-- Row 2: 3 cards -->
+          <MetricCard
+            icon="star-o"
+            iconColor="#FFA726"
+            label="Rating Keseluruhan"
+            :value="`${dashboardStore.summary.ratingKeseluruhan}/5`"
+            :trend="dashboardStore.summary.ratingKeseluruhanTrend"
+            trendUp
+          />
+          <MetricCard
+            icon="fire-o"
+            iconColor="#66BB6A"
+            label="Rating Menu"
+            :value="`${dashboardStore.summary.ratingMenu}/5`"
+            :trend="dashboardStore.summary.ratingMenuTrend"
+            trendUp
+          />
+          <MetricCard
+            icon="logistics"
+            iconColor="#42A5F5"
+            label="Rating Layanan"
+            :value="`${dashboardStore.summary.ratingLayanan}/5`"
+            :trend="dashboardStore.summary.ratingLayananTrend"
+            trendUp
           />
         </div>
 
-        <!-- Attendance Chart (7-day CSS bars) -->
-        <div class="chart-card h-card">
-          <h3 class="section-title">Kehadiran 7 Hari Terakhir</h3>
-          <div class="chart-bars">
-            <div
-              v-for="(day, index) in dashboardStore.attendanceChart"
-              :key="index"
-              class="chart-bar-col"
-            >
-              <span class="chart-bar-value">{{ day.count }}</span>
-              <div class="chart-bar-track">
-                <div
-                  class="chart-bar-fill"
-                  :style="{ height: barHeight(day.count) }"
-                />
+        <!-- Detail Tables -->
+        <div class="detail-section">
+          <!-- Detail Produksi -->
+          <div class="detail-card h-card">
+            <h3 class="section-title">Detail Produksi</h3>
+            <div v-if="dashboardStore.detailProduksi.length === 0" class="empty-state">
+              <p class="empty-state__text">No data</p>
+            </div>
+            <div v-else class="detail-table">
+              <div class="detail-table-header">
+                <span class="col-school">SEKOLAH</span>
+                <span class="col-portion">PORSI</span>
+                <span class="col-status">STATUS</span>
               </div>
-              <span class="chart-bar-label">{{ getDayLabel(day.date) }}</span>
+              <div
+                v-for="item in dashboardStore.detailProduksi"
+                :key="item.id"
+                class="detail-table-row"
+              >
+                <span class="col-school">{{ item.sekolah || item.school }}</span>
+                <span class="col-portion">{{ item.porsi || item.portions }}</span>
+                <span class="col-status">
+                  <van-tag :type="getStatusType(item.status)" size="small">
+                    {{ item.status }}
+                  </van-tag>
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Recent Tasks -->
-        <div class="recent-tasks-card h-card">
-          <h3 class="section-title">Tugas Terbaru</h3>
-          <div v-if="dashboardStore.recentTasks.length === 0" class="empty-state">
-            <p class="empty-state__text">Belum ada tugas terbaru</p>
-          </div>
-          <div
-            v-for="task in dashboardStore.recentTasks"
-            :key="task.id"
-            class="task-item"
-          >
-            <div class="task-item__info">
-              <span class="task-item__school">{{ task.schoolName }}</span>
-              <span class="task-item__type">{{ taskTypeLabel(task.taskType) }}</span>
+          <!-- Detail Pengiriman & Pengambilan -->
+          <div class="detail-card h-card">
+            <h3 class="section-title">Detail Pengiriman & Pengambilan</h3>
+            <div v-if="dashboardStore.detailPengiriman.length === 0" class="empty-state">
+              <p class="empty-state__text">No data</p>
             </div>
-            <van-tag
-              :type="statusTagType(task.status)"
-              round
-              size="medium"
-            >
-              {{ statusLabel(task.status) }}
-            </van-tag>
+            <div v-else class="detail-table">
+              <div class="detail-table-header">
+                <span class="col-school">SEKOLAH</span>
+                <span class="col-portion">PORSI</span>
+                <span class="col-status">STATUS</span>
+              </div>
+              <div
+                v-for="item in dashboardStore.detailPengiriman"
+                :key="item.id"
+                class="detail-table-row"
+              >
+                <span class="col-school">{{ item.sekolah || item.school }}</span>
+                <span class="col-portion">{{ item.porsi || item.portions }}</span>
+                <span class="col-status">
+                  <van-tag :type="getStatusType(item.status)" size="small">
+                    {{ item.status }}
+                  </van-tag>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail Pencucian -->
+          <div class="detail-card h-card">
+            <h3 class="section-title">Detail Pencucian</h3>
+            <div v-if="dashboardStore.detailPencucian.length === 0" class="empty-state">
+              <p class="empty-state__text">No data</p>
+            </div>
+            <div v-else class="detail-table">
+              <div class="detail-table-header">
+                <span class="col-school">SEKOLAH</span>
+                <span class="col-portion">PORSI</span>
+                <span class="col-status">STATUS</span>
+              </div>
+              <div
+                v-for="item in dashboardStore.detailPencucian"
+                :key="item.id"
+                class="detail-table-row"
+              >
+                <span class="col-school">{{ item.sekolah || item.school }}</span>
+                <span class="col-portion">{{ item.porsi || item.portions }}</span>
+                <span class="col-status">
+                  <van-tag :type="getStatusType(item.status)" size="small">
+                    {{ item.status }}
+                  </van-tag>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stok Kritis -->
+          <div class="detail-card h-card stok-kritis-card">
+            <h3 class="section-title">Stok Kritis ({{ dashboardStore.stokKritis.length }} Item)</h3>
+            <div v-if="dashboardStore.stokKritis.length === 0" class="empty-state">
+              <p class="empty-state__text">Tidak ada stok kritis</p>
+            </div>
+            <div v-else>
+              <div class="stok-kritis-grid">
+                <div
+                  v-for="item in dashboardStore.stokKritis.slice(0, 6)"
+                  :key="item.id"
+                  class="stok-kritis-item"
+                >
+                  <div class="stok-kritis-info">
+                    <span class="stok-kritis-name">{{ item.nama || item.name }}</span>
+                    <span class="stok-kritis-stock">{{ item.stok || item.stock || 0 }} {{ item.satuan || item.unit }}</span>
+                    <span class="stok-kritis-min">Min: {{ item.min || item.minimum || 0 }} {{ item.satuan || item.unit }}</span>
+                  </div>
+                  <van-tag type="danger" size="small">KRITIS</van-tag>
+                </div>
+              </div>
+              <p v-if="dashboardStore.stokKritis.length > 6" class="stok-kritis-note">
+                Menampilkan 6 item dari {{ dashboardStore.stokKritis.length }} item kritis
+              </p>
+            </div>
           </div>
         </div>
       </template>
@@ -110,52 +213,20 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useDashboardStore } from '@/stores/dashboard'
-import SummaryCard from '@/components/mobile/SummaryCard.vue'
+import MetricCard from '@/components/mobile/MetricCard.vue'
 import SkeletonCard from '@/components/mobile/SkeletonCard.vue'
 
 const dashboardStore = useDashboardStore()
 const refreshing = ref(false)
 
-const maxCount = computed(() => {
-  if (!dashboardStore.attendanceChart.length) return 1
-  const max = Math.max(...dashboardStore.attendanceChart.map(d => d.count))
-  return max || 1
-})
-
-function barHeight(count) {
-  const percentage = (count / maxCount.value) * 100
-  return `${Math.max(percentage, 4)}%`
-}
-
-const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
-
-function getDayLabel(dateStr) {
-  const date = new Date(dateStr)
-  return dayNames[date.getDay()] || ''
-}
-
-function taskTypeLabel(type) {
-  return type === 'delivery' ? 'Pengiriman' : 'Pengambilan'
-}
-
-function statusLabel(status) {
-  const labels = {
-    pending: 'Menunggu',
-    in_progress: 'Dalam Perjalanan',
-    completed: 'Selesai'
-  }
-  return labels[status] || status
-}
-
-function statusTagType(status) {
-  const types = {
-    pending: 'warning',
-    in_progress: 'primary',
-    completed: 'success'
-  }
-  return types[status] || 'default'
+function getStatusType(status) {
+  const statusLower = status?.toLowerCase() || ''
+  if (statusLower.includes('selesai') || statusLower.includes('completed')) return 'success'
+  if (statusLower.includes('proses') || statusLower.includes('progress')) return 'primary'
+  if (statusLower.includes('pending') || statusLower.includes('menunggu')) return 'warning'
+  return 'default'
 }
 
 async function onRefresh() {
@@ -170,17 +241,24 @@ onMounted(() => {
 
 <style scoped>
 .dashboard-page {
-  padding: var(--h-spacing-lg);
+  padding: 0;
   padding-bottom: 80px;
   min-height: 100vh;
+  background: var(--h-bg-page);
 }
 
-/* 2x2 Summary Grid */
-.summary-grid {
+.dashboard-page > :not(.van-nav-bar) {
+  padding-left: var(--h-spacing-lg);
+  padding-right: var(--h-spacing-lg);
+}
+
+/* Metrics Grid (7 cards in 2 rows) */
+.metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--h-spacing-md);
   margin-bottom: var(--h-spacing-lg);
+  margin-top: var(--h-spacing-md);
 }
 
 /* Section title */
@@ -188,94 +266,117 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 600;
   color: var(--h-text-primary);
-  margin: 0 0 var(--h-spacing-lg) 0;
+  margin: 0 0 var(--h-spacing-md) 0;
 }
 
 .section-block {
   margin-bottom: var(--h-spacing-lg);
 }
 
-/* Chart Card */
-.chart-card {
-  margin-bottom: var(--h-spacing-lg);
-}
-
-.chart-bars {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--h-spacing-sm);
-  height: 140px;
-}
-
-.chart-bar-col {
+/* Detail Section */
+.detail-section {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  flex: 1;
-  height: 100%;
+  gap: var(--h-spacing-lg);
 }
 
-.chart-bar-value {
+.detail-card {
+  margin-bottom: 0;
+}
+
+/* Detail Table */
+.detail-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr;
+  gap: var(--h-spacing-sm);
+  padding: var(--h-spacing-sm) 0;
+  border-bottom: 2px solid var(--h-border-light);
   font-size: 11px;
   font-weight: 600;
   color: var(--h-text-secondary);
-  margin-bottom: var(--h-spacing-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.chart-bar-track {
-  flex: 1;
-  width: 100%;
-  max-width: 32px;
-  background: var(--h-bg-light);
-  border-radius: var(--h-radius-sm);
-  display: flex;
-  align-items: flex-end;
+.detail-table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr;
+  gap: var(--h-spacing-sm);
+  padding: var(--h-spacing-md) 0;
+  border-bottom: 1px solid var(--h-border-light);
+  align-items: center;
+}
+
+.detail-table-row:last-child {
+  border-bottom: none;
+}
+
+.col-school {
+  font-size: 13px;
+  color: var(--h-text-primary);
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.chart-bar-fill {
-  width: 100%;
-  background: linear-gradient(180deg, var(--h-primary) 0%, var(--h-accent) 100%);
-  border-radius: var(--h-radius-sm);
-  transition: height var(--h-transition-base);
-  min-height: 4px;
+.col-portion {
+  font-size: 13px;
+  color: var(--h-text-primary);
+  text-align: center;
 }
 
-.chart-bar-label {
-  font-size: 11px;
-  color: var(--h-text-secondary);
-  margin-top: var(--h-spacing-xs);
+.col-status {
+  display: flex;
+  justify-content: flex-end;
 }
 
-/* Recent Tasks Card */
-.recent-tasks-card {
+/* Stok Kritis Card */
+.stok-kritis-card {
   margin-bottom: var(--h-spacing-lg);
 }
 
-.task-item {
+.stok-kritis-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: var(--h-spacing-md) 0;
-  border-bottom: 1px solid var(--h-border-light);
+  align-items: center;
+  margin-bottom: var(--h-spacing-md);
 }
 
-.task-item:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.stok-kritis-header .section-title {
+  margin: 0;
 }
 
-.task-item__info {
+.stok-kritis-grid {
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  flex: 1;
-  margin-right: var(--h-spacing-sm);
+  gap: var(--h-spacing-md);
 }
 
-.task-item__school {
-  font-size: 14px;
+.stok-kritis-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--h-spacing-md);
+  background: var(--h-bg-light);
+  border-radius: var(--h-radius-md);
+  border-left: 3px solid var(--h-error);
+}
+
+.stok-kritis-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stok-kritis-name {
+  font-size: 13px;
   font-weight: 500;
   color: var(--h-text-primary);
   white-space: nowrap;
@@ -283,10 +384,15 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-.task-item__type {
-  font-size: 12px;
+.stok-kritis-stock {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--h-error);
+}
+
+.stok-kritis-min {
+  font-size: 11px;
   color: var(--h-text-secondary);
-  margin-top: 2px;
 }
 
 /* Error State */

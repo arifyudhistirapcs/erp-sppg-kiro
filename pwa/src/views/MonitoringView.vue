@@ -4,28 +4,32 @@
       <!-- NavBar -->
       <van-nav-bar title="Monitoring" />
 
-      <!-- Date Selector -->
-      <div class="date-section">
-        <DateSelector
-          v-model="monitoringStore.selectedDate"
-          @update:modelValue="onDateChange"
+      <!-- Date Filter -->
+      <div class="monitoring-date-filter">
+        <van-field
+          v-model="selectedDateFormatted"
+          placeholder="Pilih tanggal"
+          readonly
+          right-icon="calendar-o"
+          @click="showDatePicker = true"
         />
       </div>
 
-      <!-- Filter Chips -->
-      <div class="filter-chips">
-        <van-tag
-          v-for="filter in filters"
-          :key="filter.key"
-          :class="['filter-chip', { 'filter-chip--active': monitoringStore.filterType === filter.key }]"
-          :plain="monitoringStore.filterType !== filter.key"
-          round
-          size="large"
-          @click="onFilterChange(filter.key)"
+      <!-- Date Picker Popup -->
+      <van-popup v-model:show="showDatePicker" position="bottom" :style="{ zIndex: 9999 }">
+        <van-date-picker
+          v-model="selectedDate"
+          :min-date="new Date(2020, 0, 1)"
+          :max-date="today"
+          @confirm="onDateConfirm"
+          @cancel="showDatePicker = false"
+          title="Pilih Tanggal"
         >
-          {{ filter.label }}
-        </van-tag>
-      </div>
+          <template #confirm>
+            <span style="color: #5A4372;">Konfirmasi</span>
+          </template>
+        </van-date-picker>
+      </van-popup>
 
       <!-- Loading State (initial load) -->
       <template v-if="monitoringStore.loading && !monitoringStore.activities.length">
@@ -45,13 +49,7 @@
 
       <!-- Activity List with Infinite Scroll -->
       <template v-else>
-        <van-list
-          v-model:loading="listLoading"
-          :finished="!monitoringStore.hasMore"
-          finished-text="Tidak ada aktivitas lagi"
-          @load="onLoadMore"
-          class="activity-list"
-        >
+        <div class="activity-list">
           <ActivityLogItem
             v-for="activity in monitoringStore.activities"
             :key="activity.id"
@@ -59,13 +57,18 @@
             :activityType="activity.activityType"
             :timestamp="activity.timestamp"
             :status="activity.status"
+            :portions="activity.portions"
+            :orderId="activity.id"
+            :menuName="activity.menuName"
+            @click="handleActivityClick"
           />
-        </van-list>
+        </div>
 
         <!-- Empty State -->
         <div v-if="!monitoringStore.loading && !monitoringStore.activities.length" class="empty-state">
           <van-icon name="search" size="48" color="var(--h-text-light)" />
           <p class="empty-state__text">Tidak ada aktivitas ditemukan</p>
+          <p class="empty-state__subtext">Menampilkan aktivitas tanggal {{ selectedDateFormatted }}</p>
         </div>
       </template>
     </div>
@@ -73,34 +76,49 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useMonitoringStore } from '@/stores/monitoring'
-import DateSelector from '@/components/mobile/DateSelector.vue'
+import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
 import ActivityLogItem from '@/components/mobile/ActivityLogItem.vue'
 import SkeletonCard from '@/components/mobile/SkeletonCard.vue'
 
 const monitoringStore = useMonitoringStore()
+const router = useRouter()
 const refreshing = ref(false)
-const listLoading = ref(false)
+const showDatePicker = ref(false)
+const today = new Date()
+const selectedDate = ref([today.getFullYear(), today.getMonth() + 1, today.getDate()])
 
-const filters = [
-  { key: 'all', label: 'Semua' },
-  { key: 'attendance', label: 'Absensi' },
-  { key: 'delivery', label: 'Pengiriman' },
-  { key: 'pickup', label: 'Pengambilan' }
-]
+// Format selected date for display
+const selectedDateFormatted = computed(() => {
+  const [year, month, day] = selectedDate.value
+  const date = new Date(year, month - 1, day)
+  return date.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+})
 
-function onDateChange(date) {
+function handleActivityClick(orderId) {
+  router.push({ name: 'monitoring-detail', params: { id: orderId } })
+}
+
+function onDateConfirm() {
+  showDatePicker.value = false
+  const [year, month, day] = selectedDate.value
+  
+  // Create date in local timezone (no UTC conversion)
+  const date = new Date(year, month - 1, day, 0, 0, 0, 0)
+  
+  console.log('[MonitoringView] Selected date array:', selectedDate.value)
+  console.log('[MonitoringView] Created date object:', date)
+  console.log('[MonitoringView] Date ISO string:', date.toISOString())
+  
   monitoringStore.setDate(date)
-}
-
-function onFilterChange(type) {
-  monitoringStore.setFilter(type)
-}
-
-async function onLoadMore() {
-  await monitoringStore.loadMore()
-  listLoading.value = false
+  showToast(`Menampilkan aktivitas tanggal ${day}/${month}/${year}`)
 }
 
 async function onRefresh() {
@@ -115,48 +133,24 @@ onMounted(() => {
 
 <style scoped>
 .monitoring-page {
-  padding: var(--h-spacing-lg);
+  padding: 0;
   padding-bottom: 80px;
   min-height: 100vh;
 }
 
-/* Date Section */
-.date-section {
-  margin-bottom: var(--h-spacing-md);
+.monitoring-page > :not(.van-nav-bar) {
+  padding-left: var(--h-spacing-lg);
+  padding-right: var(--h-spacing-lg);
 }
 
-/* Filter Chips */
-.filter-chips {
-  display: flex;
-  gap: var(--h-spacing-sm);
+/* Date Filter */
+.monitoring-date-filter {
+  margin-top: var(--h-spacing-lg);
   margin-bottom: var(--h-spacing-lg);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: 2px;
-}
-
-.filter-chips::-webkit-scrollbar {
-  display: none;
-}
-
-.filter-chip {
-  cursor: pointer;
-  flex-shrink: 0;
-  min-height: 44px;
-  padding: 0 16px;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all var(--h-transition-base);
-  border-color: var(--h-primary) !important;
-  color: var(--h-primary) !important;
-  background: transparent !important;
-}
-
-.filter-chip--active {
-  background: var(--h-primary) !important;
-  color: #ffffff !important;
-  border-color: var(--h-primary) !important;
+  background: #FFFFFF;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* Activity List */
@@ -197,5 +191,42 @@ onMounted(() => {
   font-size: 14px;
   color: var(--h-text-light);
   margin: var(--h-spacing-md) 0 0 0;
+}
+
+.empty-state__subtext {
+  font-size: 12px;
+  color: var(--h-text-secondary);
+  margin: var(--h-spacing-xs) 0 0 0;
+}
+
+/* Date Picker Popup Fix */
+:deep(.van-popup) {
+  z-index: 9999 !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+:deep(.van-popup--bottom) {
+  background: #FFFFFF !important;
+}
+
+:deep(.van-date-picker) {
+  background: #FFFFFF !important;
+}
+
+:deep(.van-picker__toolbar) {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #ebedf0;
+}
+
+:deep(.van-picker-column) {
+  background: #FFFFFF !important;
+}
+
+:deep(.van-picker-column__item) {
+  color: #323233 !important;
+}
+
+:deep(.van-overlay) {
+  z-index: 9998 !important;
 }
 </style>

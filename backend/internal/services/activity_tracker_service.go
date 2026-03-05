@@ -47,9 +47,13 @@ type SchoolInfo struct {
 
 // MenuInfo represents menu information
 type MenuInfo struct {
-	ID       uint   `json:"id"`
-	Name     string `json:"name"`
-	PhotoURL string `json:"photo_url"`
+	ID           uint    `json:"id"`
+	Name         string  `json:"name"`
+	PhotoURL     string  `json:"photo_url"`
+	Calories     float64 `json:"calories"`
+	Protein      float64 `json:"protein"`
+	Carbohydrates float64 `json:"carbohydrates"`
+	Fats         float64 `json:"fats"`
 }
 
 // DriverInfo represents driver information
@@ -179,18 +183,20 @@ type MediaInfo struct {
 
 // OrderDetailResponse represents detailed order information with timeline
 type OrderDetailResponse struct {
-	ID           uint            `json:"id"`
-	OrderDate    time.Time       `json:"order_date"`
-	School       SchoolDetailInfo `json:"school"`
-	Driver       DriverDetailInfo `json:"driver"`
-	Menu         MenuInfo        `json:"menu"`
-	Portions     int             `json:"portions"`
-	CurrentStatus string         `json:"current_status"`
-	CurrentStage int             `json:"current_stage"`
-	OmprengCount int             `json:"ompreng_count"`
-	Timeline     []TimelineStage `json:"timeline"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID            uint            `json:"id"`
+	OrderDate     time.Time       `json:"order_date"`
+	School        SchoolDetailInfo `json:"school"`
+	Driver        DriverDetailInfo `json:"driver"`
+	Menu          MenuInfo        `json:"menu"`
+	Portions      int             `json:"portions"`
+	SmallPortions int             `json:"small_portions"`
+	LargePortions int             `json:"large_portions"`
+	CurrentStatus string          `json:"current_status"`
+	CurrentStage  int             `json:"current_stage"`
+	OmprengCount  int             `json:"ompreng_count"`
+	Timeline      []TimelineStage `json:"timeline"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
 }
 
 // SchoolDetailInfo represents detailed school information
@@ -243,8 +249,8 @@ func (s *ActivityTrackerService) GetOrderDetails(ctx context.Context, orderID ui
 	
 	// Build response
 	response := &OrderDetailResponse{
-		ID:        deliveryRecord.ID,
-		OrderDate: deliveryRecord.DeliveryDate,
+		ID:            deliveryRecord.ID,
+		OrderDate:     deliveryRecord.DeliveryDate,
 		School: SchoolDetailInfo{
 			ID:            deliveryRecord.School.ID,
 			Name:          deliveryRecord.School.Name,
@@ -259,11 +265,17 @@ func (s *ActivityTrackerService) GetOrderDetails(ctx context.Context, orderID ui
 			VehicleInfo: "", // TODO: Add vehicle info
 		},
 		Menu: MenuInfo{
-			ID:       deliveryRecord.MenuItem.ID,
-			Name:     deliveryRecord.MenuItem.Recipe.Name,
-			PhotoURL: deliveryRecord.MenuItem.Recipe.PhotoURL,
+			ID:            deliveryRecord.MenuItem.ID,
+			Name:          deliveryRecord.MenuItem.Recipe.Name,
+			PhotoURL:      deliveryRecord.MenuItem.Recipe.PhotoURL,
+			Calories:      deliveryRecord.MenuItem.Recipe.TotalCalories,
+			Protein:       deliveryRecord.MenuItem.Recipe.TotalProtein,
+			Carbohydrates: deliveryRecord.MenuItem.Recipe.TotalCarbs,
+			Fats:          deliveryRecord.MenuItem.Recipe.TotalFat,
 		},
 		Portions:      deliveryRecord.Portions,
+		SmallPortions: deliveryRecord.PortionsSmall,
+		LargePortions: deliveryRecord.PortionsLarge,
 		CurrentStatus: deliveryRecord.CurrentStatus,
 		CurrentStage:  deliveryRecord.CurrentStage,
 		OmprengCount:  deliveryRecord.OmprengCount,
